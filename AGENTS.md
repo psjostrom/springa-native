@@ -65,7 +65,7 @@ Intel / Coach / Planner / Simulate are placeholders with the shared shell.
 
 ## Testing
 
-Integration over isolation (same rule as personal projects). Today coverage is Node tests for fixture helpers only. When adding app logic: intercept at the network boundary (not `fetch` mocks), prefer in-memory persistence, assert user-visible behavior — not mock call counts.
+Integration over isolation. Today coverage is Node tests for fixture helpers only. When adding app logic: intercept at the network boundary (not `fetch` mocks), prefer in-memory persistence, assert user-visible behavior — not mock call counts.
 
 ## Domain reference
 
