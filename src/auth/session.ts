@@ -10,13 +10,22 @@ export function isSessionValid(session: Session, nowSec = Date.now() / 1000): bo
   return session.expiresAt > nowSec + 60;
 }
 
+/** Parse stored session JSON; null on corrupt payload. */
+export function parseSessionJson(raw: string): Session | null {
+  try {
+    return JSON.parse(raw) as Session;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadSession(): Promise<Session | null> {
   const SecureStore = await import('expo-secure-store');
   const raw = await SecureStore.getItemAsync(SESSION_KEY);
   if (!raw) return null;
 
-  const session = JSON.parse(raw) as Session;
-  if (!isSessionValid(session)) {
+  const session = parseSessionJson(raw);
+  if (!session || !isSessionValid(session)) {
     await SecureStore.deleteItemAsync(SESSION_KEY);
     return null;
   }

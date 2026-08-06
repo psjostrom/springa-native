@@ -38,9 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       offlineAccess: false,
     });
     void (async () => {
-      const existing = await loadSession();
-      setSession(existing);
-      setStatus(existing ? 'signedIn' : 'signedOut');
+      try {
+        const existing = await loadSession();
+        setSession(existing);
+        setStatus(existing ? 'signedIn' : 'signedOut');
+      } catch {
+        setSession(null);
+        setStatus('signedOut');
+      }
     })();
   }, []);
 

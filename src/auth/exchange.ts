@@ -11,10 +11,20 @@ export async function exchangeGoogleIdToken(idToken: string): Promise<Session> {
     throw new Error(`Mobile auth failed (${res.status})`);
   }
   const data = (await res.json()) as {
-    token: string;
-    expiresAt: number;
-    user: { email: string };
+    token?: unknown;
+    expiresAt?: unknown;
+    user?: { email?: unknown };
   };
+  if (
+    typeof data.token !== 'string' ||
+    data.token.length === 0 ||
+    typeof data.expiresAt !== 'number' ||
+    !Number.isFinite(data.expiresAt) ||
+    typeof data.user?.email !== 'string' ||
+    data.user.email.length === 0
+  ) {
+    throw new Error('Mobile auth response missing token, expiresAt, or user.email');
+  }
   return {
     token: data.token,
     expiresAt: data.expiresAt,
