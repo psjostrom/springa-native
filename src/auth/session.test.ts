@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { isSessionValid, type Session } from './session';
+
+describe('isSessionValid', () => {
+  it('accepts future expiry', () => {
+    const s: Session = { token: 't', email: 'a@b.c', expiresAt: 2_000_000_000 };
+    assert.equal(isSessionValid(s, 1_700_000_000), true);
+  });
+
+  it('rejects near-expiry within skew', () => {
+    const s: Session = { token: 't', email: 'a@b.c', expiresAt: 1_700_000_030 };
+    assert.equal(isSessionValid(s, 1_700_000_000), false);
+  });
+});
