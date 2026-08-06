@@ -5,7 +5,7 @@
 Read https://docs.expo.dev/versions/v57.0.0/ before Expo/Router changes.
 Native tabs: https://docs.expo.dev/router/advanced/native-tabs/
 
-Expo SDK 57 / React Native app that is replacing the Springa web PWA (`~/code/springa`). Same product domain: workout agenda, BG/diabetes tooling, coach, planner — but native.
+Expo SDK 57 / React Native app that is replacing the Springa web PWA ([psjostrom/springa](https://github.com/psjostrom/springa)). Same product domain: workout agenda, BG/diabetes tooling, coach, planner — but native. Both repos are open source; clone them wherever is convenient locally.
 
 Web Springa will not keep evolving after native is ready. Prefer stock platform patterns over pixel-perfect PWA porting. Brand lives in content (colors, Agenda cards, header), not in a custom JS tab bar.
 
@@ -101,4 +101,4 @@ Physical device installs and data wipes need explicit user consent beyond normal
 
 ## Source of truth for visuals / domain
 
-When matching Springa UI or domain behavior, read the web app at `~/code/springa` (e.g. `app/components/AgendaView.tsx`, `app/globals.css`, `TabNavigation.tsx`). Native should follow product behavior and tokens; tab chrome follows platform NativeTabs, not a cloned web bottom bar.
+When matching Springa UI or domain behavior, read the web app ([psjostrom/springa](https://github.com/psjostrom/springa) — any local clone) e.g. `app/components/AgendaView.tsx`, `app/globals.css`, `TabNavigation.tsx`. Native should follow product behavior and tokens; tab chrome follows platform NativeTabs, not a cloned web bottom bar.
