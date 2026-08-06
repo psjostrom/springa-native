@@ -61,20 +61,14 @@ Agenda is a **static mock**: fixtures with fixed `MOCK_TODAY`, full visual cards
 - Splash `#13101c`; Expo template demo chrome removed
 - `expo-dev-client` + `com.springa.app`; local debug APK install path proven on physical Android
 
-## What is not done (next migration slices)
+## What is not done
 
-Migrate features from web Springa one by one. Rough order of need (not a locked roadmap):
+Everything beyond the static shell mock. Real product behavior still lives in web Springa.
 
-1. Real data / API (Scout, Springa backend) — replace fixtures
-2. Auth / session
-3. Working theme toggle + light tokens (if wanted)
-4. Month / Week calendar bodies
-5. Workout detail, generate workout, settings
-6. Intel, Coach, Planner, Simulate real screens
-7. iOS QA / App Store path when Android is solid
-8. Branding polish (adaptive icon still Expo defaults)
+**Constraint:** the live architecture depends on auth/session. Without that, Scout/Springa APIs and real data are not usable — do not treat “fixtures → API” as a slice that can land before auth is designed and approved.
 
-Do not add networking, stores, or auth in drive-by PRs — land them as intentional slices with specs when non-trivial.
+Do not invent a migration roadmap in this file. Next slices need an approved design (spec) before implementation. No drive-by networking, stores, or auth.
+
 
 ## How to run (Android)
 
