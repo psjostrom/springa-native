@@ -44,3 +44,6 @@ example
 
 # Git worktrees
 .worktrees/
+
+# Agent implementation plans (ephemeral). Approved design specs stay tracked.
+docs/superpowers/plans/

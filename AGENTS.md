@@ -26,7 +26,8 @@ Diabetes mode is assumed on for shell chrome (BG pill in header, Simulate tab pr
 | Theme | Dark-only shell for now (`SpringaColors` in `src/theme/colors.ts`); theme toggle may be visible but inert until light theme ships |
 | Icons | Lucide (`lucide-react-native`) in header; SF/`md` glyphs on NativeTabs; emoji for agenda event types |
 | Native dirs | `android/` / `ios/` are generated via prebuild and gitignored — do not commit them |
-| Specs/plans | `docs/superpowers/specs/`, `docs/superpowers/plans/` |
+| Design specs | `docs/superpowers/specs/` (commit approved designs) |
+| Impl plans | `docs/superpowers/plans/` — gitignored; do not commit |
 | SDD ledger | `.superpowers/` is local-exclude only — never commit |
 
 Architecture must stay iOS-safe (safe areas, cross-platform APIs) even when QA is Android-only.
