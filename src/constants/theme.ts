@@ -5,7 +5,6 @@ import { Platform } from 'react-native';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
 
 export { HrZoneColors, SpringaColors };
-export type { Colors, HrZones } from '@/theme/colors';
 
 const springaShell = {
   text: SpringaColors.text,
