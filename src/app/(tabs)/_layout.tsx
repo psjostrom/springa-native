@@ -8,7 +8,7 @@ export default function TabsLayout() {
       labelStyle={{ color: SpringaColors.muted }}
       backgroundColor={SpringaColors.surface}
       indicatorColor={SpringaColors.surfaceAlt}>
-      <NativeTabs.Trigger name="calendar">
+      <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Calendar</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
       </NativeTabs.Trigger>
