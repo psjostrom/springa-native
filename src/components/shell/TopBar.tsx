@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SpringaColors } from '@/theme/colors';
 import { BgPill } from './BgPill';
+import { SpringaMark } from './SpringaMark';
 
 export function TopBar() {
   const insets = useSafeAreaInsets();
@@ -10,7 +11,7 @@ export function TopBar() {
   return (
     <View style={[styles.bar, { paddingTop: insets.top + 12 }]}>
       <View style={styles.brand}>
-        <Text style={styles.mark}>◆</Text>
+        <SpringaMark size={24} />
         <Text style={styles.wordmark}>springa</Text>
       </View>
       <View style={styles.actions}>
@@ -42,14 +43,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  mark: {
-    color: SpringaColors.brand,
-    fontSize: 16,
-  },
   wordmark: {
     color: SpringaColors.brand,
     fontSize: 20,
     fontWeight: '800',
+    // Android adds extra ascent padding that drops glyphs vs a centered mark.
+    includeFontPadding: false,
   },
   actions: {
     flexDirection: 'row',
