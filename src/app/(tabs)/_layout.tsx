@@ -1,13 +1,25 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SpringaColors } from '@/theme/colors';
 
+/** Brand at ~25% alpha — quiet Material press ripple (not PWA scale). */
+const TAB_RIPPLE = '#f23b9440';
+
 export default function TabsLayout() {
   return (
     <NativeTabs
       tintColor={SpringaColors.brand}
-      labelStyle={{ color: SpringaColors.muted }}
       backgroundColor={SpringaColors.surface}
-      indicatorColor={SpringaColors.surfaceAlt}>
+      labelVisibilityMode="labeled"
+      disableIndicator
+      rippleColor={TAB_RIPPLE}
+      iconColor={{
+        default: SpringaColors.muted,
+        selected: SpringaColors.brand,
+      }}
+      labelStyle={{
+        default: { color: SpringaColors.muted },
+        selected: { color: SpringaColors.brand },
+      }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Calendar</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
