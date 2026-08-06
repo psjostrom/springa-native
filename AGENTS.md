@@ -1,9 +1,9 @@
-# Expo HAS CHANGED
-
-Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
-Native tabs guide: https://docs.expo.dev/router/advanced/native-tabs/
-
 # springa-native
+
+## Docs
+
+Read https://docs.expo.dev/versions/v57.0.0/ before Expo/Router changes.
+Native tabs: https://docs.expo.dev/router/advanced/native-tabs/
 
 Expo SDK 57 / React Native app that is replacing the Springa web PWA (`~/code/springa`). Same product domain: workout agenda, BG/diabetes tooling, coach, planner — but native.
 
