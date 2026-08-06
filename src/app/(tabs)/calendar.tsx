@@ -7,7 +7,7 @@ import { SpringaColors } from '@/theme/colors';
 export default function CalendarScreen() {
   return (
     <ScreenShell>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <ViewModeSwitcher />
         </View>
@@ -20,6 +20,7 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
   content: { padding: 4, paddingBottom: 24, gap: 6 },
   card: {
     backgroundColor: SpringaColors.surface,
