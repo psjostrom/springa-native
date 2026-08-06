@@ -48,27 +48,9 @@ src/fixtures/agenda.ts           # static MOCK_TODAY fixtures
 Bottom tabs (order): Calendar, Intel, Coach, Planner, Simulate.  
 Calendar route file is `index` so cold start hits Agenda; label remains "Calendar".
 
-Agenda is a **static mock**: fixtures with fixed `MOCK_TODAY`, full visual cards (planned/completed/missed, structure bars, fuel chips). Tab switches work; other controls are inert (no real data, auth, or networking yet).
+Agenda is a **static mock**: fixtures with fixed `MOCK_TODAY`, full visual cards (planned/completed/missed, structure bars, fuel chips). Tab switches work; other controls are inert (no real data, auth, or networking).
 
-## What is done
-
-- Skeleton mockup shipped (branch / PR for Agenda shell)
-- Design + plan docs for that slice
-- Dark tokens, fixtures + Node fixture tests (`tsx`)
-- Shared header with static BG pill
-- NativeTabs + placeholders
-- Agenda mock UI on Calendar
-- Splash `#13101c`; Expo template demo chrome removed
-- `expo-dev-client` + `com.springa.app`; local debug APK install path proven on physical Android
-
-## What is not done
-
-Everything beyond the static shell mock. Real product behavior still lives in web Springa.
-
-**Constraint:** the live architecture depends on auth/session. Without that, Scout/Springa APIs and real data are not usable — do not treat “fixtures → API” as a slice that can land before auth is designed and approved.
-
-Do not invent a migration roadmap in this file. Next slices need an approved design (spec) before implementation. No drive-by networking, stores, or auth.
-
+Live web Springa depends on auth/session for Scout/API data. Do not add networking, stores, or auth without an approved design spec. Do not invent a migration roadmap in this file.
 
 ## How to run (Android)
 
