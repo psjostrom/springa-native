@@ -1,4 +1,4 @@
-import { ApiError } from './client';
+import { ApiError } from './errors';
 import type { CalendarEvent } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {

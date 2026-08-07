@@ -1,4 +1,4 @@
-import { ApiError } from './client';
+import { ApiError } from './errors';
 import type { BgPayload } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,19 +1,12 @@
 import { getApiBaseUrl } from '@/auth/config';
 import { parseBgPayload } from './bg';
 import { parseCalendarEvents } from './calendar';
+import { ApiError } from './errors';
 import type { BgPayload, CalendarEvent, UserSettings } from './types';
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
-export class ApiError extends Error {
-  readonly status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-  }
-}
+export { ApiError };
 
 export type ApiClientOptions = {
   getToken: () => string | null;
