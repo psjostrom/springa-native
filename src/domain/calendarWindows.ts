@@ -1,5 +1,3 @@
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 export type DateWindow = {
   oldest: string;
   newest: string;
@@ -27,16 +25,29 @@ export function initialCalendarWindow(now = new Date()): DateWindow {
 
 const SPAN_DAYS = 42; // 14 + 28
 
+/** Shift by local calendar days (DST-safe). */
+function addLocalDays(iso: string, deltaDays: number): Date {
+  const d = parseIsoDay(iso);
+  d.setDate(d.getDate() + deltaDays);
+  return d;
+}
+
 export function olderCalendarWindow(currentOldest: string): DateWindow {
-  const oldestDate = parseIsoDay(currentOldest);
-  const newest = new Date(oldestDate.getTime() - DAY_MS);
-  const oldest = new Date(newest.getTime() - (SPAN_DAYS - 1) * DAY_MS);
+  const newest = addLocalDays(currentOldest, -1);
+  const oldest = new Date(
+    newest.getFullYear(),
+    newest.getMonth(),
+    newest.getDate() - (SPAN_DAYS - 1),
+  );
   return { oldest: formatIsoDay(oldest), newest: formatIsoDay(newest) };
 }
 
 export function newerCalendarWindow(currentNewest: string): DateWindow {
-  const newestDate = parseIsoDay(currentNewest);
-  const oldest = new Date(newestDate.getTime() + DAY_MS);
-  const newest = new Date(oldest.getTime() + (SPAN_DAYS - 1) * DAY_MS);
+  const oldest = addLocalDays(currentNewest, 1);
+  const newest = new Date(
+    oldest.getFullYear(),
+    oldest.getMonth(),
+    oldest.getDate() + (SPAN_DAYS - 1),
+  );
   return { oldest: formatIsoDay(oldest), newest: formatIsoDay(newest) };
 }

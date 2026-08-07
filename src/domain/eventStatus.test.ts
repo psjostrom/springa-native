@@ -35,6 +35,17 @@ describe('calendarWindows', () => {
     expect(newer.oldest).toBe('2026-09-05');
     expect(parseIsoDay(newer.oldest) < parseIsoDay(newer.newest)).toBe(true);
   });
+
+  it('keeps contiguous days across a spring-forward DST boundary', () => {
+    // CEST spring-forward 2026-03-29: DAY_MS arithmetic can skip a local day.
+    const older = olderCalendarWindow('2026-03-30');
+    expect(older.newest).toBe('2026-03-29');
+    expect(older.oldest).toBe('2026-02-16');
+
+    const newer = newerCalendarWindow('2026-03-28');
+    expect(newer.oldest).toBe('2026-03-29');
+    expect(newer.newest).toBe('2026-05-09');
+  });
 });
 
 describe('mergeCalendarEvents', () => {

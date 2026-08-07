@@ -51,6 +51,33 @@ export function defaultCalendarEvents() {
   ];
 }
 
+function eventDay(iso: string): string | null {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  return iso.slice(0, 10);
+}
+
+function eventsInRange(
+  events: ReturnType<typeof defaultCalendarEvents>,
+  oldest: string,
+  newest: string,
+) {
+  if (oldest > newest) return [];
+  return events.filter((e) => {
+    const day = eventDay(e.date);
+    return day != null && day >= oldest && day <= newest;
+  });
+}
+
 export const calendarHandlers = [
-  http.get(apiUrl('/api/intervals/calendar'), () => jsonOk(defaultCalendarEvents())),
+  http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
+    const url = new URL(request.url);
+    const oldest = url.searchParams.get('oldest');
+    const newest = url.searchParams.get('newest');
+    const all = defaultCalendarEvents();
+    if (!oldest || !newest) {
+      return jsonOk(all);
+    }
+    return jsonOk(eventsInRange(all, oldest, newest));
+  }),
 ];

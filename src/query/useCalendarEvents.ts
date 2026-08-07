@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import {
+  formatIsoDay,
   initialCalendarWindow,
   newerCalendarWindow,
   olderCalendarWindow,
@@ -10,6 +11,29 @@ import {
 import { mergeCalendarEvents } from '@/domain/mergeCalendarEvents';
 import { queryKeys } from './keys';
 import { useSettingsQuery } from './useSettingsQuery';
+
+/** Stop paging once windows fall entirely outside this horizon (empty gaps must not). */
+const LOOKBACK_DAYS = 730;
+const LOOKAHEAD_DAYS = 365;
+
+function olderPageParam(currentOldest: string, now = new Date()): DateWindow | undefined {
+  const next = olderCalendarWindow(currentOldest);
+  const floor = formatIsoDay(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() - LOOKBACK_DAYS),
+  );
+  // ISO YYYY-MM-DD compares lexicographically.
+  if (next.newest < floor) return undefined;
+  return next;
+}
+
+function newerPageParam(currentNewest: string, now = new Date()): DateWindow | undefined {
+  const next = newerCalendarWindow(currentNewest);
+  const ceiling = formatIsoDay(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() + LOOKAHEAD_DAYS),
+  );
+  if (next.oldest > ceiling) return undefined;
+  return next;
+}
 
 export function useCalendarEvents() {
   const client = useApiClient();
@@ -26,10 +50,11 @@ export function useCalendarEvents() {
     queryKey: queryKeys.calendar(identity),
     initialPageParam: initialCalendarWindow() as DateWindow,
     queryFn: ({ pageParam }) => client.getCalendar(pageParam.oldest, pageParam.newest),
-    getNextPageParam: (lastPage, _pages, lastPageParam) =>
-      lastPage.length === 0 ? undefined : newerCalendarWindow(lastPageParam.newest),
-    getPreviousPageParam: (firstPage, _pages, firstPageParam) =>
-      firstPage.length === 0 ? undefined : olderCalendarWindow(firstPageParam.oldest),
+    // Empty windows are gaps, not boundaries — keep contiguous pages within the horizon.
+    getNextPageParam: (_lastPage, _pages, lastPageParam) =>
+      newerPageParam(lastPageParam.newest),
+    getPreviousPageParam: (_firstPage, _pages, firstPageParam) =>
+      olderPageParam(firstPageParam.oldest),
     enabled: connected,
   });
 

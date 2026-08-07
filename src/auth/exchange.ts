@@ -74,5 +74,8 @@ export async function exchangeGoogleIdToken(idToken: string): Promise<Session> {
 
 /** Dev-only QA bypass — Springa POST /api/qa/mobile. */
 export async function exchangeQaToken(token: string): Promise<Session> {
+  if (!__DEV__) {
+    throw new Error('QA sign-in is only available in development builds');
+  }
   return postMobileAuth('/api/qa/mobile', { token });
 }

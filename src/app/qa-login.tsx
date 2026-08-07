@@ -19,7 +19,8 @@ export default function QaLoginScreen() {
 
   useEffect(() => {
     if (!__DEV__) return;
-    if (status === 'signedIn') return;
+    if (status === 'loading') return;
+    if (status !== 'signedOut') return;
     if (!token) return;
 
     let cancelled = false;
