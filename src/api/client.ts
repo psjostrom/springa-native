@@ -1,5 +1,7 @@
 import { getApiBaseUrl } from '@/auth/config';
-import type { UserSettings } from './types';
+import { parseBgPayload } from './bg';
+import { parseCalendarEvents } from './calendar';
+import type { BgPayload, CalendarEvent, UserSettings } from './types';
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
@@ -23,6 +25,8 @@ export type ApiClientOptions = {
 export type ApiClient = {
   apiFetch: <T>(path: string, init?: RequestInit) => Promise<T>;
   getSettings: () => Promise<UserSettings>;
+  getCalendar: (oldest: string, newest: string) => Promise<CalendarEvent[]>;
+  getBg: () => Promise<BgPayload>;
 };
 
 /** Reject null/array/non-objects so callers don't treat garbage as empty settings. */
@@ -96,5 +100,12 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   return {
     apiFetch,
     getSettings: async () => parseUserSettings(await apiFetch<unknown>('/api/settings')),
+    getCalendar: async (oldest: string, newest: string) => {
+      const params = new URLSearchParams({ oldest, newest });
+      return parseCalendarEvents(
+        await apiFetch<unknown>(`/api/intervals/calendar?${params.toString()}`),
+      );
+    },
+    getBg: async () => parseBgPayload(await apiFetch<unknown>('/api/bg')),
   };
 }

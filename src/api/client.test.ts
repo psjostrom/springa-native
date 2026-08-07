@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { ApiError, createApiClient, parseUserSettings } from './client';
-import { TEST_API_BASE, apiUrl } from '@/test/msw/helpers';
+import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
 
-const baseUrl = process.env.EXPO_PUBLIC_SPRINGA_API_URL ?? TEST_API_BASE;
+const baseUrl = process.env.EXPO_PUBLIC_SPRINGA_API_URL ?? 'https://www.springa.run';
 
 function makeClient(onUnauthorized: () => void = () => {}) {
   return createApiClient({
@@ -33,6 +33,18 @@ describe('createApiClient', () => {
     const settings = await makeClient().getSettings();
     expect(settings.intervalsConnected).toBe(true);
     expect(settings.diabetesMode).toBe(true);
+  });
+
+  it('returns calendar events on 200', async () => {
+    const events = await makeClient().getCalendar('2026-08-01', '2026-08-31');
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]?.date).toBeInstanceOf(Date);
+    expect(events.some((e) => e.name === 'Threshold intervals')).toBe(true);
+  });
+
+  it('returns bg payload on 200', async () => {
+    const bg = await makeClient().getBg();
+    expect(bg.current?.mmol).toBe(6.2);
   });
 
   it('calls onUnauthorized and throws ApiError on 401', async () => {
@@ -72,6 +84,20 @@ describe('createApiClient', () => {
     await expect(makeClient().getSettings()).rejects.toMatchObject({
       name: 'ApiError',
       message: 'Settings response had unexpected shape',
+    });
+  });
+
+  it('throws ApiError when calendar JSON is not an array', async () => {
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), () =>
+        HttpResponse.json({ events: [] }),
+      ),
+    );
+    await expect(
+      makeClient().getCalendar('2026-01-01', '2026-01-31'),
+    ).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Calendar response had unexpected shape',
     });
   });
 

@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSettings } from '@/api/SettingsContext';
+import { useSettingsQuery } from '@/query/useSettingsQuery';
 import { SpringaColors } from '@/theme/colors';
 
 type AgendaGateProps = {
@@ -14,7 +14,7 @@ type AgendaGateProps = {
 };
 
 export function AgendaGate({ children }: AgendaGateProps) {
-  const { status, settings, error, reload } = useSettings();
+  const { status, settings, error, reload } = useSettingsQuery();
 
   if (status === 'loading' || status === 'idle') {
     return (

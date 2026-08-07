@@ -14,9 +14,9 @@ Native tabs: https://docs.expo.dev/router/advanced/native-tabs/
 - **Dev binary:** `expo-dev-client` + `npx expo run:android` — not Expo Go for device work.
 - **Tabs:** `NativeTabs` from `expo-router/unstable-native-tabs` (alpha). Keep tab config thin; do not replace with a custom bottom bar.
 - **Default route:** `(tabs)/index` is Calendar/Agenda. Label stays "Calendar".
-- **Shell today:** dark tokens only (`src/theme/colors.ts`); Agenda is still fixture-backed once Intervals is connected; Calendar gates on `GET /api/settings` (`intervalsConnected`).
-- **Auth + API client:** Google session + Bearer `createApiClient` are in; do not add further networking/stores without an approved design spec. Do not invent a migration roadmap here.
-- **Diabetes chrome:** shell assumes BG pill + Simulate tab present.
+- **Shell today:** dark tokens only (`src/theme/colors.ts`); Calendar Agenda is live via windowed `GET /api/intervals/calendar` (LegendList); Calendar gates on settings Query (`intervalsConnected`).
+- **Auth + API client:** Google session + Bearer `createApiClient` + TanStack Query (settings / calendar / BG) + Zustand (UI only). Do not add further networking/stores without an approved design spec. Do not invent a migration roadmap here.
+- **Diabetes chrome:** shell assumes BG pill (live when `diabetesMode`) + Simulate tab present.
 - **Native dirs:** `android/` and `ios/` are prebuild output and gitignored — never commit them. App id: `com.springa.app`.
 - **Specs vs plans:** commit approved designs under `docs/superpowers/specs/`. Implementation plans under `docs/superpowers/plans/` are gitignored — do not commit. `.superpowers/` SDD runs are local-exclude only.
 
@@ -54,12 +54,13 @@ Wireless device: `adb pair …`, then `adb reverse tcp:8081 tcp:8081` so Metro i
 
 ```
 src/app/(tabs)/_layout.tsx   # NativeTabs: Calendar, Intel, Coach, Planner, Simulate
-src/app/(tabs)/index.tsx     # Calendar (settings-gated Agenda)
-src/api/                     # createApiClient, SettingsProvider, types
+src/app/(tabs)/index.tsx     # Calendar (settings-gated live Agenda)
+src/api/                     # createApiClient, ApiClientProvider, types
+src/query/                   # TanStack Query provider + settings/calendar/bg hooks
+src/store/                   # Zustand UI store (no Query mirrors)
 src/auth/                    # Google session + SecureStore
 src/components/shell/        # TopBar, BgPill, ScreenShell
-src/components/agenda/       # list + cards + AgendaGate
-src/fixtures/agenda.ts       # static Agenda until live calendar (milestone 2)
+src/components/agenda/       # LegendList + cards + AgendaGate
 src/theme/colors.ts          # Springa dark + HR zones
 src/test/msw/                # Vitest MSW server + handlers
 ```

@@ -1,44 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
-import { createApiClient } from '@/api/client';
-import { SettingsLoader } from '@/api/SettingsContext';
 import { AgendaGate } from '@/components/agenda/AgendaGate';
-import { TEST_API_BASE, apiUrl } from '@/test/msw/helpers';
+import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
-
-const baseUrl = process.env.EXPO_PUBLIC_SPRINGA_API_URL ?? TEST_API_BASE;
-
-function GateTree({
-  children = <Text>Agenda content</Text>,
-  identity = 'runner@example.com',
-  enabled = true,
-}: {
-  children?: ReactNode;
-  identity?: string;
-  enabled?: boolean;
-}) {
-  const client = useMemo(
-    () =>
-      createApiClient({
-        getToken: () => 'test-token',
-        onUnauthorized: () => {},
-        baseUrl,
-      }),
-    [],
-  );
-  return (
-    <SettingsLoader client={client} enabled={enabled} identity={identity}>
-      <AgendaGate>{children}</AgendaGate>
-    </SettingsLoader>
-  );
-}
+import {
+  makeTestAuthValue,
+  makeTestSession,
+  TestAppProviders,
+} from '@/test/TestAppProviders';
 
 describe('AgendaGate', () => {
-  it('shows fixture agenda when Intervals is connected', async () => {
-    await render(<GateTree />);
+  it('shows children when Intervals is connected', async () => {
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <AgendaGate>
+          <Text>Agenda content</Text>
+        </AgendaGate>
+      </TestAppProviders>,
+    );
     expect(await screen.findByText('Agenda content')).toBeOnTheScreen();
   });
 
@@ -51,7 +33,13 @@ describe('AgendaGate', () => {
         }),
       ),
     );
-    await render(<GateTree />);
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <AgendaGate>
+          <Text>Agenda content</Text>
+        </AgendaGate>
+      </TestAppProviders>,
+    );
     expect(await screen.findByText('Intervals not connected')).toBeOnTheScreen();
     expect(screen.queryByText('Agenda content')).toBeNull();
   });
@@ -60,7 +48,13 @@ describe('AgendaGate', () => {
     server.use(
       http.get(apiUrl('/api/settings'), () => HttpResponse.json(null)),
     );
-    await render(<GateTree />);
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <AgendaGate>
+          <Text>Agenda content</Text>
+        </AgendaGate>
+      </TestAppProviders>,
+    );
     expect(await screen.findByText('Couldn’t load settings')).toBeOnTheScreen();
     expect(screen.queryByText('Intervals not connected')).toBeNull();
   });
@@ -71,7 +65,13 @@ describe('AgendaGate', () => {
         HttpResponse.json({ error: 'down' }, { status: 503 }),
       ),
     );
-    await render(<GateTree />);
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <AgendaGate>
+          <Text>Agenda content</Text>
+        </AgendaGate>
+      </TestAppProviders>,
+    );
     expect(await screen.findByText('Couldn’t load settings')).toBeOnTheScreen();
 
     server.use(
@@ -97,7 +97,13 @@ describe('AgendaGate', () => {
       }),
     );
 
-    await render(<GateTree />);
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <AgendaGate>
+          <Text>Agenda content</Text>
+        </AgendaGate>
+      </TestAppProviders>,
+    );
     expect(screen.getByLabelText('Loading settings')).toBeOnTheScreen();
 
     release();
@@ -106,36 +112,26 @@ describe('AgendaGate', () => {
     });
   });
 
-  it('does not flash a previous identity’s settings after re-enable', async () => {
+  it('does not flash a previous identity’s settings after account switch', async () => {
     function SwitchableTree() {
-      const [enabled, setEnabled] = useState(true);
-      const [identity, setIdentity] = useState('a@example.com');
-      const client = useMemo(
-        () =>
-          createApiClient({
-            getToken: () => 'test-token',
-            onUnauthorized: () => {},
-            baseUrl,
-          }),
-        [],
+      const [email, setEmail] = useState('a@example.com');
+      const auth = useMemo(
+        () => makeTestAuthValue(makeTestSession(email)),
+        [email],
       );
       return (
         <>
           <Pressable
             accessibilityLabel="Switch account"
-            onPress={() => {
-              setEnabled(false);
-              setIdentity('b@example.com');
-              queueMicrotask(() => setEnabled(true));
-            }}
+            onPress={() => setEmail('b@example.com')}
           >
             <Text>Switch</Text>
           </Pressable>
-          <SettingsLoader client={client} enabled={enabled} identity={identity}>
+          <TestAppProviders auth={auth}>
             <AgendaGate>
-              <Text>Agenda for {identity}</Text>
+              <Text>Agenda for {email}</Text>
             </AgendaGate>
-          </SettingsLoader>
+          </TestAppProviders>
         </>
       );
     }
@@ -161,76 +157,6 @@ describe('AgendaGate', () => {
       expect(screen.getByLabelText('Loading settings')).toBeOnTheScreen();
     });
     expect(screen.queryByText('Agenda for a@example.com')).toBeNull();
-
-    release();
-    expect(await screen.findByText('Intervals not connected')).toBeOnTheScreen();
-  });
-
-  it('does not flash prior settings after same-identity sign-out and sign-in', async () => {
-    function ReloginTree() {
-      const [enabled, setEnabled] = useState(true);
-      const client = useMemo(
-        () =>
-          createApiClient({
-            getToken: () => 'test-token',
-            onUnauthorized: () => {},
-            baseUrl,
-          }),
-        [],
-      );
-      return (
-        <>
-          <Pressable
-            accessibilityLabel="Sign out"
-            onPress={() => setEnabled(false)}
-          >
-            <Text>Sign out</Text>
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Sign in"
-            onPress={() => setEnabled(true)}
-          >
-            <Text>Sign in</Text>
-          </Pressable>
-          <SettingsLoader
-            client={client}
-            enabled={enabled}
-            identity="same-user@example.com"
-          >
-            <AgendaGate>
-              <Text>Agenda content</Text>
-            </AgendaGate>
-          </SettingsLoader>
-        </>
-      );
-    }
-
-    await render(<ReloginTree />);
-    expect(await screen.findByText('Agenda content')).toBeOnTheScreen();
-
-    const user = userEvent.setup();
-    await user.press(screen.getByLabelText('Sign out'));
-    await waitFor(() => {
-      expect(screen.queryByText('Agenda content')).toBeNull();
-    });
-
-    let release!: () => void;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    server.use(
-      http.get(apiUrl('/api/settings'), async () => {
-        await held;
-        return HttpResponse.json({ intervalsConnected: false });
-      }),
-    );
-
-    await user.press(screen.getByLabelText('Sign in'));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Loading settings')).toBeOnTheScreen();
-    });
-    expect(screen.queryByText('Agenda content')).toBeNull();
 
     release();
     expect(await screen.findByText('Intervals not connected')).toBeOnTheScreen();

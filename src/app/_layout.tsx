@@ -2,8 +2,10 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { AuthProvider, useAuth } from '@/auth/AuthContext';
-import { SettingsProvider } from '@/api/SettingsProvider';
+import { ApiClientProvider } from '@/api/ApiClientProvider';
+import { AuthProvider } from '@/auth/AuthProvider';
+import { useAuth } from '@/auth/AuthContext';
+import { QueryProvider } from '@/query/QueryProvider';
 import { SpringaColors } from '@/theme/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -44,11 +46,13 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <SettingsProvider>
-        <StatusBar style="light" />
-        <SplashScreenController />
-        <RootNavigator />
-      </SettingsProvider>
+      <ApiClientProvider>
+        <QueryProvider>
+          <StatusBar style="light" />
+          <SplashScreenController />
+          <RootNavigator />
+        </QueryProvider>
+      </ApiClientProvider>
     </AuthProvider>
   );
 }

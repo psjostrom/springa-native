@@ -1,5 +1,5 @@
-import { authHandlers } from './auth';
 import { settingsHandlers } from './settings';
+import { calendarHandlers } from './calendar';
+import { bgHandlers } from './bg';
 
-/** Composed default happy-path handlers for all domains. */
-export const handlers = [...authHandlers, ...settingsHandlers];
+export const handlers = [...settingsHandlers, ...calendarHandlers, ...bgHandlers];

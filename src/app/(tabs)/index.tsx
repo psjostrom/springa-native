@@ -1,31 +1,27 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { AgendaGate } from '@/components/agenda/AgendaGate';
 import { AgendaList } from '@/components/agenda/AgendaList';
-import { ViewModeSwitcher } from '@/components/agenda/ViewModeSwitcher';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { SpringaColors } from '@/theme/colors';
 
 export default function CalendarScreen() {
   return (
     <ScreenShell>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <ViewModeSwitcher />
-        </View>
-        <View style={styles.card}>
-          <AgendaGate>
+      <View style={styles.body}>
+        <AgendaGate>
+          <View style={styles.card}>
             <AgendaList />
-          </AgendaGate>
-        </View>
-      </ScrollView>
+          </View>
+        </AgendaGate>
+      </View>
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { padding: 4, paddingBottom: 24, gap: 6 },
+  body: { flex: 1, padding: 4, paddingBottom: 8 },
   card: {
+    flex: 1,
     backgroundColor: SpringaColors.surface,
     borderRadius: 12,
     borderWidth: 1,
