@@ -26,7 +26,7 @@ Native tabs: https://docs.expo.dev/router/advanced/native-tabs/
 npm install
 npx expo run:android --device          # first build / after native dep or config plugin changes
 npx expo start                          # JS-only iteration once the app is installed
-node --import tsx --test src/fixtures/agenda.test.ts
+npm test                                # vitest run (vitest-native + MSW + RNTL)
 npx tsc --noEmit
 npm run lint
 ```
@@ -65,7 +65,7 @@ Intel / Coach / Planner / Simulate are placeholders with the shared shell.
 
 ## Testing
 
-Integration over isolation. Today coverage is Node tests for fixture helpers only. When adding app logic: intercept at the network boundary (not `fetch` mocks), prefer in-memory persistence, assert user-visible behavior — not mock call counts.
+Vitest + `vitest-native` (real RN JS by default) + `@testing-library/react-native` + MSW (`msw/node` under Vitest). Happy-path handlers live in `src/test/msw/handlers/`; overrides via `server.use`. Integration over isolation: intercept at the network boundary (not `fetch` mocks), prefer in-memory persistence, assert user-visible behavior — not mock call counts.
 
 ## Domain reference
 

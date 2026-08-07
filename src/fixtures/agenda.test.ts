@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, expect, it } from 'vitest';
 import {
   AGENDA_EVENTS,
   MOCK_TODAY,
@@ -11,23 +10,22 @@ import {
 describe('splitAgendaEvents', () => {
   it('puts dates before MOCK_TODAY in earlier and today+future in upcoming', () => {
     const { earlier, upcoming } = splitAgendaEvents(AGENDA_EVENTS, MOCK_TODAY);
-    assert.ok(earlier.length >= 1);
-    assert.ok(upcoming.length >= 1);
-    for (const e of earlier) assert.ok(e.date < MOCK_TODAY);
-    for (const e of upcoming) assert.ok(e.date >= MOCK_TODAY);
+    expect(earlier.length).toBeGreaterThanOrEqual(1);
+    expect(upcoming.length).toBeGreaterThanOrEqual(1);
+    for (const e of earlier) expect(e.date < MOCK_TODAY).toBe(true);
+    for (const e of upcoming) expect(e.date >= MOCK_TODAY).toBe(true);
   });
 });
 
 describe('hasEventOnDay', () => {
   it('detects whether MOCK_TODAY has an event', () => {
-    const result = hasEventOnDay(AGENDA_EVENTS, MOCK_TODAY);
-    assert.equal(typeof result, 'boolean');
+    expect(hasEventOnDay(AGENDA_EVENTS, MOCK_TODAY)).toBe(true);
   });
 });
 
 describe('getEventIcon', () => {
   it('returns race flag for race category', () => {
-    assert.equal(
+    expect(
       getEventIcon({
         id: 'x',
         date: MOCK_TODAY,
@@ -35,7 +33,6 @@ describe('getEventIcon', () => {
         status: 'planned',
         category: 'race',
       }),
-      '🏁',
-    );
+    ).toBe('🏁');
   });
 });

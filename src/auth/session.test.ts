@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, expect, it } from 'vitest';
 import {
   createSessionApi,
   isSessionValid,
@@ -11,59 +10,52 @@ import {
 describe('isSessionValid', () => {
   it('accepts future expiry', () => {
     const s: Session = { token: 't', email: 'a@b.c', expiresAt: 2_000_000_000 };
-    assert.equal(isSessionValid(s, 1_700_000_000), true);
+    expect(isSessionValid(s, 1_700_000_000)).toBe(true);
   });
 
   it('rejects near-expiry within skew', () => {
     const s: Session = { token: 't', email: 'a@b.c', expiresAt: 1_700_000_030 };
-    assert.equal(isSessionValid(s, 1_700_000_000), false);
+    expect(isSessionValid(s, 1_700_000_000)).toBe(false);
   });
 });
 
 describe('parseSessionJson', () => {
   it('returns null for corrupt JSON', () => {
-    assert.equal(parseSessionJson('{not json'), null);
+    expect(parseSessionJson('{not json')).toBeNull();
   });
 
   it('parses a valid session payload', () => {
     const s: Session = { token: 't', email: 'a@b.c', expiresAt: 2_000_000_000 };
-    assert.deepEqual(parseSessionJson(JSON.stringify(s)), s);
+    expect(parseSessionJson(JSON.stringify(s))).toEqual(s);
   });
 
   it('returns null when token is missing or empty', () => {
-    assert.equal(
+    expect(
       parseSessionJson(JSON.stringify({ email: 'a@b.c', expiresAt: 2_000_000_000 })),
-      null,
-    );
-    assert.equal(
+    ).toBeNull();
+    expect(
       parseSessionJson(
         JSON.stringify({ token: '', email: 'a@b.c', expiresAt: 2_000_000_000 }),
       ),
-      null,
-    );
+    ).toBeNull();
   });
 
   it('returns null when email is missing or empty', () => {
-    assert.equal(
+    expect(
       parseSessionJson(JSON.stringify({ token: 't', expiresAt: 2_000_000_000 })),
-      null,
-    );
-    assert.equal(
+    ).toBeNull();
+    expect(
       parseSessionJson(
         JSON.stringify({ token: 't', email: '', expiresAt: 2_000_000_000 }),
       ),
-      null,
-    );
+    ).toBeNull();
   });
 
   it('returns null for non-finite expiresAt', () => {
-    assert.equal(
-      parseSessionJson(
-        '{"token":"t","email":"a@b.c","expiresAt":1e400}',
-      ),
-      null,
-    );
-    assert.equal(
+    expect(
+      parseSessionJson('{"token":"t","email":"a@b.c","expiresAt":1e400}'),
+    ).toBeNull();
+    expect(
       parseSessionJson(
         JSON.stringify({
           token: 't',
@@ -71,14 +63,12 @@ describe('parseSessionJson', () => {
           expiresAt: Number.POSITIVE_INFINITY,
         }),
       ),
-      null,
-    );
-    assert.equal(
+    ).toBeNull();
+    expect(
       parseSessionJson(
         JSON.stringify({ token: 't', email: 'a@b.c', expiresAt: 'soon' }),
       ),
-      null,
-    );
+    ).toBeNull();
   });
 });
 
@@ -118,7 +108,7 @@ describe('session persistence queue', () => {
     const saveStarted = saveSession(newSession);
     await Promise.all([clearStarted, saveStarted]);
 
-    assert.deepEqual(await loadSession(), newSession);
+    expect(await loadSession()).toEqual(newSession);
   });
 
   it('rejects clearSession when both deletion attempts fail', async () => {
@@ -137,9 +127,6 @@ describe('session persistence queue', () => {
 
     const { clearSession } = createSessionApi(async () => store);
 
-    await assert.rejects(
-      async () => clearSession(),
-      (err: unknown) => err === deleteError,
-    );
+    await expect(clearSession()).rejects.toBe(deleteError);
   });
 });
