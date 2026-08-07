@@ -91,8 +91,9 @@ export function createSessionApi(getStore: () => Promise<SessionStore>) {
       } catch {
         try {
           await store.deleteItemAsync(SESSION_KEY);
-        } catch {
-          // SecureStore deletion failed after retry; memory may already be cleared.
+        } catch (err) {
+          // SecureStore deletion failed after retry; rethrow so caller knows persistence failed.
+          throw err;
         }
       }
     });

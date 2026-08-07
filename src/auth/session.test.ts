@@ -120,4 +120,26 @@ describe('session persistence queue', () => {
 
     assert.deepEqual(await loadSession(), newSession);
   });
+
+  it('rejects clearSession when both deletion attempts fail', async () => {
+    const deleteError = new Error('SecureStore unavailable');
+    const store: SessionStore = {
+      async getItemAsync() {
+        return null;
+      },
+      async setItemAsync() {
+        // no-op
+      },
+      async deleteItemAsync() {
+        throw deleteError;
+      },
+    };
+
+    const { clearSession } = createSessionApi(async () => store);
+
+    await assert.rejects(
+      async () => clearSession(),
+      (err: unknown) => err === deleteError,
+    );
+  });
 });

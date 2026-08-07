@@ -80,7 +80,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // clearSession is queued with saveSession so a late delete cannot wipe a newer sign-in.
     setSession(null);
     setStatus('signedOut');
-    void clearSession();
+    void clearSession().catch((err) => {
+      // Report SecureStore deletion failure; session is already cleared from memory.
+      setConfigError(
+        err instanceof Error
+          ? `Sign-out persistence failed: ${err.message}`
+          : 'Sign-out persistence failed',
+      );
+    });
     void GoogleSignin.signOut().catch(() => {
       // ignore native sign-out errors after local clear
     });
