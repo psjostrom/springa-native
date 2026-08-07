@@ -39,7 +39,7 @@ Replace Node’s built-in test runner with a Vitest-based stack suitable for Rea
 ## Architecture
 
 ```
-vitest.config.ts                 # reactNative({ platform: 'android' }), setupFiles
+vitest.config.mts                # reactNative({ platform: 'android' }), setupFiles
 src/test/msw/
   server.ts                      # setupServer(...handlers) from msw/node
   setup.ts                       # listen / resetHandlers / close
