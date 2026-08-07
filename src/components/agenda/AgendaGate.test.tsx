@@ -165,4 +165,74 @@ describe('AgendaGate', () => {
     release();
     expect(await screen.findByText('Intervals not connected')).toBeOnTheScreen();
   });
+
+  it('does not flash prior settings after same-identity sign-out and sign-in', async () => {
+    function ReloginTree() {
+      const [enabled, setEnabled] = useState(true);
+      const client = useMemo(
+        () =>
+          createApiClient({
+            getToken: () => 'test-token',
+            onUnauthorized: () => {},
+            baseUrl,
+          }),
+        [],
+      );
+      return (
+        <>
+          <Pressable
+            accessibilityLabel="Sign out"
+            onPress={() => setEnabled(false)}
+          >
+            <Text>Sign out</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Sign in"
+            onPress={() => setEnabled(true)}
+          >
+            <Text>Sign in</Text>
+          </Pressable>
+          <SettingsLoader
+            client={client}
+            enabled={enabled}
+            identity="same-user@example.com"
+          >
+            <AgendaGate>
+              <Text>Agenda content</Text>
+            </AgendaGate>
+          </SettingsLoader>
+        </>
+      );
+    }
+
+    await render(<ReloginTree />);
+    expect(await screen.findByText('Agenda content')).toBeOnTheScreen();
+
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Sign out'));
+    await waitFor(() => {
+      expect(screen.queryByText('Agenda content')).toBeNull();
+    });
+
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get(apiUrl('/api/settings'), async () => {
+        await held;
+        return HttpResponse.json({ intervalsConnected: false });
+      }),
+    );
+
+    await user.press(screen.getByLabelText('Sign in'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Loading settings')).toBeOnTheScreen();
+    });
+    expect(screen.queryByText('Agenda content')).toBeNull();
+
+    release();
+    expect(await screen.findByText('Intervals not connected')).toBeOnTheScreen();
+  });
 });

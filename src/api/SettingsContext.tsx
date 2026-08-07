@@ -31,7 +31,7 @@ const SettingsContext = createContext<SettingsValue | null>(null);
 type SettingsLoaderProps = {
   client: ApiClient;
   enabled: boolean;
-  /** Changes on sign-in identity so a prior session's settings cannot flash after re-login. */
+  /** Session-unique key (e.g. token) so a prior login's settings cannot flash after re-login. */
   identity: string;
   children: ReactNode;
 };
@@ -49,7 +49,10 @@ export function SettingsLoader({
   const fetchKey = `${enabled ? '1' : '0'}:${identity}:${reloadToken}`;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setFetchState(null);
+      return;
+    }
 
     const key = fetchKey;
     let cancelled = false;

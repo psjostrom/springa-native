@@ -18,7 +18,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 
   const enabled = authStatus === 'signedIn' && session != null;
-  const identity = session?.email ?? '';
+  const identity = session?.token ?? '';
 
   return (
     <SettingsLoader client={client} enabled={enabled} identity={identity}>
