@@ -10,10 +10,29 @@ export function isSessionValid(session: Session, nowSec = Date.now() / 1000): bo
   return session.expiresAt > nowSec + 60;
 }
 
-/** Parse stored session JSON; null on corrupt payload. */
+/** Parse stored session JSON; null on corrupt or incomplete payload. */
 export function parseSessionJson(raw: string): Session | null {
   try {
-    return JSON.parse(raw) as Session;
+    const value = JSON.parse(raw) as unknown;
+    if (
+      value === null ||
+      typeof value !== 'object' ||
+      Array.isArray(value)
+    ) {
+      return null;
+    }
+    const { token, email, expiresAt } = value as Record<string, unknown>;
+    if (
+      typeof token !== 'string' ||
+      token.length === 0 ||
+      typeof email !== 'string' ||
+      email.length === 0 ||
+      typeof expiresAt !== 'number' ||
+      !Number.isFinite(expiresAt)
+    ) {
+      return null;
+    }
+    return { token, email, expiresAt };
   } catch {
     return null;
   }

@@ -23,4 +23,55 @@ describe('parseSessionJson', () => {
     const s: Session = { token: 't', email: 'a@b.c', expiresAt: 2_000_000_000 };
     assert.deepEqual(parseSessionJson(JSON.stringify(s)), s);
   });
+
+  it('returns null when token is missing or empty', () => {
+    assert.equal(
+      parseSessionJson(JSON.stringify({ email: 'a@b.c', expiresAt: 2_000_000_000 })),
+      null,
+    );
+    assert.equal(
+      parseSessionJson(
+        JSON.stringify({ token: '', email: 'a@b.c', expiresAt: 2_000_000_000 }),
+      ),
+      null,
+    );
+  });
+
+  it('returns null when email is missing or empty', () => {
+    assert.equal(
+      parseSessionJson(JSON.stringify({ token: 't', expiresAt: 2_000_000_000 })),
+      null,
+    );
+    assert.equal(
+      parseSessionJson(
+        JSON.stringify({ token: 't', email: '', expiresAt: 2_000_000_000 }),
+      ),
+      null,
+    );
+  });
+
+  it('returns null for non-finite expiresAt', () => {
+    assert.equal(
+      parseSessionJson(
+        JSON.stringify({ token: 't', email: 'a@b.c', expiresAt: Number.NaN }),
+      ),
+      null,
+    );
+    assert.equal(
+      parseSessionJson(
+        JSON.stringify({
+          token: 't',
+          email: 'a@b.c',
+          expiresAt: Number.POSITIVE_INFINITY,
+        }),
+      ),
+      null,
+    );
+    assert.equal(
+      parseSessionJson(
+        JSON.stringify({ token: 't', email: 'a@b.c', expiresAt: 'soon' }),
+      ),
+      null,
+    );
+  });
 });

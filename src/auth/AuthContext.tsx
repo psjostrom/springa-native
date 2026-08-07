@@ -22,6 +22,7 @@ type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 type AuthValue = {
   status: AuthStatus;
   session: Session | null;
+  configError: string | null;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -31,13 +32,26 @@ const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [session, setSession] = useState<Session | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
 
   useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: getGoogleWebClientId(),
-      offlineAccess: false,
-    });
     void (async () => {
+      try {
+        GoogleSignin.configure({
+          webClientId: getGoogleWebClientId(),
+          offlineAccess: false,
+        });
+      } catch (err) {
+        setSession(null);
+        setStatus('signedOut');
+        setConfigError(
+          err instanceof Error
+            ? err.message
+            : 'Google Sign-In is not configured',
+        );
+        return;
+      }
+
       try {
         const existing = await loadSession();
         setSession(existing);
@@ -62,18 +76,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await clearSession();
-    // Gate on local session — native Google sign-out can hang or open UI.
+    // Gate on local session immediately — SecureStore clear must not block UI.
     setSession(null);
     setStatus('signedOut');
+    void clearSession().catch(() => {
+      void clearSession().catch(() => {
+        // SecureStore deletion failed after retry; memory already cleared.
+      });
+    });
     void GoogleSignin.signOut().catch(() => {
       // ignore native sign-out errors after local clear
     });
   }, []);
 
   const value = useMemo(
-    () => ({ status, session, signInWithGoogle, signOut }),
-    [status, session, signInWithGoogle, signOut],
+    () => ({ status, session, configError, signInWithGoogle, signOut }),
+    [status, session, configError, signInWithGoogle, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

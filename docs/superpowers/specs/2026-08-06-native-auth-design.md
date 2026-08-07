@@ -25,7 +25,7 @@ Rationale: Expo recommends native Google Sign-In; browser AuthSession for Google
 
 ## Flow
 
-```
+```text
 Native Google Sign-In
   → idToken
   → POST {SPRINGA_API}/api/auth/mobile  { idToken }
@@ -45,7 +45,7 @@ Native Google Sign-In
 - Verify with Google (`google-auth-library` or equivalent): `aud` = `GOOGLE_CLIENT_ID`, email present and verified
 - Call existing `ensureUserSettings(email)` (same as NextAuth `signIn` callback)
 - Sign JWT with server secret; claims: `email`, `iat`, `exp`, `aud: "springa-native"`
-- Response `200`: `{ token, expiresAt, user: { email } }`
+- Response `200`: `{ token, expiresAt, user: { email } }` — `expiresAt` is Unix seconds
 - `401` on invalid/unverified token
 
 ### `requireAuth()`

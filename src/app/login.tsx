@@ -13,9 +13,10 @@ import { SpringaColors } from '@/theme/colors';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, configError } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const displayError = error ?? configError;
 
   const onContinue = async () => {
     setError(null);
@@ -44,7 +45,7 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.footer}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {displayError ? <Text style={styles.error}>{displayError}</Text> : null}
         <Pressable
           onPress={() => {
             void onContinue();
