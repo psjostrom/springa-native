@@ -53,7 +53,7 @@ describe('parseSessionJson', () => {
   it('returns null for non-finite expiresAt', () => {
     assert.equal(
       parseSessionJson(
-        JSON.stringify({ token: 't', email: 'a@b.c', expiresAt: Number.NaN }),
+        '{"token":"t","email":"a@b.c","expiresAt":1e400}',
       ),
       null,
     );
