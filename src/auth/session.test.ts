@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { isSessionValid, parseSessionJson, type Session } from './session';
+import {
+  createSessionApi,
+  isSessionValid,
+  parseSessionJson,
+  type Session,
+  type SessionStore,
+} from './session';
 
 describe('isSessionValid', () => {
   it('accepts future expiry', () => {
@@ -73,5 +79,45 @@ describe('parseSessionJson', () => {
       ),
       null,
     );
+  });
+});
+
+describe('session persistence queue', () => {
+  it('keeps a session saved while a delayed clear from sign-out is still running', async () => {
+    const map = new Map<string, string>();
+    const store: SessionStore = {
+      async getItemAsync(key) {
+        return map.get(key) ?? null;
+      },
+      async setItemAsync(key, value) {
+        map.set(key, value);
+      },
+      async deleteItemAsync(key) {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        map.delete(key);
+      },
+    };
+
+    const { saveSession, clearSession, loadSession } = createSessionApi(
+      async () => store,
+    );
+
+    const oldSession: Session = {
+      token: 'old',
+      email: 'old@example.com',
+      expiresAt: 2_000_000_000,
+    };
+    const newSession: Session = {
+      token: 'new',
+      email: 'new@example.com',
+      expiresAt: 2_000_000_000,
+    };
+
+    await saveSession(oldSession);
+    const clearStarted = clearSession();
+    const saveStarted = saveSession(newSession);
+    await Promise.all([clearStarted, saveStarted]);
+
+    assert.deepEqual(await loadSession(), newSession);
   });
 });

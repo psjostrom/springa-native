@@ -4,6 +4,12 @@ export type Session = {
   email: string;
 };
 
+export type SessionStore = {
+  getItemAsync: (key: string) => Promise<string | null>;
+  setItemAsync: (key: string, value: string) => Promise<void>;
+  deleteItemAsync: (key: string) => Promise<void>;
+};
+
 const SESSION_KEY = 'springa.session.v1';
 
 export function isSessionValid(session: Session, nowSec = Date.now() / 1000): boolean {
@@ -38,26 +44,65 @@ export function parseSessionJson(raw: string): Session | null {
   }
 }
 
-export async function loadSession(): Promise<Session | null> {
-  const SecureStore = await import('expo-secure-store');
-  const raw = await SecureStore.getItemAsync(SESSION_KEY);
-  if (!raw) return null;
+function createPersistQueue() {
+  let chain: Promise<void> = Promise.resolve();
+  return function enqueue<T>(op: () => Promise<T>): Promise<T> {
+    const run = chain.then(op, op);
+    chain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  };
+}
 
-  const session = parseSessionJson(raw);
-  if (!session || !isSessionValid(session)) {
-    await SecureStore.deleteItemAsync(SESSION_KEY);
-    return null;
+/** Session load/save/clear with serialized SecureStore mutations. */
+export function createSessionApi(getStore: () => Promise<SessionStore>) {
+  const enqueue = createPersistQueue();
+
+  async function loadSession(): Promise<Session | null> {
+    return enqueue(async () => {
+      const store = await getStore();
+      const raw = await store.getItemAsync(SESSION_KEY);
+      if (!raw) return null;
+
+      const session = parseSessionJson(raw);
+      if (!session || !isSessionValid(session)) {
+        await store.deleteItemAsync(SESSION_KEY);
+        return null;
+      }
+
+      return session;
+    });
   }
 
-  return session;
+  async function saveSession(session: Session): Promise<void> {
+    return enqueue(async () => {
+      const store = await getStore();
+      await store.setItemAsync(SESSION_KEY, JSON.stringify(session));
+    });
+  }
+
+  async function clearSession(): Promise<void> {
+    return enqueue(async () => {
+      const store = await getStore();
+      try {
+        await store.deleteItemAsync(SESSION_KEY);
+      } catch {
+        try {
+          await store.deleteItemAsync(SESSION_KEY);
+        } catch {
+          // SecureStore deletion failed after retry; memory may already be cleared.
+        }
+      }
+    });
+  }
+
+  return { loadSession, saveSession, clearSession };
 }
 
-export async function saveSession(session: Session): Promise<void> {
-  const SecureStore = await import('expo-secure-store');
-  await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
-}
+const defaultApi = createSessionApi(() => import('expo-secure-store'));
 
-export async function clearSession(): Promise<void> {
-  const SecureStore = await import('expo-secure-store');
-  await SecureStore.deleteItemAsync(SESSION_KEY);
-}
+export const loadSession = defaultApi.loadSession;
+export const saveSession = defaultApi.saveSession;
+export const clearSession = defaultApi.clearSession;

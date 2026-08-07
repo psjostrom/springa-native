@@ -8,9 +8,10 @@ Code for milestone 0 is implemented and reviewed. These items are still required
 
 ## Must do (blocks live sign-in)
 
-1. **Google Cloud — Android OAuth client**  
+1. **Google Cloud — Android OAuth client (debug)**  
    Package: `com.springa.app`  
    Debug SHA-1: `36:09:BC:CD:FE:07:CD:01:16:A1:D1:47:5F:07:91:8A:4D:BA:F2:B3`  
+   Covers local `expo run:android` / debug keystore only — not Play/release builds.  
    Web client id already used as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / Springa `GOOGLE_CLIENT_ID`.
 
 2. **Ship Springa API**  
@@ -35,6 +36,7 @@ Code for milestone 0 is implemented and reviewed. These items are still required
 5. **iOS OAuth** — Replace `iosUrlScheme` placeholder in `app.json` before iOS builds matter.  
 6. **Native `.env`** — Ensure local `.env` (gitignored) has `EXPO_PUBLIC_SPRINGA_API_URL` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`; never commit it.  
 7. **401 → clear session** — When milestone 1 adds a shared API client, clear SecureStore and return to login on 401 (called out in the auth design; not wired yet because there is no general API client).
+8. **Google Cloud — Android OAuth client (release)** — Before shipping a signed/Play build, add another Android OAuth client (or cert) for `com.springa.app` with the **release** keystore SHA-1. Debug alone will not authorize release binaries.
 
 ## Done (reference)
 

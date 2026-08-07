@@ -19,7 +19,7 @@ Google sign-in on the native app, with a mobile-holdable Springa session that au
 | Identity | Same as web: `session.user.email` / JWT `email` |
 | Scopes (native) | `openid email profile` only — no Calendar offline consent yet |
 | Token lifetime | ~30 days; re-sign-in on expiry (no refresh in v1) |
-| Google Cloud | `webClientId` = existing Springa web OAuth client; Android client for `com.springa.app` + SHA-1 |
+| Google Cloud | `webClientId` = existing Springa web OAuth client; Android client for `com.springa.app` + signing SHA-1 (debug now; add release SHA-1 before Play/signed builds) |
 
 Rationale: Expo recommends native Google Sign-In; browser AuthSession for Google on Android is effectively blocked. Springa remains the session authority so Intervals/NS secrets never ship on device.
 
@@ -110,3 +110,5 @@ Web routes and NextAuth Google provider (including Calendar scope / refresh toke
 ## Follow-up
 
 Implementation plans (gitignored under `docs/superpowers/plans/` in native; Springa half may live in `springa` as a normal PR). Next roadmap milestone after this ships: **1 — API client + settings gate**.
+
+Before release/Play builds: register the release keystore SHA-1 on a Google Cloud Android OAuth client for `com.springa.app` (debug SHA-1 only covers local debug installs).
