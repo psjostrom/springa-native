@@ -18,8 +18,8 @@ Replace fixture Agenda with real Intervals data via Springa `GET /api/intervals/
 | Server state | TanStack Query |
 | Client/UI state | Zustand (never mirror Query results into the store) |
 | List | `@legendapp/list` (`LegendList`, `recycleItems`) |
-| Fetch model | Small initial window; load older near top, newer near bottom |
-| List UX | One continuous chronological list (no upcoming/history toggle) |
+| Fetch model | Initial today→+11d only; background-prefetch older + newer; scroll pages further |
+| List UX | “Earlier workouts” (no count) → reversed past + “Back to upcoming”; upcoming is today onward |
 | Structure bars | Omit until planned-detail / on-device parsing later |
 | Generate workout CTA | Hide (Coach later) |
 | Fixtures | Remove from Calendar path |
@@ -49,10 +49,10 @@ AuthProvider
 ## Data flow
 
 1. Signed in → queries enabled; keys include session identity (email) so caches do not flash across accounts.
-2. Settings query gates Calendar on `intervalsConnected`.
-3. When connected → initial calendar page **today − 14d → today + 28d**.
-4. Merge pages into a sorted unique-by-id list for LegendList.
-5. Near the top → older contiguous page (same span length); near the bottom → newer page. Dedupe overlaps. Edge-page failures must not wipe existing items.
+2. Settings query still runs for the gate and BG; calendar starts as soon as the user is signed in and only stops if settings prove Intervals is disconnected (no settings→calendar waterfall).
+3. When connected (or still loading settings) → initial calendar page **today → today + 11d**, then prefetch older (history) and newer in the background.
+4. Merge pages into a sorted unique-by-id list; UI splits at local today into earlier vs upcoming.
+5. Upcoming: end-reach loads newer pages. History end-reach loads older pages. First paint stays today→future only. Dedupe overlaps. Edge-page failures must not wipe existing items.
 6. Card status uses web `isMissedEvent` (planned + local date &lt; today → missed). Metrics from API fields; no structure segments.
 7. BG: if `diabetesMode`, poll `/api/bg`; hide pill when mode off, or when `current` / timestamp missing, or reading older than 15 minutes.
 
@@ -83,7 +83,7 @@ Keep `getSettings` / `parseUserSettings`.
 - Calendar initial load / error + Retry inside the gate when connected.
 - Empty connected calendar: “No workouts scheduled”.
 - Month/Week switcher stays inert; card tap still no-op (milestone 3).
-- History button and “Generate workout for today” removed.
+- Upcoming list shows today onward; “Earlier workouts” always opens history (reversed past + “Back to upcoming”; past pages fetch on open). Generate-workout CTA stays hidden.
 - Calendar screen: LegendList is the scroller (no wrapping `ScrollView` of all cards).
 
 ## Out of scope

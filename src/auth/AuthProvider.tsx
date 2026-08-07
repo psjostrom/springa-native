@@ -24,22 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      try {
-        GoogleSignin.configure({
-          webClientId: getGoogleWebClientId(),
-          offlineAccess: false,
-        });
-      } catch (err) {
-        setSession(null);
-        setStatus('signedOut');
-        setConfigError(
-          err instanceof Error
-            ? err.message
-            : 'Google Sign-In is not configured',
-        );
-        return;
-      }
-
+      // Restore session before Google configure so cold start is not gated on native setup.
       try {
         const existing = await loadSession();
         setSession(existing);
@@ -47,6 +32,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         setSession(null);
         setStatus('signedOut');
+      }
+
+      try {
+        GoogleSignin.configure({
+          webClientId: getGoogleWebClientId(),
+          offlineAccess: false,
+        });
+      } catch (err) {
+        // Keep any restored session; only surface config for the Google button path.
+        setConfigError(
+          err instanceof Error
+            ? err.message
+            : 'Google Sign-In is not configured',
+        );
       }
     })();
   }, []);

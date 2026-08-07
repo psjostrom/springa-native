@@ -1,4 +1,6 @@
 import { LegendList } from '@legendapp/list/react-native';
+import { ChevronLeft, History } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,12 +9,16 @@ import {
   View,
 } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
+import { splitAgendaEvents } from '@/domain/agendaAnchor';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 import { SpringaColors } from '@/theme/colors';
 import { AgendaEventCard } from './AgendaEventCard';
 import { ViewModeSwitcher } from './ViewModeSwitcher';
 
+type AgendaViewMode = 'upcoming' | 'history';
+
 export function AgendaList() {
+  const [view, setView] = useState<AgendaViewMode>('upcoming');
   const {
     events,
     isLoading,
@@ -21,11 +27,21 @@ export function AgendaList() {
     reload,
     fetchOlder,
     fetchNewer,
+    hasOlder,
     isFetchingOlder,
     isFetchingNewer,
     olderError,
     newerError,
   } = useCalendarEvents();
+
+  const { earlier, upcoming } = splitAgendaEvents(events);
+  const historyMode = view === 'history';
+
+  // Empty older windows are gaps — keep paging while history is open and still empty.
+  useEffect(() => {
+    if (!historyMode || earlier.length > 0 || isFetchingOlder || !hasOlder) return;
+    void fetchOlder();
+  }, [historyMode, earlier.length, isFetchingOlder, hasOlder, fetchOlder]);
 
   if (isLoading) {
     return (
@@ -53,30 +69,58 @@ export function AgendaList() {
     );
   }
 
+  const listData = historyMode ? [...earlier].reverse() : upcoming;
+  const historyStillLoading =
+    historyMode && earlier.length === 0 && (isFetchingOlder || hasOlder);
+
   return (
     <LegendList
+      // Remount when flipping modes — LegendList can stick on an empty frame
+      // after upcoming ↔ history swaps.
+      key={view}
       style={styles.list}
-      data={events}
+      data={listData}
+      extraData={view}
       keyExtractor={(item: CalendarEvent) => item.id}
       recycleItems
       estimatedItemSize={96}
-      onStartReached={() => {
-        if (!isFetchingOlder) void fetchOlder();
-      }}
-      onStartReachedThreshold={0.2}
+      maintainVisibleContentPosition={false}
+      onStartReached={undefined}
       onEndReached={() => {
-        if (!isFetchingNewer) void fetchNewer();
+        if (historyMode) {
+          void fetchOlder();
+          return;
+        }
+        void fetchNewer();
       }}
-      onEndReachedThreshold={0.2}
+      onEndReachedThreshold={0.5}
       ListHeaderComponent={
         <View style={styles.header}>
           <View style={styles.switcherCard}>
             <ViewModeSwitcher />
           </View>
-          {isFetchingOlder ? (
-            <Text style={styles.edgeHint}>Loading earlier…</Text>
-          ) : null}
-          {olderError ? (
+          {historyMode ? (
+            <Pressable
+              onPress={() => setView('upcoming')}
+              accessibilityRole="button"
+              accessibilityLabel="Back to upcoming"
+              style={styles.historyNav}
+            >
+              <ChevronLeft size={16} color={SpringaColors.muted} />
+              <Text style={styles.historyNavText}>Back to upcoming</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => setView('history')}
+              accessibilityRole="button"
+              accessibilityLabel="Earlier workouts"
+              style={styles.earlierButton}
+            >
+              <History size={16} color={SpringaColors.muted} />
+              <Text style={styles.earlierButtonText}>Earlier workouts</Text>
+            </Pressable>
+          )}
+          {historyMode && olderError ? (
             <Pressable
               onPress={() => {
                 void fetchOlder();
@@ -90,14 +134,23 @@ export function AgendaList() {
         </View>
       }
       ListEmptyComponent={
-        <Text style={styles.empty}>No workouts scheduled</Text>
+        <Text style={styles.empty}>
+          {historyMode
+            ? historyStillLoading
+              ? 'Loading earlier…'
+              : 'No earlier workouts'
+            : 'No workouts scheduled'}
+        </Text>
       }
       ListFooterComponent={
         <View style={styles.footer}>
-          {isFetchingNewer ? (
+          {historyMode && isFetchingOlder && earlier.length > 0 ? (
+            <Text style={styles.edgeHint}>Loading earlier…</Text>
+          ) : null}
+          {!historyMode && isFetchingNewer ? (
             <Text style={styles.edgeHint}>Loading more…</Text>
           ) : null}
-          {newerError ? (
+          {!historyMode && newerError ? (
             <Pressable
               onPress={() => {
                 void fetchNewer();
@@ -126,6 +179,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: SpringaColors.border,
     padding: 8,
+  },
+  earlierButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+  },
+  earlierButtonText: {
+    color: SpringaColors.muted,
+    fontSize: 14,
+  },
+  historyNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+  },
+  historyNavText: {
+    color: SpringaColors.muted,
+    fontSize: 14,
   },
   footer: { paddingVertical: 8 },
   edgeHint: {

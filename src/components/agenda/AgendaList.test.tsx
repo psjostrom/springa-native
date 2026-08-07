@@ -34,6 +34,7 @@ describe('AgendaEventCard', () => {
   it('renders live calendar event fields', async () => {
     await render(<AgendaEventCard event={sampleEvent()} />);
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
+    expect(screen.getByText(/~55m/)).toBeOnTheScreen();
     expect(screen.getByText(/45g\/h/)).toBeOnTheScreen();
   });
 });
@@ -53,6 +54,29 @@ describe('AgendaList', () => {
       </TestAppProviders>,
     );
     expect(await screen.findByText('No workouts scheduled')).toBeOnTheScreen();
+  });
+
+  it('opens earlier workouts like web Agenda history', async () => {
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <View style={{ width: 390, height: 800 }}>
+          <AgendaGate>
+            <AgendaList />
+          </AgendaGate>
+        </View>
+      </TestAppProviders>,
+    );
+
+    // LegendList may not mount rows under Vitest; header controls are the gate.
+    const earlier = await screen.findByLabelText('Earlier workouts');
+    const user = userEvent.setup();
+    await user.press(earlier);
+
+    expect(await screen.findByLabelText('Back to upcoming')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Earlier workouts')).toBeNull();
+
+    await user.press(screen.getByLabelText('Back to upcoming'));
+    expect(await screen.findByLabelText('Earlier workouts')).toBeOnTheScreen();
   });
 
   it('shows calendar error and recovers after Retry', async () => {

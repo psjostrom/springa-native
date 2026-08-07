@@ -24,7 +24,9 @@ function SplashScreenController() {
 
 function RootNavigator() {
   const { status } = useAuth();
+  // Do not treat "loading" as signed-out — that mounts login under the splash.
   const signedIn = status === 'signedIn';
+  const signedOut = status === 'signedOut';
 
   return (
     <Stack
@@ -36,7 +38,7 @@ function RootNavigator() {
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="(tabs)" />
       </Stack.Protected>
-      <Stack.Protected guard={!signedIn}>
+      <Stack.Protected guard={signedOut}>
         <Stack.Screen name="login" />
         <Stack.Screen name="qa-login" />
       </Stack.Protected>

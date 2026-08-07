@@ -16,14 +16,22 @@ export function parseIsoDay(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
-/** Initial window: today−14d → today+28d (inclusive local days). */
+/** Days after today on the first calendar page (today → future only). */
+export const INITIAL_LOOKAHEAD_DAYS = 11;
+
+/** Inclusive day count for each older/newer page after the first. */
+export const PAGE_SPAN_DAYS = 1 + INITIAL_LOOKAHEAD_DAYS;
+
+/** Initial window: today → today+11d (inclusive local days; no lookback). */
 export function initialCalendarWindow(now = new Date()): DateWindow {
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 28);
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + INITIAL_LOOKAHEAD_DAYS,
+  );
   return { oldest: formatIsoDay(start), newest: formatIsoDay(end) };
 }
-
-const SPAN_DAYS = 42; // 14 + 28
 
 /** Shift by local calendar days (DST-safe). */
 function addLocalDays(iso: string, deltaDays: number): Date {
@@ -37,7 +45,7 @@ export function olderCalendarWindow(currentOldest: string): DateWindow {
   const oldest = new Date(
     newest.getFullYear(),
     newest.getMonth(),
-    newest.getDate() - (SPAN_DAYS - 1),
+    newest.getDate() - (PAGE_SPAN_DAYS - 1),
   );
   return { oldest: formatIsoDay(oldest), newest: formatIsoDay(newest) };
 }
@@ -47,7 +55,7 @@ export function newerCalendarWindow(currentNewest: string): DateWindow {
   const newest = new Date(
     oldest.getFullYear(),
     oldest.getMonth(),
-    oldest.getDate() + (SPAN_DAYS - 1),
+    oldest.getDate() + (PAGE_SPAN_DAYS - 1),
   );
   return { oldest: formatIsoDay(oldest), newest: formatIsoDay(newest) };
 }

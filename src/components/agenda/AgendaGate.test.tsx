@@ -85,7 +85,7 @@ describe('AgendaGate', () => {
     expect(await screen.findByText('Agenda content')).toBeOnTheScreen();
   });
 
-  it('shows loading while settings request is in flight', async () => {
+  it('renders children while settings are still loading so calendar can start', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -104,12 +104,11 @@ describe('AgendaGate', () => {
         </AgendaGate>
       </TestAppProviders>,
     );
-    expect(screen.getByLabelText('Loading settings')).toBeOnTheScreen();
+    expect(screen.getByText('Agenda content')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Loading settings')).toBeNull();
 
     release();
-    await waitFor(() => {
-      expect(screen.getByText('Agenda content')).toBeOnTheScreen();
-    });
+    expect(await screen.findByText('Agenda content')).toBeOnTheScreen();
   });
 
   it('does not flash a previous identity’s settings after account switch', async () => {
@@ -153,8 +152,9 @@ describe('AgendaGate', () => {
     const user = userEvent.setup();
     await user.press(screen.getByLabelText('Switch account'));
 
+    // New identity mounts immediately; no stale "a@" agenda copy.
     await waitFor(() => {
-      expect(screen.getByLabelText('Loading settings')).toBeOnTheScreen();
+      expect(screen.getByText('Agenda for b@example.com')).toBeOnTheScreen();
     });
     expect(screen.queryByText('Agenda for a@example.com')).toBeNull();
 

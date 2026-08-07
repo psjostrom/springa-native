@@ -48,13 +48,20 @@
   },
   "scripts": {
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
+    "start:clear": "expo start --clear",
     "android": "expo run:android",
+    "android:device": "expo run:android --device",
+    "android:release": "expo run:android --variant release --device",
     "ios": "expo run:ios",
+    "ios:device": "expo run:ios --device",
+    "ios:release": "expo run:ios --configuration Release --device",
     "web": "expo start --web",
+    "adb:reverse": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:3000 tcp:3000",
     "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "reset-project": "node ./scripts/reset-project.js"
   },
   "private": true
 }

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
+import { formatDuration, formatHrMin } from '@/domain/format';
 import { getCardStatus, getEventIcon } from '@/domain/eventStatus';
 import { SpringaColors } from '@/theme/colors';
 
@@ -38,14 +39,19 @@ export function AgendaEventCard({ event }: AgendaEventCardProps) {
   const planned = status === 'planned' || status === 'race';
   const completed = status === 'completed';
 
-  const durationMin =
-    event.duration != null ? Math.round(event.duration / 60) : null;
+  const durationLabel =
+    event.duration == null
+      ? null
+      : completed
+        ? formatDuration(event.duration)
+        : formatHrMin(Math.round(event.duration / 60));
+
   const distanceKm =
     event.distance != null && event.distance > 0
       ? Math.round((event.distance / 1000) * 10) / 10
       : null;
   const hasFuel = event.fuelRate != null || event.prescribedCarbsG != null;
-  const hasMetrics = durationMin != null || distanceKm != null;
+  const hasMetrics = durationLabel != null || distanceKm != null;
 
   return (
     <Pressable
@@ -76,7 +82,7 @@ export function AgendaEventCard({ event }: AgendaEventCardProps) {
               <View style={styles.chip}>
                 <Text style={styles.chipText}>
                   {[
-                    durationMin != null ? `~${durationMin} min` : null,
+                    durationLabel != null ? `~${durationLabel}` : null,
                     distanceKm != null ? `${distanceKm} km` : null,
                   ]
                     .filter(Boolean)
@@ -103,9 +109,9 @@ export function AgendaEventCard({ event }: AgendaEventCardProps) {
 
         {completed ? (
           <View style={styles.stats}>
-            {durationMin != null ? (
+            {durationLabel != null ? (
               <Text style={styles.stat}>
-                <Text style={styles.statValue}>{durationMin} min</Text>
+                <Text style={styles.statValue}>{durationLabel}</Text>
               </Text>
             ) : null}
             {distanceKm != null ? (

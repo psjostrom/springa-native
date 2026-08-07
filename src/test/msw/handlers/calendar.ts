@@ -40,7 +40,7 @@ export function defaultCalendarEvents() {
     },
     {
       id: 'race-future',
-      date: `${isoDaysFromToday(10)}T12:00:00.000Z`,
+      date: `${isoDaysFromToday(5)}T12:00:00.000Z`,
       name: 'Half marathon',
       description: '',
       type: 'race',

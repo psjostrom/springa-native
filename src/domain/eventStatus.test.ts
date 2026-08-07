@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarEvent } from '@/api/types';
+import { splitAgendaEvents } from './agendaAnchor';
+import { formatDuration, formatHrMin } from './format';
 import {
   initialCalendarWindow,
   newerCalendarWindow,
@@ -18,21 +20,48 @@ function event(partial: Partial<CalendarEvent> & Pick<CalendarEvent, 'id' | 'dat
   };
 }
 
+describe('splitAgendaEvents', () => {
+  const today = new Date(2026, 7, 7, 15, 0, 0);
+
+  it('splits before today vs today-and-later', () => {
+    const events = [
+      event({ id: 'past', date: new Date(2026, 7, 5), name: 'Past' }),
+      event({ id: 'today', date: new Date(2026, 7, 7, 9, 0, 0), name: 'Today' }),
+      event({ id: 'future', date: new Date(2026, 7, 10), name: 'Future' }),
+    ];
+    const { earlier, upcoming } = splitAgendaEvents(events, today);
+    expect(earlier.map((e) => e.id)).toEqual(['past']);
+    expect(upcoming.map((e) => e.id)).toEqual(['today', 'future']);
+  });
+});
+
+describe('format', () => {
+  it('formats durations like web Agenda cards', () => {
+    expect(formatHrMin(111)).toBe('1h 51m');
+    expect(formatHrMin(60)).toBe('1h');
+    expect(formatHrMin(45)).toBe('45m');
+    expect(formatDuration(6660)).toBe('1h 51m');
+    expect(formatDuration(2700)).toBe('45m');
+  });
+});
+
 describe('calendarWindows', () => {
-  it('builds an initial window spanning 14 days back and 28 forward', () => {
+  it('builds an initial window from today through 11 days ahead', () => {
     const now = new Date(2026, 7, 7); // Aug 7 local
     const w = initialCalendarWindow(now);
-    expect(w.oldest).toBe('2026-07-24');
-    expect(w.newest).toBe('2026-09-04');
+    expect(w.oldest).toBe('2026-08-07');
+    expect(w.newest).toBe('2026-08-18');
   });
 
   it('pages older and newer contiguously', () => {
-    const older = olderCalendarWindow('2026-07-24');
-    expect(older.newest).toBe('2026-07-23');
+    const older = olderCalendarWindow('2026-08-07');
+    expect(older.newest).toBe('2026-08-06');
+    expect(older.oldest).toBe('2026-07-26');
     expect(parseIsoDay(older.oldest) < parseIsoDay(older.newest)).toBe(true);
 
-    const newer = newerCalendarWindow('2026-09-04');
-    expect(newer.oldest).toBe('2026-09-05');
+    const newer = newerCalendarWindow('2026-08-18');
+    expect(newer.oldest).toBe('2026-08-19');
+    expect(newer.newest).toBe('2026-08-30');
     expect(parseIsoDay(newer.oldest) < parseIsoDay(newer.newest)).toBe(true);
   });
 
@@ -40,11 +69,11 @@ describe('calendarWindows', () => {
     // CEST spring-forward 2026-03-29: DAY_MS arithmetic can skip a local day.
     const older = olderCalendarWindow('2026-03-30');
     expect(older.newest).toBe('2026-03-29');
-    expect(older.oldest).toBe('2026-02-16');
+    expect(older.oldest).toBe('2026-03-18');
 
     const newer = newerCalendarWindow('2026-03-28');
     expect(newer.oldest).toBe('2026-03-29');
-    expect(newer.newest).toBe('2026-05-09');
+    expect(newer.newest).toBe('2026-04-09');
   });
 });
 

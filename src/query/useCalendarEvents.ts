@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
@@ -40,11 +41,11 @@ export function useCalendarEvents() {
   const { status: authStatus, session } = useAuth();
   const settings = useSettingsQuery();
   const identity = session?.email ?? '';
-  const connected =
-    authStatus === 'signedIn' &&
-    session != null &&
-    settings.status === 'ready' &&
-    !!settings.settings?.intervalsConnected;
+  // Start calendar as soon as signed in; only stop once settings prove disconnected.
+  const knownDisconnected =
+    settings.status === 'ready' && !settings.settings?.intervalsConnected;
+  const calendarEnabled =
+    authStatus === 'signedIn' && session != null && !knownDisconnected;
 
   const query = useInfiniteQuery({
     queryKey: queryKeys.calendar(identity),
@@ -55,29 +56,64 @@ export function useCalendarEvents() {
       newerPageParam(lastPageParam.newest),
     getPreviousPageParam: (_firstPage, _pages, firstPageParam) =>
       olderPageParam(firstPageParam.oldest),
-    enabled: connected,
+    enabled: calendarEnabled,
   });
 
   const events = mergeCalendarEvents(query.data?.pages ?? []);
+  const prefetchedFor = useRef<string | null>(null);
+  const {
+    isSuccess,
+    data,
+    hasPreviousPage,
+    hasNextPage,
+    fetchPreviousPage,
+    fetchNextPage,
+    isFetchingPreviousPage,
+    isFetchingNextPage,
+  } = query;
+
+  // After the first (today→future) page paints, warm older (history) then newer.
+  useEffect(() => {
+    if (!calendarEnabled || !isSuccess) return;
+    if (prefetchedFor.current === identity) return;
+    if ((data?.pages.length ?? 0) < 1) return;
+    prefetchedFor.current = identity;
+    if (hasPreviousPage) void fetchPreviousPage();
+    if (hasNextPage) void fetchNextPage();
+  }, [
+    calendarEnabled,
+    identity,
+    isSuccess,
+    data?.pages.length,
+    hasPreviousPage,
+    hasNextPage,
+    fetchPreviousPage,
+    fetchNextPage,
+  ]);
+
+  const fetchOlder = useCallback(() => {
+    if (!hasPreviousPage || isFetchingPreviousPage) return Promise.resolve();
+    return fetchPreviousPage();
+  }, [hasPreviousPage, isFetchingPreviousPage, fetchPreviousPage]);
+
+  const fetchNewer = useCallback(() => {
+    if (!hasNextPage || isFetchingNextPage) return Promise.resolve();
+    return fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return {
     events,
-    isLoading: connected && query.isPending,
-    isError: connected && query.isError,
+    isLoading: calendarEnabled && query.isPending,
+    isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
     reload: () => {
       void query.refetch();
     },
-    fetchOlder: () => {
-      if (query.hasPreviousPage) return query.fetchPreviousPage();
-      return Promise.resolve();
-    },
-    fetchNewer: () => {
-      if (query.hasNextPage) return query.fetchNextPage();
-      return Promise.resolve();
-    },
-    isFetchingOlder: query.isFetchingPreviousPage,
-    isFetchingNewer: query.isFetchingNextPage,
+    fetchOlder,
+    fetchNewer,
+    hasOlder: Boolean(hasPreviousPage),
+    isFetchingOlder: isFetchingPreviousPage,
+    isFetchingNewer: isFetchingNextPage,
     olderError: query.isFetchPreviousPageError,
     newerError: query.isFetchNextPageError,
   };

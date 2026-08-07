@@ -29,10 +29,11 @@ Open the Springa dev client on the phone; it loads from Metro.
 **Metro reachability**
 
 ```bash
-adb reverse tcp:8081 tcp:8081
+adb reverse tcp:8082 tcp:8082   # or 8081 if that is your Metro port
+adb reverse tcp:3000 tcp:3000   # local Springa when EXPO_PUBLIC_SPRINGA_API_URL=http://127.0.0.1:3000
 ```
 
-So the phone talks to Metro at `http://127.0.0.1:8081`. Re-run reverse if adb drops or the phone reconnects. Prefer reverse (or `10.0.2.2` on emulators) — not the host LAN IP.
+So the phone talks to Metro / API at `http://127.0.0.1:…`. Re-run reverse if adb drops or the phone reconnects. Prefer reverse (works for USB and wireless debugging) — not `10.0.2.2` on a physical device, and not the host LAN IP unless you also allow cleartext HTTP.
 
 **Agent / emulator QA sign-in** (local Springa with `QA_AUTH_*` only)
 

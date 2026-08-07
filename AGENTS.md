@@ -32,7 +32,7 @@ npx tsc --noEmit
 npm run lint
 ```
 
-Wireless device: `adb pair …`, then `adb reverse tcp:8081 tcp:8081` so Metro is `http://127.0.0.1:8081` on the phone. Emulators: prefer reverse or `10.0.2.2`, not host LAN IP.
+Wireless device: `adb pair …`, then `adb reverse tcp:8081 tcp:8081` (or your Metro port) and `adb reverse tcp:3000 tcp:3000` when the API URL is `http://127.0.0.1:3000`. Emulators: same reverse, or `10.0.2.2` for host services — not the host LAN IP on a physical phone.
 
 ## Boundaries
 

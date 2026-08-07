@@ -1,11 +1,5 @@
 import type { ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSettingsQuery } from '@/query/useSettingsQuery';
 import { SpringaColors } from '@/theme/colors';
 
@@ -13,17 +7,12 @@ type AgendaGateProps = {
   children: ReactNode;
 };
 
+/**
+ * Blocks Agenda only when settings prove Intervals is disconnected (or fail).
+ * While settings are still loading, children render so calendar can fetch in parallel.
+ */
 export function AgendaGate({ children }: AgendaGateProps) {
   const { status, settings, error, reload } = useSettingsQuery();
-
-  if (status === 'loading' || status === 'idle') {
-    return (
-      <View style={styles.center} accessibilityLabel="Loading settings">
-        <ActivityIndicator color={SpringaColors.brand} />
-        <Text style={styles.muted}>Loading…</Text>
-      </View>
-    );
-  }
 
   if (status === 'error') {
     return (
@@ -42,7 +31,7 @@ export function AgendaGate({ children }: AgendaGateProps) {
     );
   }
 
-  if (!settings?.intervalsConnected) {
+  if (status === 'ready' && !settings?.intervalsConnected) {
     return (
       <View style={styles.center}>
         <Text style={styles.title}>Intervals not connected</Text>
@@ -61,6 +50,7 @@ export function AgendaGate({ children }: AgendaGateProps) {
     );
   }
 
+  // idle (signed out), loading, or ready+connected → let Agenda mount
   return <>{children}</>;
 }
 
@@ -82,10 +72,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
-  },
-  muted: {
-    color: SpringaColors.muted,
-    fontSize: 13,
   },
   button: {
     marginTop: 4,
