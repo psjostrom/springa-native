@@ -35,7 +35,7 @@ Code for milestone 0 is implemented and reviewed. These items are still required
 
 5. **iOS OAuth** — Replace `iosUrlScheme` placeholder in `app.json` before iOS builds matter.  
 6. **Native `.env`** — Ensure local `.env` (gitignored) has `EXPO_PUBLIC_SPRINGA_API_URL` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`; never commit it.  
-7. **401 → clear session** — When milestone 1 adds a shared API client, clear SecureStore and return to login on 401 (called out in the auth design; not wired yet because there is no general API client).
+7. **401 → clear session** — Done in milestone 1 via `createApiClient` `onUnauthorized` → `signOut`.
 8. **Google Cloud — Android OAuth client (release)** — Before shipping a signed/Play build, add another Android OAuth client (or cert) for `com.springa.app` with the **release** keystore SHA-1. Debug alone will not authorize release binaries.
 
 ## Done (reference)
