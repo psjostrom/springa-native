@@ -12,6 +12,8 @@ export type AuthValue = {
   session: Session | null;
   configError: string | null;
   signInWithGoogle: () => Promise<void>;
+  /** Dev-only QA token exchange; production builds should not call this. */
+  signInWithQaToken: (token: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 

@@ -34,6 +34,10 @@ adb reverse tcp:8081 tcp:8081
 
 So the phone talks to Metro at `http://127.0.0.1:8081`. Re-run reverse if adb drops or the phone reconnects. Prefer reverse (or `10.0.2.2` on emulators) — not the host LAN IP.
 
+**Agent / emulator QA sign-in** (local Springa with `QA_AUTH_*` only)
+
+Point `EXPO_PUBLIC_SPRINGA_API_URL` at the local Springa origin (emulator: `http://10.0.2.2:3000` or `adb reverse` + `127.0.0.1`). From the Springa repo: `DEEP_LINK="$(npm run -s qa:native-deep-link)"` then open that URL on the device (`adb shell am start -a android.intent.action.VIEW -d "$DEEP_LINK"`). Do not paste the link or token into chat. See Springa `docs/qa-agent-browser.md`.
+
 ## Tests
 
 ```bash

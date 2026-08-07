@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { AuthContext, type AuthValue } from './AuthContext';
 import { getGoogleWebClientId } from './config';
-import { exchangeGoogleIdToken } from './exchange';
+import { exchangeGoogleIdToken, exchangeQaToken } from './exchange';
 import {
   clearSession,
   loadSession,
@@ -63,6 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('signedIn');
   }, []);
 
+  const signInWithQaToken = useCallback(async (token: string) => {
+    if (!__DEV__) {
+      throw new Error('QA sign-in is only available in development builds');
+    }
+    const next = await exchangeQaToken(token);
+    await saveSession(next);
+    setSession(next);
+    setStatus('signedIn');
+  }, []);
+
   const signOut = useCallback(async () => {
     // Gate on local session immediately — SecureStore clear must not block UI.
     // clearSession is queued with saveSession so a late delete cannot wipe a newer sign-in.
@@ -81,8 +91,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ status, session, configError, signInWithGoogle, signOut }),
-    [status, session, configError, signInWithGoogle, signOut],
+    () => ({
+      status,
+      session,
+      configError,
+      signInWithGoogle,
+      signInWithQaToken,
+      signOut,
+    }),
+    [status, session, configError, signInWithGoogle, signInWithQaToken, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

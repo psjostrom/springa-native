@@ -27,6 +27,7 @@ export function makeTestAuthValue(
     session,
     configError: null,
     signInWithGoogle: async () => {},
+    signInWithQaToken: async () => {},
     signOut: async () => {},
     ...overrides,
   };

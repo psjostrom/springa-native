@@ -38,6 +38,7 @@ function RootNavigator() {
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" />
+        <Stack.Screen name="qa-login" />
       </Stack.Protected>
     </Stack>
   );

@@ -15,13 +15,42 @@ function normalizeExpiresAt(value: number): number {
   return value;
 }
 
-export async function exchangeGoogleIdToken(idToken: string): Promise<Session> {
+function parseMobileAuthJson(data: unknown): Session {
+  if (
+    data === null ||
+    typeof data !== 'object' ||
+    Array.isArray(data)
+  ) {
+    throw new Error('Mobile auth response missing token, expiresAt, or user.email');
+  }
+  const body = data as {
+    token?: unknown;
+    expiresAt?: unknown;
+    user?: { email?: unknown };
+  };
+  if (
+    typeof body.token !== 'string' ||
+    body.token.length === 0 ||
+    typeof body.expiresAt !== 'number' ||
+    typeof body.user?.email !== 'string' ||
+    body.user.email.length === 0
+  ) {
+    throw new Error('Mobile auth response missing token, expiresAt, or user.email');
+  }
+  return {
+    token: body.token,
+    expiresAt: normalizeExpiresAt(body.expiresAt),
+    email: body.user.email,
+  };
+}
+
+async function postMobileAuth(path: string, body: Record<string, string>): Promise<Session> {
   let res: Response;
   try {
-    res = await fetch(`${getApiBaseUrl()}/api/auth/mobile`, {
+    res = await fetch(`${getApiBaseUrl()}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(MOBILE_AUTH_TIMEOUT_MS),
     });
   } catch (err) {
@@ -36,23 +65,14 @@ export async function exchangeGoogleIdToken(idToken: string): Promise<Session> {
   if (!res.ok) {
     throw new Error(`Mobile auth failed (${res.status})`);
   }
-  const data = (await res.json()) as {
-    token?: unknown;
-    expiresAt?: unknown;
-    user?: { email?: unknown };
-  };
-  if (
-    typeof data.token !== 'string' ||
-    data.token.length === 0 ||
-    typeof data.expiresAt !== 'number' ||
-    typeof data.user?.email !== 'string' ||
-    data.user.email.length === 0
-  ) {
-    throw new Error('Mobile auth response missing token, expiresAt, or user.email');
-  }
-  return {
-    token: data.token,
-    expiresAt: normalizeExpiresAt(data.expiresAt),
-    email: data.user.email,
-  };
+  return parseMobileAuthJson(await res.json());
+}
+
+export async function exchangeGoogleIdToken(idToken: string): Promise<Session> {
+  return postMobileAuth('/api/auth/mobile', { idToken });
+}
+
+/** Dev-only QA bypass — Springa POST /api/qa/mobile. */
+export async function exchangeQaToken(token: string): Promise<Session> {
+  return postMobileAuth('/api/qa/mobile', { token });
 }
