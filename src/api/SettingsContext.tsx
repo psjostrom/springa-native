@@ -45,14 +45,20 @@ export function SettingsLoader({
 }: SettingsLoaderProps) {
   const [reloadToken, setReloadToken] = useState(0);
   const [fetchState, setFetchState] = useState<FetchState | null>(null);
+  // Invalidate cache on disable without setState-in-effect (React "adjust state during render").
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled);
+    if (!enabled) {
+      setSessionEpoch((n) => n + 1);
+    }
+  }
 
-  const fetchKey = `${enabled ? '1' : '0'}:${identity}:${reloadToken}`;
+  const fetchKey = `${enabled ? '1' : '0'}:${identity}:${reloadToken}:${sessionEpoch}`;
 
   useEffect(() => {
-    if (!enabled) {
-      setFetchState(null);
-      return;
-    }
+    if (!enabled) return;
 
     const key = fetchKey;
     let cancelled = false;
