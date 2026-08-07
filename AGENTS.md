@@ -14,8 +14,8 @@ Native tabs: https://docs.expo.dev/router/advanced/native-tabs/
 - **Dev binary:** `expo-dev-client` + `npx expo run:android` — not Expo Go for device work.
 - **Tabs:** `NativeTabs` from `expo-router/unstable-native-tabs` (alpha). Keep tab config thin; do not replace with a custom bottom bar.
 - **Default route:** `(tabs)/index` is Calendar/Agenda. Label stays "Calendar".
-- **Shell today:** dark tokens only (`src/theme/colors.ts`); Agenda is static fixtures (`MOCK_TODAY`); non-tab controls are inert; no auth, networking, or stores yet.
-- **Auth first for real data:** web Springa’s live architecture needs session/auth before Scout/API data works. Do not add networking/stores/auth without an approved design spec. Do not invent a migration roadmap here.
+- **Shell today:** dark tokens only (`src/theme/colors.ts`); Agenda is still fixture-backed once Intervals is connected; Calendar gates on `GET /api/settings` (`intervalsConnected`).
+- **Auth + API client:** Google session + Bearer `createApiClient` are in; do not add further networking/stores without an approved design spec. Do not invent a migration roadmap here.
 - **Diabetes chrome:** shell assumes BG pill + Simulate tab present.
 - **Native dirs:** `android/` and `ios/` are prebuild output and gitignored — never commit them. App id: `com.springa.app`.
 - **Specs vs plans:** commit approved designs under `docs/superpowers/specs/`. Implementation plans under `docs/superpowers/plans/` are gitignored — do not commit. `.superpowers/` SDD runs are local-exclude only.
@@ -54,11 +54,14 @@ Wireless device: `adb pair …`, then `adb reverse tcp:8081 tcp:8081` so Metro i
 
 ```
 src/app/(tabs)/_layout.tsx   # NativeTabs: Calendar, Intel, Coach, Planner, Simulate
-src/app/(tabs)/index.tsx     # Agenda mock (default)
+src/app/(tabs)/index.tsx     # Calendar (settings-gated Agenda)
+src/api/                     # createApiClient, SettingsProvider, types
+src/auth/                    # Google session + SecureStore
 src/components/shell/        # TopBar, BgPill, ScreenShell
-src/components/agenda/       # list + cards
-src/fixtures/agenda.ts       # static data
+src/components/agenda/       # list + cards + AgendaGate
+src/fixtures/agenda.ts       # static Agenda until live calendar (milestone 2)
 src/theme/colors.ts          # Springa dark + HR zones
+src/test/msw/                # Vitest MSW server + handlers
 ```
 
 Intel / Coach / Planner / Simulate are placeholders with the shared shell.

@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
+import { SettingsProvider } from '@/api/SettingsProvider';
 import { SpringaColors } from '@/theme/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -43,9 +44,11 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="light" />
-      <SplashScreenController />
-      <RootNavigator />
+      <SettingsProvider>
+        <StatusBar style="light" />
+        <SplashScreenController />
+        <RootNavigator />
+      </SettingsProvider>
     </AuthProvider>
   );
 }

@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { AgendaGate } from '@/components/agenda/AgendaGate';
 import { AgendaList } from '@/components/agenda/AgendaList';
 import { ViewModeSwitcher } from '@/components/agenda/ViewModeSwitcher';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -12,7 +13,9 @@ export default function CalendarScreen() {
           <ViewModeSwitcher />
         </View>
         <View style={styles.card}>
-          <AgendaList />
+          <AgendaGate>
+            <AgendaList />
+          </AgendaGate>
         </View>
       </ScrollView>
     </ScreenShell>
