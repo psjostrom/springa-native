@@ -37,3 +37,36 @@ export type UserSettings = {
   email?: string;
   demo?: boolean;
 };
+
+/** Calendar event from Springa GET /api/intervals/calendar (JSON dates coerced to Date). */
+export type CalendarEvent = {
+  id: string;
+  date: Date;
+  name: string;
+  description: string;
+  type: 'completed' | 'planned' | 'race';
+  category: 'long' | 'interval' | 'easy' | 'race' | 'other';
+  distance?: number;
+  duration?: number;
+  avgHr?: number;
+  maxHr?: number;
+  pace?: number;
+  fuelRate?: number | null;
+  prescribedCarbsG?: number | null;
+  activityId?: string;
+};
+
+export type BgPayload = {
+  readings?: unknown[];
+  current?: {
+    mmol: number;
+    ts: number;
+    arrow?: string;
+    direction?: string;
+  } | null;
+  trend?: {
+    slope?: number;
+    arrow?: string;
+    direction?: string;
+  } | null;
+};

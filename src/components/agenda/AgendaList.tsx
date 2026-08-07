@@ -1,73 +1,259 @@
-import { History, Plus } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LegendList } from '@legendapp/list/react-native';
+import { ChevronLeft, History } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import {
-  AGENDA_EVENTS,
-  MOCK_TODAY,
-  hasEventOnDay,
-  splitAgendaEvents,
-} from '@/fixtures/agenda';
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import type { CalendarEvent } from '@/api/types';
+import { splitAgendaEvents } from '@/domain/agendaAnchor';
+import { useCalendarEvents } from '@/query/useCalendarEvents';
 import { SpringaColors } from '@/theme/colors';
 import { AgendaEventCard } from './AgendaEventCard';
+import { ViewModeSwitcher } from './ViewModeSwitcher';
+
+type AgendaViewMode = 'upcoming' | 'history';
 
 export function AgendaList() {
-  const { earlier, upcoming } = splitAgendaEvents(AGENDA_EVENTS, MOCK_TODAY);
-  const showGenerateToday = !hasEventOnDay(AGENDA_EVENTS, MOCK_TODAY);
-  const earlierLabel =
-    earlier.length === 1
-      ? '1 earlier workout'
-      : `${earlier.length} earlier workouts`;
+  const [view, setView] = useState<AgendaViewMode>('upcoming');
+  const {
+    events,
+    isLoading,
+    isError,
+    error,
+    reload,
+    fetchOlder,
+    fetchNewer,
+    hasOlder,
+    isFetchingOlder,
+    isFetchingNewer,
+    olderError,
+    newerError,
+  } = useCalendarEvents();
+
+  const { earlier, upcoming } = splitAgendaEvents(events);
+  const historyMode = view === 'history';
+
+  // Empty older windows are gaps — keep paging while history is open and still empty.
+  useEffect(() => {
+    if (!historyMode || earlier.length > 0 || isFetchingOlder || !hasOlder) return;
+    void fetchOlder();
+  }, [historyMode, earlier.length, isFetchingOlder, hasOlder, fetchOlder]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.center} accessibilityLabel="Loading calendar">
+        <ActivityIndicator color={SpringaColors.brand} />
+        <Text style={styles.muted}>Loading workouts…</Text>
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.title}>Couldn’t load calendar</Text>
+        <Text style={styles.body}>{error ?? 'Something went wrong.'}</Text>
+        <Pressable
+          onPress={reload}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading calendar"
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const listData = historyMode ? [...earlier].reverse() : upcoming;
+  const historyStillLoading =
+    historyMode && earlier.length === 0 && (isFetchingOlder || hasOlder);
 
   return (
-    <View style={styles.list}>
-      {earlier.length > 0 ? (
-        <Pressable onPress={() => {}} style={styles.earlierRow}>
-          <History size={16} color={SpringaColors.muted} />
-          <Text style={styles.earlierText}>{earlierLabel}</Text>
-        </Pressable>
-      ) : null}
-
-      {showGenerateToday ? (
-        <Pressable onPress={() => {}} style={styles.generateRow}>
-          <Plus size={16} color={SpringaColors.muted} />
-          <Text style={styles.generateText}>Generate workout for today</Text>
-        </Pressable>
-      ) : null}
-
-      {upcoming.map((event) => (
-        <AgendaEventCard key={event.id} event={event} />
-      ))}
-    </View>
+    <LegendList
+      // Remount when flipping modes — LegendList can stick on an empty frame
+      // after upcoming ↔ history swaps.
+      key={view}
+      style={styles.list}
+      data={listData}
+      extraData={view}
+      keyExtractor={(item: CalendarEvent) => item.id}
+      recycleItems
+      estimatedItemSize={96}
+      maintainVisibleContentPosition={false}
+      onStartReached={undefined}
+      onEndReached={() => {
+        if (historyMode) {
+          void fetchOlder();
+          return;
+        }
+        void fetchNewer();
+      }}
+      onEndReachedThreshold={0.5}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <View style={styles.switcherCard}>
+            <ViewModeSwitcher />
+          </View>
+          {historyMode ? (
+            <Pressable
+              onPress={() => setView('upcoming')}
+              accessibilityRole="button"
+              accessibilityLabel="Back to upcoming"
+              style={styles.historyNav}
+            >
+              <ChevronLeft size={16} color={SpringaColors.muted} />
+              <Text style={styles.historyNavText}>Back to upcoming</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => setView('history')}
+              accessibilityRole="button"
+              accessibilityLabel="Earlier workouts"
+              style={styles.earlierButton}
+            >
+              <History size={16} color={SpringaColors.muted} />
+              <Text style={styles.earlierButtonText}>Earlier workouts</Text>
+            </Pressable>
+          )}
+          {historyMode && olderError ? (
+            <Pressable
+              onPress={() => {
+                void fetchOlder();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading earlier workouts"
+            >
+              <Text style={styles.edgeError}>Couldn’t load more. Tap to retry.</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      }
+      ListEmptyComponent={
+        <Text style={styles.empty}>
+          {historyMode
+            ? historyStillLoading
+              ? 'Loading earlier…'
+              : 'No earlier workouts'
+            : 'No workouts scheduled'}
+        </Text>
+      }
+      ListFooterComponent={
+        <View style={styles.footer}>
+          {historyMode && isFetchingOlder && earlier.length > 0 ? (
+            <Text style={styles.edgeHint}>Loading earlier…</Text>
+          ) : null}
+          {!historyMode && isFetchingNewer ? (
+            <Text style={styles.edgeHint}>Loading more…</Text>
+          ) : null}
+          {!historyMode && newerError ? (
+            <Pressable
+              onPress={() => {
+                void fetchNewer();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading later workouts"
+            >
+              <Text style={styles.edgeError}>Couldn’t load more. Tap to retry.</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      }
+      renderItem={({ item }: { item: CalendarEvent }) => (
+        <AgendaEventCard event={item} />
+      )}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  list: {
-    gap: 8,
-    backgroundColor: 'transparent',
+  list: { flex: 1 },
+  header: { gap: 6, marginBottom: 6 },
+  switcherCard: {
+    backgroundColor: SpringaColors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: SpringaColors.border,
+    padding: 8,
   },
-  earlierRow: {
+  earlierButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
-  earlierText: {
-    fontSize: 13,
+  earlierButtonText: {
     color: SpringaColors.muted,
+    fontSize: 14,
   },
-  generateRow: {
+  historyNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
+    gap: 4,
+    paddingVertical: 8,
+  },
+  historyNavText: {
+    color: SpringaColors.muted,
+    fontSize: 14,
+  },
+  footer: { paddingVertical: 8 },
+  edgeHint: {
+    textAlign: 'center',
+    color: SpringaColors.muted,
+    fontSize: 12,
+    paddingVertical: 4,
+  },
+  edgeError: {
+    textAlign: 'center',
+    color: SpringaColors.error,
+    fontSize: 12,
+    paddingVertical: 4,
+  },
+  empty: {
+    textAlign: 'center',
+    color: SpringaColors.muted,
+    fontSize: 14,
+    paddingVertical: 28,
+  },
+  center: {
+    gap: 10,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  title: {
+    color: SpringaColors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  body: {
+    color: SpringaColors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  muted: {
+    color: SpringaColors.muted,
+    fontSize: 13,
+  },
+  button: {
+    marginTop: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
+    backgroundColor: SpringaColors.tintBrand,
     borderWidth: 1,
-    borderStyle: 'dashed',
     borderColor: SpringaColors.border,
   },
-  generateText: {
-    fontSize: 13,
-    color: SpringaColors.muted,
+  buttonText: {
+    color: SpringaColors.brand,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

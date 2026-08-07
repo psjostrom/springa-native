@@ -1,27 +1,27 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import {
-  type AgendaEvent,
-  getEventIcon,
-  parseAgendaDate,
-} from '@/fixtures/agenda';
+import type { CalendarEvent } from '@/api/types';
+import { formatDuration, formatHrMin } from '@/domain/format';
+import { getCardStatus, getEventIcon } from '@/domain/eventStatus';
 import { SpringaColors } from '@/theme/colors';
-import { WorkoutStructureBar } from './WorkoutStructureBar';
 
 type AgendaEventCardProps = {
-  event: AgendaEvent;
+  event: CalendarEvent;
 };
 
-function formatPace(paceSecPerKm: number): string {
-  const minutes = Math.floor(paceSecPerKm / 60);
-  const seconds = Math.round(paceSecPerKm % 60);
+function formatPaceMinPerKm(paceMinPerKm: number): string {
+  const totalSeconds = Math.round(paceMinPerKm * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function statusBorderColor(status: AgendaEvent['status']): string {
+function statusBorderColor(status: ReturnType<typeof getCardStatus>): string {
   switch (status) {
     case 'completed':
       return SpringaColors.success;
     case 'missed':
+      return SpringaColors.error;
+    case 'race':
       return SpringaColors.error;
     default:
       return SpringaColors.brand;
@@ -29,24 +29,39 @@ function statusBorderColor(status: AgendaEvent['status']): string {
 }
 
 export function AgendaEventCard({ event }: AgendaEventCardProps) {
-  const date = parseAgendaDate(event.date);
-  const weekday = date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
-  const day = date.toLocaleDateString('en-GB', { day: 'numeric' });
-  const month = date.toLocaleDateString('en-GB', { month: 'short' });
-  const missed = event.status === 'missed';
-  const planned = event.status === 'planned';
-  const completed = event.status === 'completed';
-  const hasFuel = event.fuelGPerH != null || event.fuelTotalG != null;
-  const hasMetrics = event.durationMin != null || event.distanceKm != null;
+  const status = getCardStatus(event);
+  const weekday = event.date
+    .toLocaleDateString('en-GB', { weekday: 'short' })
+    .toUpperCase();
+  const day = event.date.toLocaleDateString('en-GB', { day: 'numeric' });
+  const month = event.date.toLocaleDateString('en-GB', { month: 'short' });
+  const missed = status === 'missed';
+  const planned = status === 'planned' || status === 'race';
+  const completed = status === 'completed';
+
+  const durationLabel =
+    event.duration == null
+      ? null
+      : completed
+        ? formatDuration(event.duration)
+        : formatHrMin(Math.round(event.duration / 60));
+
+  const distanceKm =
+    event.distance != null && event.distance > 0
+      ? Math.round((event.distance / 1000) * 10) / 10
+      : null;
+  const hasFuel = event.fuelRate != null || event.prescribedCarbsG != null;
+  const hasMetrics = durationLabel != null || distanceKm != null;
 
   return (
     <Pressable
       onPress={() => {}}
       style={[
         styles.card,
-        { borderLeftColor: statusBorderColor(event.status) },
+        { borderLeftColor: statusBorderColor(status) },
         missed && styles.cardMissed,
-      ]}>
+      ]}
+    >
       <View style={styles.dateCol}>
         <Text style={styles.weekday}>{weekday}</Text>
         <Text style={styles.day}>{day}</Text>
@@ -61,20 +76,14 @@ export function AgendaEventCard({ event }: AgendaEventCardProps) {
           </Text>
         </View>
 
-        {planned && event.structure ? (
-          <View style={styles.structure}>
-            <WorkoutStructureBar segments={event.structure} />
-          </View>
-        ) : null}
-
         {planned && (hasMetrics || hasFuel) ? (
           <View style={styles.chips}>
             {hasMetrics ? (
               <View style={styles.chip}>
                 <Text style={styles.chipText}>
                   {[
-                    event.durationMin != null ? `~${event.durationMin} min` : null,
-                    event.distanceKm != null ? `${event.distanceKm} km` : null,
+                    durationLabel != null ? `~${durationLabel}` : null,
+                    distanceKm != null ? `${distanceKm} km` : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -85,8 +94,10 @@ export function AgendaEventCard({ event }: AgendaEventCardProps) {
               <View style={[styles.chip, styles.fuelChip]}>
                 <Text style={styles.chipText}>
                   {[
-                    event.fuelGPerH != null ? `${event.fuelGPerH}g/h` : null,
-                    event.fuelTotalG != null ? `${event.fuelTotalG}g total` : null,
+                    event.fuelRate != null ? `${event.fuelRate}g/h` : null,
+                    event.prescribedCarbsG != null
+                      ? `${event.prescribedCarbsG}g total`
+                      : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -98,19 +109,19 @@ export function AgendaEventCard({ event }: AgendaEventCardProps) {
 
         {completed ? (
           <View style={styles.stats}>
-            {event.durationMin != null ? (
+            {durationLabel != null ? (
               <Text style={styles.stat}>
-                <Text style={styles.statValue}>{event.durationMin} min</Text>
+                <Text style={styles.statValue}>{durationLabel}</Text>
               </Text>
             ) : null}
-            {event.distanceKm != null ? (
+            {distanceKm != null ? (
               <Text style={styles.stat}>
-                <Text style={styles.statValue}>{event.distanceKm} km</Text>
+                <Text style={styles.statValue}>{distanceKm} km</Text>
               </Text>
             ) : null}
-            {event.paceSecPerKm != null ? (
+            {event.pace != null ? (
               <Text style={styles.stat}>
-                <Text style={styles.statValue}>{formatPace(event.paceSecPerKm)}</Text>
+                <Text style={styles.statValue}>{formatPaceMinPerKm(event.pace)}</Text>
                 <Text style={styles.statUnit}> /km</Text>
               </Text>
             ) : null}
@@ -138,6 +149,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     backgroundColor: SpringaColors.surface,
     overflow: 'hidden',
+    marginBottom: 8,
   },
   cardMissed: {
     borderColor: SpringaColors.error + '4D',
@@ -183,9 +195,6 @@ const styles = StyleSheet.create({
   },
   titleMissed: {
     textDecorationLine: 'line-through',
-  },
-  structure: {
-    marginTop: 2,
   },
   chips: {
     flexDirection: 'row',
