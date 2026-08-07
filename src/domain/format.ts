@@ -8,8 +8,9 @@ export function formatHrMin(minutes: number): string {
 
 /** Format seconds as "Xh Ym" or "Ym" (completed Agenda cards). */
 export function formatDuration(seconds: number): string {
-  const secs = Math.round(seconds % 60);
-  const totalMins = Math.floor(seconds / 60);
+  const totalSecs = Math.round(seconds);
+  const secs = totalSecs % 60;
+  const totalMins = Math.floor(totalSecs / 60);
   const hours = Math.floor(totalMins / 60);
   const mins = totalMins % 60;
   if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;

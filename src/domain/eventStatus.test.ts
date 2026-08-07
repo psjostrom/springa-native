@@ -42,6 +42,7 @@ describe('format', () => {
     expect(formatHrMin(45)).toBe('45m');
     expect(formatDuration(6660)).toBe('1h 51m');
     expect(formatDuration(2700)).toBe('45m');
+    expect(formatDuration(119.5)).toBe('2m');
   });
 });
 
@@ -66,7 +67,7 @@ describe('calendarWindows', () => {
   });
 
   it('keeps contiguous days across a spring-forward DST boundary', () => {
-    // CEST spring-forward 2026-03-29: DAY_MS arithmetic can skip a local day.
+    // CEST spring-forward 2026-03-29: local setDate windows must stay contiguous.
     const older = olderCalendarWindow('2026-03-30');
     expect(older.newest).toBe('2026-03-29');
     expect(older.oldest).toBe('2026-03-18');

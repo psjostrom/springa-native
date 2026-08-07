@@ -78,8 +78,10 @@ export function useCalendarEvents() {
     if (prefetchedFor.current === identity) return;
     if ((data?.pages.length ?? 0) < 1) return;
     prefetchedFor.current = identity;
-    if (hasPreviousPage) void fetchPreviousPage();
-    if (hasNextPage) void fetchNextPage();
+    void (async () => {
+      if (hasPreviousPage) await fetchPreviousPage();
+      if (hasNextPage) await fetchNextPage();
+    })();
   }, [
     calendarEnabled,
     identity,
