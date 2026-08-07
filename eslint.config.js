@@ -58,9 +58,20 @@ module.exports = defineConfig([
             'mockImplementation is banned in tests. Use MSW handlers instead of reimplementing fetch behavior.',
         },
         {
+          selector:
+            "CallExpression[callee.property.name='mockImplementationOnce']",
+          message:
+            'mockImplementationOnce is banned in tests. Use MSW handlers instead of reimplementing fetch behavior.',
+        },
+        {
           selector: "CallExpression[callee.property.name='mockReturnValue']",
           message:
             'mockReturnValue is banned in tests. Use real implementations or MSW for network boundaries.',
+        },
+        {
+          selector: "CallExpression[callee.property.name='mockReturnValueOnce']",
+          message:
+            'mockReturnValueOnce is banned in tests. Use real implementations or MSW for network boundaries.',
         },
         {
           selector:

@@ -19,8 +19,7 @@ describe('splitAgendaEvents', () => {
 
 describe('hasEventOnDay', () => {
   it('detects whether MOCK_TODAY has an event', () => {
-    const result = hasEventOnDay(AGENDA_EVENTS, MOCK_TODAY);
-    expect(typeof result).toBe('boolean');
+    expect(hasEventOnDay(AGENDA_EVENTS, MOCK_TODAY)).toBe(true);
   });
 });
 
