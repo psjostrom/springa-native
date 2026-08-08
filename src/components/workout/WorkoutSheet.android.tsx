@@ -10,9 +10,9 @@ import {
   padding,
   testID as testIDModifier,
 } from '@expo/ui/jetpack-compose/modifiers';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SpringaColors } from '@/theme/colors';
-import { useSheetMount, useWorkoutSheetController } from './useWorkoutSheetController';
+import { useWorkoutSheetController } from './useWorkoutSheetController';
 import { WorkoutSheetContent } from './WorkoutSheetContent';
 
 /**
@@ -22,7 +22,11 @@ import { WorkoutSheetContent } from './WorkoutSheetContent';
 export function WorkoutSheet() {
   const { isPresented, event, clearWorkout } = useWorkoutSheetController();
   const sheetRef = useRef<ModalBottomSheetRef>(null);
-  const { mount, setMount } = useSheetMount(isPresented);
+  const [mount, setMount] = useState(isPresented);
+
+  if (isPresented && !mount) {
+    setMount(true);
+  }
 
   useEffect(() => {
     if (isPresented) return;
@@ -38,7 +42,7 @@ export function WorkoutSheet() {
     return () => {
       cancelled = true;
     };
-  }, [isPresented, setMount]);
+  }, [isPresented]);
 
   if (!mount) return null;
 

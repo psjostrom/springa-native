@@ -112,3 +112,5 @@ Agenda card tap
 ## Follow-up
 
 Milestone 4 — Planned detail (full). Milestone 5 — Completed Overview.
+
+Android system-back: Material `shouldDismissOnBackPress` + JS `BackHandler` clear the route param; swipe/scrim/`✕` dismiss are the reliable paths on current Expo UI + `predictiveBackGestureEnabled: false`. If hardware back finishes the activity instead of only dismissing the sheet, fix in a follow-up without switching to RN `Modal`.

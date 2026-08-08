@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { BackHandler } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
@@ -35,17 +35,11 @@ export function useWorkoutSheetController(): WorkoutSheetController {
 
   useEffect(() => {
     if (!isPresented) return;
-    const onBack = () => {
-      console.warn('[workout-sheet] hardwareBackPress → clearWorkout');
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       clearWorkout();
       return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
-    return () => {
-      sub.remove();
-      const hold = BackHandler.addEventListener('hardwareBackPress', () => true);
-      setTimeout(() => hold.remove(), 400);
-    };
+    });
+    return () => sub.remove();
   }, [isPresented, clearWorkout]);
 
   useEffect(() => {
@@ -61,17 +55,4 @@ export function useWorkoutSheetController(): WorkoutSheetController {
     event: event ?? null,
     clearWorkout,
   };
-}
-
-/** Mount native sheet while presented; keep mounted until hide animation finishes. */
-export function useSheetMount(isPresented: boolean): {
-  mount: boolean;
-  setMount: (v: boolean) => void;
-} {
-  const [mount, setMount] = useState(isPresented);
-  // Sync open → mounted during render (avoid setState-in-effect).
-  if (isPresented && !mount) {
-    setMount(true);
-  }
-  return { mount, setMount };
 }
