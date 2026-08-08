@@ -37,6 +37,21 @@ describe('AgendaEventCard', () => {
     expect(screen.getByText(/~55m/)).toBeOnTheScreen();
     expect(screen.getByText(/45g\/h/)).toBeOnTheScreen();
   });
+
+  it('opens via press callback', async () => {
+    let openedId: string | null = null;
+    await render(
+      <AgendaEventCard
+        event={sampleEvent()}
+        onPress={(event) => {
+          openedId = event.id;
+        }}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Open workout Threshold intervals'));
+    expect(openedId).toBe('threshold-today');
+  });
 });
 
 describe('AgendaList', () => {

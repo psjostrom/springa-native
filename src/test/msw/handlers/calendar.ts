@@ -27,6 +27,17 @@ export function defaultCalendarEvents() {
       avgHr: 138,
     },
     {
+      id: 'tempo-missed',
+      date: `${isoDaysFromToday(-2)}T12:00:00.000Z`,
+      name: 'Tempo (missed)',
+      description: '',
+      type: 'planned',
+      category: 'interval',
+      distance: 8000,
+      duration: 2700,
+      fuelRate: 40,
+    },
+    {
       id: 'threshold-today',
       date: `${isoDaysFromToday(0)}T12:00:00.000Z`,
       name: 'Threshold intervals',
