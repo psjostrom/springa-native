@@ -91,6 +91,7 @@ const styles = StyleSheet.create({
   root: {
     gap: 8,
     minHeight: 120,
+    backgroundColor: SpringaColors.surface,
   },
   header: {
     flexDirection: 'row',
