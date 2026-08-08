@@ -28,7 +28,7 @@ Tap an Agenda card to open a native bottom sheet over Calendar. Establish planne
 | Race | Planned branch (`type === 'race'` or card status race) |
 | Snap points | Half / full (Material partial + expanded on Android; detents on iOS) |
 | External deep links | Out of scope (no WhatsApp / universal links) |
-| Back | Android/system back must dismiss the sheet (`onDismissRequest` + BackHandler clears param) |
+| Back | Android: Material `shouldDismissOnBackPress` → `onDismissRequest` clears param; JS `BackHandler` stays for full Host mount (incl. hide) so tear-down cannot finish MainActivity. iOS: sheet dismiss / BackHandler clears param |
 | M2 Zustand | Remove `selectedEventId` from `useUiStore` — route param is the only owner |
 | Backend | No new Springa endpoints |
 
@@ -112,5 +112,3 @@ Agenda card tap
 ## Follow-up
 
 Milestone 4 — Planned detail (full). Milestone 5 — Completed Overview.
-
-Android system-back: Material `shouldDismissOnBackPress` + JS `BackHandler` clear the route param; swipe/scrim/`✕` dismiss are the reliable paths on current Expo UI + `predictiveBackGestureEnabled: false`. If hardware back finishes the activity instead of only dismissing the sheet, fix in a follow-up without switching to RN `Modal`.
