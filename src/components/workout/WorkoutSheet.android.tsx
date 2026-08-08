@@ -32,7 +32,10 @@ export function WorkoutSheet() {
   const sheetRef = useRef<ModalBottomSheetRef>(null);
   const [mount, setMount] = useState(isPresented);
   const isPresentedRef = useRef(isPresented);
+  /** True after isPresented→false until delayed unmount (or re-present remount). */
+  const dismissingRef = useRef(false);
 
+  // Remount after dismiss hold completed, or after we forced unmount to recover from hide().
   if (isPresented && !mount) {
     setMount(true);
   }
@@ -42,10 +45,22 @@ export function WorkoutSheet() {
   }, [isPresented]);
 
   useEffect(() => {
-    if (isPresented) return;
+    if (isPresented) {
+      // Re-opened while hide()/hold was in flight: Host may still be mounted but
+      // Material sheet already hidden — force remount so content presents again.
+      if (dismissingRef.current) {
+        dismissingRef.current = false;
+        setMount(false);
+      }
+      return;
+    }
+
+    dismissingRef.current = true;
     let cancelled = false;
     const finish = () => {
-      if (!cancelled) setMount(false);
+      if (cancelled) return;
+      dismissingRef.current = false;
+      setMount(false);
     };
     const hide = sheetRef.current?.hide();
     const done = hide ?? Promise.resolve();

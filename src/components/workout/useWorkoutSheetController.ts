@@ -1,6 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect } from 'react';
-import { BackHandler, Platform } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
@@ -33,17 +32,8 @@ export function useWorkoutSheetController(): WorkoutSheetController {
     router.setParams({ workout: undefined });
   }, [router]);
 
-  // iOS / default: consume hardware back while the param is set.
-  // Android: WorkoutSheet.android keeps BackHandler for the full Host mount
-  // (param clear → hide animation) so Dialog tear-down cannot finish MainActivity.
-  useEffect(() => {
-    if (!isPresented || Platform.OS === 'android') return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      clearWorkout();
-      return true;
-    });
-    return () => sub.remove();
-  }, [isPresented, clearWorkout]);
+  // Dismiss: iOS universal BottomSheet onDismiss; Android Material onDismissRequest
+  // + BackHandler in WorkoutSheet.android.tsx (covers Host mount / Dialog tear-down).
 
   useEffect(() => {
     if (!notFound) return;
@@ -51,7 +41,7 @@ export function useWorkoutSheetController(): WorkoutSheetController {
       clearWorkout();
     }, 1200);
     return () => clearTimeout(t);
-  }, [notFound, clearWorkout]);
+  }, [notFound, workoutId, clearWorkout]);
 
   return {
     isPresented,
