@@ -15,7 +15,7 @@ export default function CalendarScreen() {
           <View style={styles.card}>
             <AgendaList
               onOpenWorkout={(eventId) => {
-                router.push(`/workout/${eventId}`);
+                router.push({ pathname: '/workout/[id]', params: { id: eventId } });
               }}
             />
           </View>
