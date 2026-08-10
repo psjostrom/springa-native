@@ -56,7 +56,9 @@ export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
 
   return (
     <Pressable
-      onPress={() => onPress?.(event)}
+      onPress={() => {
+        onPress?.(event);
+      }}
       accessibilityRole="button"
       accessibilityLabel={`Open workout ${event.name}`}
       style={[

@@ -3,7 +3,6 @@ import { StyleSheet, View } from 'react-native';
 import { AgendaGate } from '@/components/agenda/AgendaGate';
 import { AgendaList } from '@/components/agenda/AgendaList';
 import { ScreenShell } from '@/components/shell/ScreenShell';
-import { WorkoutSheet } from '@/components/workout/WorkoutSheet';
 import { SpringaColors } from '@/theme/colors';
 
 export default function CalendarScreen() {
@@ -16,13 +15,12 @@ export default function CalendarScreen() {
           <View style={styles.card}>
             <AgendaList
               onOpenWorkout={(eventId) => {
-                router.setParams({ workout: eventId });
+                router.push(`/workout/${eventId}`);
               }}
             />
           </View>
         </AgendaGate>
       </View>
-      <WorkoutSheet />
     </ScreenShell>
   );
 }

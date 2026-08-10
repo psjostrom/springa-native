@@ -15,47 +15,45 @@ Tap an Agenda card to open a native bottom sheet over Calendar. Establish planne
 
 | Topic | Choice |
 |-------|--------|
-| Presentation | `@expo/ui` bottom sheet over Calendar (PWA-like) |
-| Android implementation | `@expo/ui/jetpack-compose` `ModalBottomSheet` with Springa `containerColor` / `contentColor` / `scrimColor` |
-| iOS implementation | Universal `@expo/ui` `BottomSheet` + `RNHostView` |
-| Sheet content host | RN trees via `RNHostView` |
-| Sheet theme | Dark Springa surface (`#1d1828`) — not Material light defaults |
-| Identity | Calendar route search param `workout=<eventId>` |
+| Presentation | Expo Router `Stack` screen with `presentation: 'formSheet'` |
+| Android / iOS | Same Router formSheet path (no `@expo/ui` Modal / Host overlay) |
+| Sheet content host | React Native screen tree (`src/app/workout/[id].tsx`) |
+| Sheet theme | Dark Springa surface (`#1d1828`) via `contentStyle` + screen root |
+| Identity | Path param `/workout/[id]` |
 | Data | Resolve from merged calendar TanStack Query cache by id; no event snapshot in Zustand |
-| Cache miss | Not-found state in sheet, then clear param / dismiss (tap path always hits cache) |
+| Cache miss | Not-found state in sheet, then `router.back()` (tap path always hits cache) |
 | Branches | `type === 'completed'` → completed shell; else → planned shell |
 | Missed | Mode of planned (`isMissedEvent`) — Missed badge; not its own route; not completed |
 | Race | Planned branch (`type === 'race'` or card status race) |
-| Snap points | Half / full (Material partial + expanded on Android; detents on iOS) |
+| Snap points | `sheetAllowedDetents: [0.5, 1]`, grabber on |
 | External deep links | Out of scope (no WhatsApp / universal links) |
-| Back | Android: Material `shouldDismissOnBackPress` → `onDismissRequest` clears param; JS `BackHandler` stays for full Host mount (incl. hide) so tear-down cannot finish MainActivity. iOS: sheet dismiss / BackHandler clears param |
-| M2 Zustand | Remove `selectedEventId` from `useUiStore` — route param is the only owner |
+| Back | System back / sheet dismiss / close → `router.back()` |
+| M2 Zustand | Remove `selectedEventId` from `useUiStore` — route is the only owner |
 | Backend | No new Springa endpoints |
 
-Rationale: Branch on data shape (activity-backed completed vs plan-backed), not calendar emotion. Route owns identity; Query owns data. Expo UI BottomSheet for native sheet chrome; Android passes explicit Springa colors because universal BottomSheet does not expose `containerColor`.
+Rationale: Branch on data shape (activity-backed completed vs plan-backed), not calendar emotion. Route owns identity; Query owns data. FormSheet scales to more sheets (push / nested back) without Compose `Host` / Material Dialog lifecycle over Calendar.
 
 ## Flow
 
 ```text
 Agenda card tap
-  → set Calendar search param workout=<id>
-  → BottomSheet presented
+  → router.push(`/workout/${id}`)
+  → formSheet presented over tabs
   → look up id in merged calendar Query pages
        hit  → shared chrome + PlannedWorkoutSheet | CompletedWorkoutSheet
-       miss → not-found chrome → clear workout param
-  → dismiss (swipe / overlay / close / system back)
-  → clear workout param → sheet dismissed
+       miss → not-found chrome → router.back()
+  → dismiss (swipe / grabber / close / system back)
+  → pop workout route → Calendar visible
 ```
 
 ## Module layout
 
-- `src/components/workout/useWorkoutSheetController.ts` — route param + Query resolve + back/clear
-- `src/components/workout/WorkoutSheet.android.tsx` — jetpack `ModalBottomSheet` + dark Springa colors
-- `src/components/workout/WorkoutSheet.tsx` — iOS/default universal `BottomSheet`
+- `src/app/workout/[id].tsx` — formSheet screen; Query resolve + dismiss
+- `src/app/_layout.tsx` — Stack `workout/[id]` with `presentation: 'formSheet'`
 - `src/components/workout/WorkoutSheetContent.tsx` — shared chrome + branch bodies
 - `src/components/workout/PlannedWorkoutSheet.tsx` / `CompletedWorkoutSheet.tsx` — placeholders
 - `src/components/workout/workoutStatusBadge.ts` — Planned / Missed / Completed / Race labels
-- Calendar / Agenda: wire card `onPress` → set `workout` param; mount `WorkoutSheet` on Calendar
+- Calendar / Agenda: card `onPress` → `router.push(\`/workout/${id}\`)`
 - `src/store/ui.ts` — drop `selectedEventId`
 
 ## UI behavior
@@ -65,7 +63,7 @@ Agenda card tap
 - Formatted date (en-GB, readable)
 - Event name as title
 - Status badge: Planned | Missed | Completed | Race
-- Close control that clears `workout`
+- Close control that pops the workout route
 
 ### Bodies (m3)
 
@@ -75,10 +73,9 @@ Agenda card tap
 
 ### Sheet
 
-- Dark Springa surface + dark Host scheme (Android)
-- `snapPoints` / Material half+full
-- Dismiss clears `workout`
-- Drag indicator on
+- Dark Springa surface
+- Half / full detents + grabber
+- Dismiss pops `/workout/[id]`
 
 ## Out of scope
 
@@ -95,18 +92,18 @@ Agenda card tap
 - Tap planned → sheet shows title + Planned badge + planned placeholder
 - Tap completed → completed placeholder
 - Tap missed → Missed badge + planned placeholder
-- Dismiss / clear param → sheet gone, Agenda visible
-- Unknown `workout` id → not-found then cleared
+- Dismiss → sheet gone, Agenda visible
+- Unknown workout id → not-found then dismissed
 - `npm test`, `npx tsc --noEmit`, `npm run lint`
 - Android smoke: open sheet (dark readable chrome), system back closes
 
 ## Success criteria
 
-- Agenda cards open an Expo UI bottom sheet over Calendar
+- Agenda cards open a Router formSheet over Calendar
 - Sheet chrome is readable on Springa dark surface
 - Correct branch for planned / completed; missed is planned mode
 - System back dismisses the sheet
-- Route param is sole selected-workout owner; Query remains sole event data owner
+- Route is sole selected-workout owner; Query remains sole event data owner
 - Placeholders only — ready for m4/m5 drop-in
 
 ## Follow-up

@@ -7,10 +7,12 @@ import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
 import { getWorkoutStatusBadge } from '@/components/workout/workoutStatusBadge';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
 
+const NOW = new Date('2026-08-10T12:00:00');
+
 function sampleEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
   return {
     id: 'threshold-today',
-    date: new Date('2026-08-08T12:00:00'),
+    date: new Date('2026-08-12T12:00:00'),
     name: 'Threshold intervals',
     description: '',
     type: 'planned',
@@ -21,7 +23,7 @@ function sampleEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
 
 describe('getWorkoutStatusBadge', () => {
   it('labels planned, missed, completed, and race', () => {
-    expect(getWorkoutStatusBadge(sampleEvent({ type: 'planned' })).label).toBe('Planned');
+    expect(getWorkoutStatusBadge(sampleEvent({ type: 'planned' }), NOW).label).toBe('Planned');
     expect(
       getWorkoutStatusBadge(
         sampleEvent({
@@ -29,11 +31,13 @@ describe('getWorkoutStatusBadge', () => {
           type: 'planned',
           date: new Date('2026-08-01T12:00:00'),
         }),
-        new Date('2026-08-08T12:00:00'),
+        NOW,
       ).label,
     ).toBe('Missed');
-    expect(getWorkoutStatusBadge(sampleEvent({ type: 'completed' })).label).toBe('Completed');
-    expect(getWorkoutStatusBadge(sampleEvent({ type: 'race' })).label).toBe('Race');
+    expect(getWorkoutStatusBadge(sampleEvent({ type: 'completed' }), NOW).label).toBe(
+      'Completed',
+    );
+    expect(getWorkoutStatusBadge(sampleEvent({ type: 'race' }), NOW).label).toBe('Race');
   });
 });
 
@@ -49,7 +53,7 @@ describe('findCalendarEvent', () => {
 describe('WorkoutSheetContent', () => {
   it('shows planned chrome and placeholder for upcoming planned', async () => {
     await render(
-      <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} />,
+      <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} now={NOW} />,
     );
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
     expect(screen.getByText('Planned')).toBeOnTheScreen();
@@ -61,6 +65,7 @@ describe('WorkoutSheetContent', () => {
       <WorkoutSheetContent
         event={sampleEvent({ type: 'completed', name: 'Easy Run' })}
         onClose={() => {}}
+        now={NOW}
       />,
     );
     expect(screen.getByText('Easy Run')).toBeOnTheScreen();
@@ -78,7 +83,7 @@ describe('WorkoutSheetContent', () => {
           date: new Date('2026-08-01T12:00:00'),
         })}
         onClose={() => {}}
-        now={new Date('2026-08-08T12:00:00')}
+        now={NOW}
       />,
     );
     expect(screen.getByText('Skipped tempo')).toBeOnTheScreen();
