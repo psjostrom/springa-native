@@ -72,7 +72,7 @@ Single authenticated client to Springa production (and local/dev URLs as needed)
 Parity target: web `AgendaView` behavior on mobile (upcoming vs history), not Month/Week. Card visuals already exist; wire real `CalendarEvent` data. Remove fixture-driven Agenda once this lands.
 
 **3 — Navigation**  
-Native stack or modal equivalent of web `?workout=` → `EventModal`. Establish the planned vs completed branch before filling either body.
+Expo Router `formSheet` (`/workout/[id]`) equivalent of web `?workout=` → `EventModal`. Establish the planned vs completed branch before filling either body.
 
 **4 — Planned detail**  
 Full planned actions, not read-only. Prefer reusing existing Springa mutation routes over inventing new ones.

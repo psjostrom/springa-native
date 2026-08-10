@@ -1,12 +1,6 @@
 import { create } from 'zustand';
 
 /** Ephemeral UI state only — never mirror TanStack Query results here. */
-type UiState = {
-  selectedEventId: string | null;
-  setSelectedEventId: (id: string | null) => void;
-};
+type UiState = Record<string, never>;
 
-export const useUiStore = create<UiState>((set) => ({
-  selectedEventId: null,
-  setSelectedEventId: (id) => set({ selectedEventId: id }),
-}));
+export const useUiStore = create<UiState>(() => ({}));

@@ -37,6 +37,18 @@ function RootNavigator() {
     >
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="workout/[id]"
+          options={{
+            presentation: 'formSheet',
+            headerShown: false,
+            sheetAllowedDetents: [0.5, 1],
+            sheetInitialDetentIndex: 0,
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 16,
+            contentStyle: { backgroundColor: SpringaColors.surface },
+          }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={signedOut}>
         <Stack.Screen name="login" />

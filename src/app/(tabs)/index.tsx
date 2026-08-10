@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { AgendaGate } from '@/components/agenda/AgendaGate';
 import { AgendaList } from '@/components/agenda/AgendaList';
@@ -5,12 +6,18 @@ import { ScreenShell } from '@/components/shell/ScreenShell';
 import { SpringaColors } from '@/theme/colors';
 
 export default function CalendarScreen() {
+  const router = useRouter();
+
   return (
     <ScreenShell>
       <View style={styles.body}>
         <AgendaGate>
           <View style={styles.card}>
-            <AgendaList />
+            <AgendaList
+              onOpenWorkout={(eventId) => {
+                router.push({ pathname: '/workout/[id]', params: { id: eventId } });
+              }}
+            />
           </View>
         </AgendaGate>
       </View>

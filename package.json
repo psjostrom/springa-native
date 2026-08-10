@@ -3,7 +3,6 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@expo/ui": "~57.0.9",
     "@legendapp/list": "^3.3.3",
     "@react-native-google-signin/google-signin": "^16.1.4",
     "@tanstack/react-query": "^5.101.4",

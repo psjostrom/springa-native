@@ -17,7 +17,11 @@ import { ViewModeSwitcher } from './ViewModeSwitcher';
 
 type AgendaViewMode = 'upcoming' | 'history';
 
-export function AgendaList() {
+type AgendaListProps = {
+  onOpenWorkout?: (eventId: string) => void;
+};
+
+export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   const [view, setView] = useState<AgendaViewMode>('upcoming');
   const {
     events,
@@ -164,7 +168,12 @@ export function AgendaList() {
         </View>
       }
       renderItem={({ item }: { item: CalendarEvent }) => (
-        <AgendaEventCard event={item} />
+        <AgendaEventCard
+          event={item}
+          onPress={(event) => {
+            onOpenWorkout?.(event.id);
+          }}
+        />
       )}
     />
   );

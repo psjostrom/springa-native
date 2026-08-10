@@ -6,6 +6,7 @@ import { SpringaColors } from '@/theme/colors';
 
 type AgendaEventCardProps = {
   event: CalendarEvent;
+  onPress?: (event: CalendarEvent) => void;
 };
 
 function formatPaceMinPerKm(paceMinPerKm: number): string {
@@ -28,7 +29,7 @@ function statusBorderColor(status: ReturnType<typeof getCardStatus>): string {
   }
 }
 
-export function AgendaEventCard({ event }: AgendaEventCardProps) {
+export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
   const status = getCardStatus(event);
   const weekday = event.date
     .toLocaleDateString('en-GB', { weekday: 'short' })
@@ -55,7 +56,11 @@ export function AgendaEventCard({ event }: AgendaEventCardProps) {
 
   return (
     <Pressable
-      onPress={() => {}}
+      onPress={() => {
+        onPress?.(event);
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`Open workout ${event.name}`}
       style={[
         styles.card,
         { borderLeftColor: statusBorderColor(status) },
