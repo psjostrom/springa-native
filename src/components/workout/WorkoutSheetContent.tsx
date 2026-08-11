@@ -1,47 +1,29 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
 import { getCardStatus } from '@/domain/eventStatus';
 import { SpringaColors } from '@/theme/colors';
 import { CompletedWorkoutSheet } from './CompletedWorkoutSheet';
 import { PlannedWorkoutSheet } from './PlannedWorkoutSheet';
+import { formatWorkoutDate } from './plannedWorkoutPresentation';
 import { getWorkoutStatusBadge } from './workoutStatusBadge';
 
 type WorkoutSheetContentProps = {
   event: CalendarEvent | null;
   onClose: () => void;
   now?: Date;
+  onActionsReady?: (handler: (() => void) | null) => void;
 };
-
-function formatSheetDate(date: Date): string {
-  return date.toLocaleString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 export function WorkoutSheetContent({
   event,
   onClose,
   now = new Date(),
+  onActionsReady,
 }: WorkoutSheetContentProps) {
   if (event == null) {
     return (
       <View style={styles.root} accessibilityLabel="Workout not found">
-        <View style={styles.header}>
-          <Text style={styles.title}>Workout not found</Text>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close workout"
-            hitSlop={8}
-          >
-            <Text style={styles.close}>✕</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.title}>Workout not found</Text>
       </View>
     );
   }
@@ -49,11 +31,24 @@ export function WorkoutSheetContent({
   const badge = getWorkoutStatusBadge(event, now);
   const completed = getCardStatus(event, now) === 'completed';
 
+  if (!completed) {
+    return (
+      <View style={styles.root} accessibilityLabel={`Workout ${event.name}`}>
+        <PlannedWorkoutSheet
+          event={event}
+          onClose={onClose}
+          onActionsReady={onActionsReady}
+          now={now}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root} accessibilityLabel={`Workout ${event.name}`}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.date}>{formatSheetDate(event.date)}</Text>
+          <Text style={styles.date}>{formatWorkoutDate(event.date)}</Text>
           <Text style={styles.title}>{event.name}</Text>
           <View
             style={[
@@ -72,23 +67,16 @@ export function WorkoutSheetContent({
             </Text>
           </View>
         </View>
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Close workout"
-          hitSlop={8}
-        >
-          <Text style={styles.close}>✕</Text>
-        </Pressable>
       </View>
 
-      {completed ? <CompletedWorkoutSheet /> : <PlannedWorkoutSheet />}
+      <CompletedWorkoutSheet />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
     gap: 8,
     minHeight: 120,
     backgroundColor: SpringaColors.surface,
@@ -138,10 +126,5 @@ const styles = StyleSheet.create({
   },
   badgeTextMissed: {
     color: SpringaColors.error,
-  },
-  close: {
-    fontSize: 22,
-    color: SpringaColors.muted,
-    lineHeight: 24,
   },
 });

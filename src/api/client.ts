@@ -2,7 +2,14 @@ import { getApiBaseUrl } from '@/auth/config';
 import { parseBgPayload } from './bg';
 import { parseCalendarEvents } from './calendar';
 import { ApiError } from './errors';
-import type { BgPayload, CalendarEvent, UserSettings } from './types';
+import { parsePlannedWorkoutDetail } from './plannedWorkout';
+import type {
+  BgPayload,
+  CalendarEvent,
+  PlannedWorkoutDetail,
+  PlannedWorkoutReplacementCategory,
+  UserSettings,
+} from './types';
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
@@ -20,6 +27,19 @@ export type ApiClient = {
   getSettings: () => Promise<UserSettings>;
   getCalendar: (oldest: string, newest: string) => Promise<CalendarEvent[]>;
   getBg: () => Promise<BgPayload>;
+  getPlannedWorkoutDetail: (eventId: string) => Promise<PlannedWorkoutDetail>;
+  moveWorkout: (eventId: string, startDateLocal: string) => Promise<{ ok: true }>;
+  replaceWorkout: (
+    eventId: string,
+    category: PlannedWorkoutReplacementCategory,
+  ) => Promise<{ newId: number }>;
+  deleteWorkout: (eventId: string) => Promise<{ ok: true }>;
+  getPreRunCarbs: (eventId: string) => Promise<{ carbsG: number | null }>;
+  savePreRunCarbs: (
+    eventId: string,
+    carbsG: number | null,
+  ) => Promise<{ ok: true }>;
+  deletePreRunCarbs: (eventId: string) => Promise<{ ok: true }>;
 };
 
 /** Reject null/array/non-objects so callers don't treat garbage as empty settings. */
@@ -76,7 +96,19 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     }
 
     if (!res.ok) {
-      throw new ApiError(res.status, `Request failed (${res.status})`);
+      let message = `Request failed (${res.status})`;
+      let code: string | undefined;
+      try {
+        const body: unknown = await res.json();
+        if (body !== null && typeof body === 'object' && !Array.isArray(body)) {
+          const record = body as Record<string, unknown>;
+          if (typeof record.error === 'string') message = record.error;
+          if (typeof record.code === 'string') code = record.code;
+        }
+      } catch {
+        // Preserve status fallback when an error response is not JSON.
+      }
+      throw new ApiError(res.status, message, code);
     }
 
     if (res.status === 204) {
@@ -100,5 +132,46 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       );
     },
     getBg: async () => parseBgPayload(await apiFetch<unknown>('/api/bg')),
+    getPlannedWorkoutDetail: async (eventId: string) =>
+      parsePlannedWorkoutDetail(
+        await apiFetch<unknown>(
+          `/api/intervals/events/${encodeURIComponent(eventId)}`,
+        ),
+      ),
+    moveWorkout: (eventId: string, startDateLocal: string) =>
+      apiFetch<{ ok: true }>(
+        `/api/intervals/events/${encodeURIComponent(eventId)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ start_date_local: startDateLocal }),
+        },
+      ),
+    replaceWorkout: (
+      eventId: string,
+      category: PlannedWorkoutReplacementCategory,
+    ) =>
+      apiFetch<{ newId: number }>('/api/intervals/events/replace', {
+        method: 'POST',
+        body: JSON.stringify({ existingEventId: eventId, category }),
+      }),
+    deleteWorkout: (eventId: string) =>
+      apiFetch<{ ok: true }>(
+        `/api/intervals/events/${encodeURIComponent(eventId)}`,
+        { method: 'DELETE' },
+      ),
+    getPreRunCarbs: (eventId: string) =>
+      apiFetch<{ carbsG: number | null }>(
+        `/api/prerun-carbs?eventId=${encodeURIComponent(eventId)}`,
+      ),
+    savePreRunCarbs: (eventId: string, carbsG: number | null) =>
+      apiFetch<{ ok: true }>('/api/prerun-carbs', {
+        method: 'POST',
+        body: JSON.stringify({ eventId, carbsG }),
+      }),
+    deletePreRunCarbs: (eventId: string) =>
+      apiFetch<{ ok: true }>(
+        `/api/prerun-carbs?eventId=${encodeURIComponent(eventId)}`,
+        { method: 'DELETE' },
+      ),
   };
 }

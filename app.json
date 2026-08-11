@@ -40,7 +40,8 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.PLACEHOLDER_IOS_CLIENT"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

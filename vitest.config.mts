@@ -10,6 +10,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.join(root, 'src'),
+      '@react-native-community/datetimepicker': path.join(
+        root,
+        'src/test/DateTimePickerTestDouble.tsx',
+      ),
     },
   },
   test: {

@@ -1,11 +1,23 @@
-import { useState } from 'react';
-import { Text } from 'react-native';
+import { type ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
-import { render, screen, userEvent } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import type { CalendarEvent } from '@/api/types';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
 import { getWorkoutStatusBadge } from '@/components/workout/workoutStatusBadge';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
+import {
+  makeTestAuthValue,
+  makeTestSession,
+  TestAppProviders,
+} from '@/test/TestAppProviders';
+
+function renderWithApp(ui: ReactNode) {
+  return render(
+    <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+      {ui}
+    </TestAppProviders>,
+  );
+}
 
 const NOW = new Date('2026-08-10T12:00:00');
 
@@ -51,17 +63,26 @@ describe('findCalendarEvent', () => {
 });
 
 describe('WorkoutSheetContent', () => {
+  it('fills full-screen detail so planned details can scroll', async () => {
+    await renderWithApp(
+      <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} now={NOW} />,
+    );
+    expect(screen.getByLabelText('Workout Threshold intervals')).toHaveStyle({ flex: 1 });
+  });
+
   it('shows planned chrome and placeholder for upcoming planned', async () => {
-    await render(
+    await renderWithApp(
       <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} now={NOW} />,
     );
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
     expect(screen.getByText('Planned')).toBeOnTheScreen();
-    expect(screen.getByText('Planned workout')).toBeOnTheScreen();
+    expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
+    expect(screen.getByText('T-shirt')).toBeOnTheScreen();
+    expect(screen.getByText('65m')).toBeOnTheScreen();
   });
 
   it('shows completed placeholder for completed events', async () => {
-    await render(
+    await renderWithApp(
       <WorkoutSheetContent
         event={sampleEvent({ type: 'completed', name: 'Easy Run' })}
         onClose={() => {}}
@@ -73,8 +94,8 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByText('Completed workout')).toBeOnTheScreen();
   });
 
-  it('shows Missed badge and planned placeholder for missed events', async () => {
-    await render(
+  it('shows Missed badge and planned detail for missed events', async () => {
+    await renderWithApp(
       <WorkoutSheetContent
         event={sampleEvent({
           id: 'missed-1',
@@ -88,7 +109,7 @@ describe('WorkoutSheetContent', () => {
     );
     expect(screen.getByText('Skipped tempo')).toBeOnTheScreen();
     expect(screen.getByText('Missed')).toBeOnTheScreen();
-    expect(screen.getByText('Planned workout')).toBeOnTheScreen();
+    expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
   });
 
   it('shows not-found copy when event is missing', async () => {
@@ -96,15 +117,15 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByText('Workout not found')).toBeOnTheScreen();
   });
 
-  it('closes when close is pressed', async () => {
-    function Harness() {
-      const [closed, setClosed] = useState(false);
-      if (closed) return <Text>Sheet closed</Text>;
-      return <WorkoutSheetContent event={sampleEvent()} onClose={() => setClosed(true)} />;
-    }
-    await render(<Harness />);
-    const user = userEvent.setup();
-    await user.press(screen.getByLabelText('Close workout'));
-    expect(await screen.findByText('Sheet closed')).toBeOnTheScreen();
+  it('leaves dismissal to the native stack', async () => {
+    await renderWithApp(
+      <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} now={NOW} />,
+    );
+    expect(screen.queryByLabelText('Close workout')).toBeNull();
+  });
+
+  it('does not add a close control when event is missing', async () => {
+    await render(<WorkoutSheetContent event={null} onClose={() => {}} />);
+    expect(screen.queryByLabelText('Close workout')).toBeNull();
   });
 });

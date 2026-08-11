@@ -1,4 +1,5 @@
 import { LegendList } from '@legendapp/list/react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, History } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -9,8 +10,11 @@ import {
   View,
 } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
+import { useApiClient } from '@/api/ApiClientProvider';
+import { useAuth } from '@/auth/AuthContext';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
+import { prefetchPlannedWorkoutDetail } from '@/query/usePlannedWorkout';
 import { SpringaColors } from '@/theme/colors';
 import { AgendaEventCard } from './AgendaEventCard';
 import { ViewModeSwitcher } from './ViewModeSwitcher';
@@ -23,6 +27,9 @@ type AgendaListProps = {
 
 export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   const [view, setView] = useState<AgendaViewMode>('upcoming');
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+  const { status: authStatus, session } = useAuth();
   const {
     events,
     isLoading,
@@ -40,6 +47,22 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   const { earlier, upcoming } = splitAgendaEvents(events);
   const historyMode = view === 'history';
+
+  useEffect(() => {
+    if (authStatus !== 'signedIn' || session == null) return;
+
+    upcoming
+      .filter((event) => event.type === 'planned')
+      .slice(0, 8)
+      .forEach((event) => {
+        void prefetchPlannedWorkoutDetail(
+          queryClient,
+          apiClient,
+          session.email,
+          event.id,
+        );
+      });
+  }, [apiClient, authStatus, queryClient, session, upcoming]);
 
   // Empty older windows are gaps — keep paging while history is open and still empty.
   useEffect(() => {

@@ -125,4 +125,102 @@ describe('createApiClient', () => {
     await expect(client.getSettings()).rejects.toBeInstanceOf(ApiError);
     expect(cleared).toBe(true);
   });
+
+  it('returns planned workout detail on 200', async () => {
+    server.use(
+      http.get(apiUrl('/api/intervals/events/event-123'), () =>
+        HttpResponse.json({
+          event: {
+            id: 'event-123',
+            intervalsEventId: 123,
+            startDateLocal: '2026-08-13T12:00:00',
+            name: 'W05 Easy',
+            category: 'easy',
+            description: '',
+          },
+          structure: { sections: [], timeline: [] },
+          metrics: {
+            duration: null,
+            distance: null,
+            fuelRateGPerHour: null,
+            prescribedCarbsG: null,
+          },
+          preRunCarbsG: null,
+          clothing: { status: 'unavailable', reason: 'outside-window' },
+        })),
+    );
+
+    const detail = await makeClient().getPlannedWorkoutDetail('event-123');
+
+    expect(detail.event.name).toBe('W05 Easy');
+  });
+
+  it('sends M4 mutation payloads and reads pre-run carbs', async () => {
+    let putBody: unknown;
+    let replaceBody: unknown;
+    let saveCarbsBody: unknown;
+    let deletedEventId: string | null = null;
+    let deletedCarbQuery: string | null = null;
+    server.use(
+      http.put(apiUrl('/api/intervals/events/:id'), async ({ request }) => {
+        putBody = await request.json();
+        return HttpResponse.json({ ok: true });
+      }),
+      http.post(apiUrl('/api/intervals/events/replace'), async ({ request }) => {
+        replaceBody = await request.json();
+        return HttpResponse.json({ newId: 456 });
+      }),
+      http.delete(apiUrl('/api/intervals/events/:id'), ({ params }) => {
+        deletedEventId = String(params.id);
+        return HttpResponse.json({ ok: true });
+      }),
+      http.get(apiUrl('/api/prerun-carbs'), ({ request }) => {
+        deletedCarbQuery = new URL(request.url).search;
+        return HttpResponse.json({ carbsG: 25 });
+      }),
+      http.post(apiUrl('/api/prerun-carbs'), async ({ request }) => {
+        saveCarbsBody = await request.json();
+        return HttpResponse.json({ ok: true });
+      }),
+      http.delete(apiUrl('/api/prerun-carbs'), ({ request }) => {
+        deletedCarbQuery = new URL(request.url).search;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    const client = makeClient();
+    await expect(client.moveWorkout('event-123', '2026-08-14T12:00:00')).resolves.toEqual({
+      ok: true,
+    });
+    await expect(client.replaceWorkout('event-123', 'quality')).resolves.toEqual({
+      newId: 456,
+    });
+    await expect(client.deleteWorkout('event-123')).resolves.toEqual({ ok: true });
+    await expect(client.getPreRunCarbs('event-123')).resolves.toEqual({ carbsG: 25 });
+    await expect(client.savePreRunCarbs('event-123', 30)).resolves.toEqual({ ok: true });
+    await expect(client.deletePreRunCarbs('event-123')).resolves.toEqual({ ok: true });
+
+    expect(putBody).toEqual({ start_date_local: '2026-08-14T12:00:00' });
+    expect(replaceBody).toEqual({ existingEventId: 'event-123', category: 'quality' });
+    expect(saveCarbsBody).toEqual({ eventId: 'event-123', carbsG: 30 });
+    expect(deletedEventId).toBe('event-123');
+    expect(deletedCarbQuery).toBe('?eventId=event-123');
+  });
+
+  it('preserves typed server error details', async () => {
+    server.use(
+      http.post(apiUrl('/api/intervals/events/replace'), () =>
+        HttpResponse.json(
+          { error: 'Plan settings required', code: 'PLAN_SETTINGS_REQUIRED' },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    await expect(makeClient().replaceWorkout('event-123', 'quality')).rejects.toMatchObject({
+      status: 422,
+      message: 'Plan settings required',
+      code: 'PLAN_SETTINGS_REQUIRED',
+    });
+  });
 });
