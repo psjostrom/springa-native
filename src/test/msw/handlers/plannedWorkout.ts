@@ -11,6 +11,7 @@ export function defaultPlannedWorkoutDetail() {
       category: 'interval',
       description: 'Warmup\n- 10m easy\n\nMain set\n- 4x 5m hard',
     },
+    replacementCategory: 'quality',
     structure: {
       sections: [
         {

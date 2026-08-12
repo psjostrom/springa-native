@@ -4,6 +4,7 @@ import type {
   PlannedWorkoutCategory,
   PlannedWorkoutClothing,
   PlannedWorkoutDetail,
+  PlannedWorkoutReplacementCategory,
   WorkoutZone,
 } from './types';
 
@@ -57,6 +58,18 @@ function category(value: unknown): PlannedWorkoutCategory {
     value === 'interval' ||
     value === 'race' ||
     value === 'other'
+    ? value
+    : invalid();
+}
+
+function replacementCategory(
+  value: unknown,
+): PlannedWorkoutReplacementCategory | null {
+  return value === null ||
+    value === 'easy' ||
+    value === 'quality' ||
+    value === 'long' ||
+    value === 'club'
     ? value
     : invalid();
 }
@@ -199,6 +212,9 @@ export function parsePlannedWorkoutDetail(data: unknown): PlannedWorkoutDetail {
   }
   return {
     event: parseEvent(data.event),
+    replacementCategory: Object.hasOwn(data, 'replacementCategory')
+      ? replacementCategory(data.replacementCategory)
+      : null,
     structure: {
       sections: data.structure.sections.map(parseSection),
       timeline: data.structure.timeline.map(parseTimelineSegment),

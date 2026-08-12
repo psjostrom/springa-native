@@ -1,11 +1,43 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import type { ApiClient } from '@/api/client';
-import type { PlannedWorkoutReplacementCategory } from '@/api/types';
+import type {
+  CalendarEvent,
+  PlannedWorkoutDetail,
+  PlannedWorkoutReplacementCategory,
+} from '@/api/types';
 import { queryKeys } from './keys';
 
 const PLANNED_WORKOUT_STALE_TIME = 60_000;
+
+function replaceCalendarEvent(
+  event: CalendarEvent,
+  detail: PlannedWorkoutDetail,
+): CalendarEvent {
+  if (event.id !== detail.event.id) return event;
+  return {
+    ...event,
+    date: new Date(detail.event.startDateLocal),
+    name: detail.event.name,
+    description: detail.event.description,
+    category: detail.event.category,
+    duration: detail.metrics.duration == null
+      ? undefined
+      : detail.metrics.duration.minutes * 60,
+    distance: detail.metrics.distance == null
+      ? undefined
+      : detail.metrics.distance.km * 1000,
+    fuelRate: detail.metrics.fuelRateGPerHour,
+    prescribedCarbsG: detail.metrics.prescribedCarbsG,
+  };
+}
 
 export function plannedWorkoutQueryOptions(
   client: ApiClient,
@@ -55,34 +87,90 @@ export function usePlannedWorkoutMutations(eventId: string) {
   const { session } = useAuth();
   const identity = session?.email ?? '';
 
-  const invalidate = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.plannedWorkout(identity, eventId),
-      }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.calendar(identity) }),
-    ]);
-  };
+  const plannedWorkoutKey = queryKeys.plannedWorkout(identity, eventId);
+  const calendarKey = queryKeys.calendar(identity);
 
   return {
     move: useMutation({
       mutationFn: (startDateLocal: string) =>
         client.moveWorkout(eventId, startDateLocal),
-      onSuccess: invalidate,
+      onMutate: async (startDateLocal) => {
+        await Promise.all([
+          queryClient.cancelQueries({ queryKey: plannedWorkoutKey }),
+          queryClient.cancelQueries({ queryKey: calendarKey }),
+        ]);
+        const detail = queryClient.getQueryData<PlannedWorkoutDetail>(plannedWorkoutKey);
+        const calendars = queryClient.getQueriesData<InfiniteData<CalendarEvent[]>>({
+          queryKey: calendarKey,
+        });
+        queryClient.setQueryData<PlannedWorkoutDetail>(
+          plannedWorkoutKey,
+          (current) => current == null
+            ? current
+            : {
+                ...current,
+                event: { ...current.event, startDateLocal },
+              },
+        );
+        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
+          { queryKey: calendarKey },
+          (current) => current == null
+            ? current
+            : {
+                ...current,
+                pages: current.pages.map((page) => page.map((event) =>
+                  event.id === eventId
+                    ? { ...event, date: new Date(startDateLocal) }
+                    : event,
+                )),
+              },
+        );
+        return { detail, calendars };
+      },
+      onError: (_error, _startDateLocal, context) => {
+        queryClient.setQueryData(plannedWorkoutKey, context?.detail);
+        for (const [key, data] of context?.calendars ?? []) {
+          queryClient.setQueryData(key, data);
+        }
+      },
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: calendarKey });
+      },
     }),
     replace: useMutation({
-      mutationFn: (category: PlannedWorkoutReplacementCategory) =>
-        client.replaceWorkout(eventId, category),
-      onSuccess: invalidate,
+      onMutate: () => queryClient.cancelQueries({ queryKey: calendarKey }),
+      mutationFn: async (category: PlannedWorkoutReplacementCategory) => {
+        await client.replaceWorkout(eventId, category);
+        return client.getPlannedWorkoutDetail(eventId);
+      },
+      onSuccess: (detail) => {
+        queryClient.setQueryData(plannedWorkoutKey, detail);
+        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
+          { queryKey: calendarKey },
+          (current) => current == null
+            ? current
+            : {
+                ...current,
+                pages: current.pages.map((page) =>
+                  page.map((event) => replaceCalendarEvent(event, detail))),
+              },
+        );
+      },
     }),
     deleteWorkout: useMutation({
       mutationFn: () => client.deleteWorkout(eventId),
-      onSuccess: invalidate,
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: calendarKey }),
     }),
     savePreRunCarbs: useMutation({
       mutationFn: (carbsG: number | null) =>
         client.savePreRunCarbs(eventId, carbsG),
-      onSuccess: invalidate,
+      onSuccess: (_result, carbsG) => {
+        queryClient.setQueryData<PlannedWorkoutDetail>(
+          plannedWorkoutKey,
+          (detail) => detail == null ? detail : { ...detail, preRunCarbsG: carbsG },
+        );
+      },
     }),
   };
 }

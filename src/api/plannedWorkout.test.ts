@@ -11,6 +11,7 @@ const fixture = {
     category: 'easy',
     description: 'Warmup\n- 10m 6:30-7:00/km Pace',
   },
+  replacementCategory: 'quality',
   structure: {
     sections: [
       {
@@ -65,11 +66,25 @@ describe('parsePlannedWorkoutDetail', () => {
     const detail = parsePlannedWorkoutDetail(fixture);
 
     expect(detail.event.id).toBe('event-123');
+    expect(detail.replacementCategory).toBe('quality');
     expect(detail.structure.sections[0]?.steps[0]?.zone).toBe('z2');
     expect(detail.structure.timeline[0]?.estimated).toBe(false);
     expect(detail.metrics.duration).toEqual({ minutes: 65, estimated: false });
     expect(detail.preRunCarbsG).toBe(25);
     expect(detail.clothing.status).toBe('available');
+  });
+
+  it('rejects an unknown replacement category', () => {
+    expect(() => parsePlannedWorkoutDetail({
+      ...fixture,
+      replacementCategory: 'tempo',
+    })).toThrow(ApiError);
+  });
+
+  it('accepts responses from servers without replacement intent', () => {
+    const { replacementCategory: _replacementCategory, ...legacyFixture } = fixture;
+
+    expect(parsePlannedWorkoutDetail(legacyFixture).replacementCategory).toBeNull();
   });
 
   it.each([

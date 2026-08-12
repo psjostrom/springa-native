@@ -3,7 +3,10 @@ import type { CalendarEvent } from '@/api/types';
 import { getCardStatus } from '@/domain/eventStatus';
 import { SpringaColors } from '@/theme/colors';
 import { CompletedWorkoutSheet } from './CompletedWorkoutSheet';
-import { PlannedWorkoutSheet } from './PlannedWorkoutSheet';
+import {
+  PlannedWorkoutSheet,
+  type PlannedWorkoutActions,
+} from './PlannedWorkoutSheet';
 import { formatWorkoutDate } from './plannedWorkoutPresentation';
 import { getWorkoutStatusBadge } from './workoutStatusBadge';
 
@@ -11,7 +14,7 @@ type WorkoutSheetContentProps = {
   event: CalendarEvent | null;
   onClose: () => void;
   now?: Date;
-  onActionsReady?: (handler: (() => void) | null) => void;
+  onActionsReady?: (actions: PlannedWorkoutActions | null) => void;
 };
 
 export function WorkoutSheetContent({

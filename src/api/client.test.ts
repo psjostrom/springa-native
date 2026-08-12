@@ -138,6 +138,7 @@ describe('createApiClient', () => {
             category: 'easy',
             description: '',
           },
+          replacementCategory: 'easy',
           structure: { sections: [], timeline: [] },
           metrics: {
             duration: null,
@@ -155,12 +156,11 @@ describe('createApiClient', () => {
     expect(detail.event.name).toBe('W05 Easy');
   });
 
-  it('sends M4 mutation payloads and reads pre-run carbs', async () => {
+  it('sends M4 mutation payloads', async () => {
     let putBody: unknown;
     let replaceBody: unknown;
     let saveCarbsBody: unknown;
     let deletedEventId: string | null = null;
-    let deletedCarbQuery: string | null = null;
     server.use(
       http.put(apiUrl('/api/intervals/events/:id'), async ({ request }) => {
         putBody = await request.json();
@@ -174,16 +174,8 @@ describe('createApiClient', () => {
         deletedEventId = String(params.id);
         return HttpResponse.json({ ok: true });
       }),
-      http.get(apiUrl('/api/prerun-carbs'), ({ request }) => {
-        deletedCarbQuery = new URL(request.url).search;
-        return HttpResponse.json({ carbsG: 25 });
-      }),
       http.post(apiUrl('/api/prerun-carbs'), async ({ request }) => {
         saveCarbsBody = await request.json();
-        return HttpResponse.json({ ok: true });
-      }),
-      http.delete(apiUrl('/api/prerun-carbs'), ({ request }) => {
-        deletedCarbQuery = new URL(request.url).search;
         return HttpResponse.json({ ok: true });
       }),
     );
@@ -196,15 +188,12 @@ describe('createApiClient', () => {
       newId: 456,
     });
     await expect(client.deleteWorkout('event-123')).resolves.toEqual({ ok: true });
-    await expect(client.getPreRunCarbs('event-123')).resolves.toEqual({ carbsG: 25 });
     await expect(client.savePreRunCarbs('event-123', 30)).resolves.toEqual({ ok: true });
-    await expect(client.deletePreRunCarbs('event-123')).resolves.toEqual({ ok: true });
 
     expect(putBody).toEqual({ start_date_local: '2026-08-14T12:00:00' });
     expect(replaceBody).toEqual({ existingEventId: 'event-123', category: 'quality' });
     expect(saveCarbsBody).toEqual({ eventId: 'event-123', carbsG: 30 });
     expect(deletedEventId).toBe('event-123');
-    expect(deletedCarbQuery).toBe('?eventId=event-123');
   });
 
   it('preserves typed server error details', async () => {

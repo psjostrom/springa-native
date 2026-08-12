@@ -1,9 +1,11 @@
-import { Alert } from 'react-native';
-import { describe, expect, it, afterEach, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import type { CalendarEvent } from '@/api/types';
-import { PlannedWorkoutSheet } from './PlannedWorkoutSheet';
+import {
+  PlannedWorkoutSheet,
+  type PlannedWorkoutActions,
+} from './PlannedWorkoutSheet';
 import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
 import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
@@ -25,7 +27,7 @@ const event: CalendarEvent = {
 function renderSheet(
   onClose = () => {},
   eventOverrides: Partial<CalendarEvent> = {},
-  onActionsReady?: (handler: (() => void) | null) => void,
+  onActionsReady?: (actions: PlannedWorkoutActions | null) => void,
 ) {
   return render(
     <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
@@ -40,21 +42,6 @@ function renderSheet(
 
 function detailWithCarbs(carbsG: number | null) {
   return { ...defaultPlannedWorkoutDetail(), preRunCarbsG: carbsG };
-}
-
-const nativeAlert = Alert.alert;
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  Alert.alert = nativeAlert;
-});
-
-function captureAlert() {
-  const calls: Parameters<typeof Alert.alert>[] = [];
-  Alert.alert = ((...args: Parameters<typeof Alert.alert>) => {
-    calls.push(args);
-  }) as typeof Alert.alert;
-  return calls;
 }
 
 describe('PlannedWorkoutSheet', () => {
@@ -79,7 +66,7 @@ describe('PlannedWorkoutSheet', () => {
     await renderSheet();
 
     expect(await screen.findByText('No parsed structure available.')).toBeOnTheScreen();
-    expect(screen.getByText('No timeline available.')).toBeOnTheScreen();
+    expect(screen.queryByText('No timeline available.')).toBeNull();
     expect(screen.getByText('Clothing unavailable: forecast unavailable.')).toBeOnTheScreen();
     expect(screen.getByText('Add')).toBeOnTheScreen();
     expect(screen.queryByText('65 min')).toBeNull();
@@ -137,6 +124,27 @@ describe('PlannedWorkoutSheet', () => {
     expect(screen.queryByLabelText('Clear pre-run carbs')).toBeNull();
   });
 
+  it('saves pre-run carbs from keyboard Done without a synthetic blur', async () => {
+    let savedBody: { carbsG: number | null } | null = null;
+    server.use(
+      http.post(apiUrl('/api/prerun-carbs'), async ({ request }) => {
+        savedBody = (await request.json()) as { carbsG: number | null };
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    await renderSheet();
+    const user = userEvent.setup();
+    await screen.findByText('Workout structure');
+    await user.press(screen.getByLabelText('Edit pre-run carbs'));
+    const input = screen.getByLabelText('Pre-run carbs grams');
+    await fireEvent.changeText(input, '35');
+    await fireEvent(input, 'submitEditing');
+
+    await waitFor(() => expect(savedBody).toMatchObject({ carbsG: 35 }));
+    expect(await screen.findByText('35 g')).toBeOnTheScreen();
+  });
+
   it('rejects non-integer pre-run carbs locally', async () => {
     await renderSheet();
     const user = userEvent.setup();
@@ -152,6 +160,7 @@ describe('PlannedWorkoutSheet', () => {
 
   it('moves a workout with a local date-time value', async () => {
     let movedTo = '';
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.put(apiUrl('/api/intervals/events/:id'), async ({ request }) => {
         movedTo = String(((await request.json()) as { start_date_local: string }).start_date_local);
@@ -159,37 +168,39 @@ describe('PlannedWorkoutSheet', () => {
       }),
     );
 
-    await renderSheet();
+    await renderSheet(() => {}, {}, (actions) => {
+      actionsRef.current = actions;
+    });
     const user = userEvent.setup();
     await screen.findByText('Workout structure');
-    await user.press(screen.getByLabelText('Workout actions'));
-    expect(screen.getByText('Workout actions')).toBeOnTheScreen();
-    await user.press(screen.getByLabelText('Move workout'));
+    await act(async () => actionsRef.current?.move());
     await user.press(await screen.findByLabelText('Select move date'));
     await user.press(await screen.findByLabelText('Select move date'));
-    await user.press(screen.getByLabelText('Save moved workout'));
 
     await waitFor(() => expect(movedTo).toBe('2026-08-14T12:00:00'));
     expect(await screen.findByText('Workout moved.')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Move workout editor')).toBeNull();
   });
 
   it('does not commit a partial Android picker selection when dismissed', async () => {
-    await renderSheet();
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    await renderSheet(() => {}, {}, (actions) => {
+      actionsRef.current = actions;
+    });
     const user = userEvent.setup();
     await screen.findByText('Workout structure');
-    await user.press(screen.getByLabelText('Workout actions'));
-    await user.press(screen.getByLabelText('Move workout'));
+    await act(async () => actionsRef.current?.move());
 
     await user.press(await screen.findByLabelText('Select move date'));
     await user.press(screen.getByLabelText('Cancel native date picker'));
 
-    expect(screen.getByLabelText('Move workout date')).toHaveTextContent(
-      'Thursday, 13 August 2026 at 12:00',
-    );
+    expect(screen.queryByText('Workout moved.')).toBeNull();
+    expect(screen.queryByLabelText('Move workout editor')).toBeNull();
   });
 
   it('replaces a workout from a server-owned category choice', async () => {
     let replacementCategory = '';
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.post(apiUrl('/api/intervals/events/replace'), async ({ request }) => {
         const body = (await request.json()) as { category: string };
@@ -198,25 +209,55 @@ describe('PlannedWorkoutSheet', () => {
       }),
     );
 
-    await renderSheet();
-    const user = userEvent.setup();
+    await renderSheet(() => {}, {}, (actions) => {
+      actionsRef.current = actions;
+    });
     await screen.findByText('Workout structure');
-    await user.press(screen.getByLabelText('Workout actions'));
-    await user.press(screen.getByLabelText('Replace workout'));
-    expect(screen.getByLabelText('Replace with Easy')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Replace with Quality')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Replace with Long')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Replace with Club Run')).toBeOnTheScreen();
-    await user.press(screen.getByLabelText('Replace with Quality'));
+    await act(async () => actionsRef.current?.replace('quality'));
 
     expect(await screen.findByText('Workout replaced.')).toBeOnTheScreen();
     expect(replacementCategory).toBe('quality');
   });
 
-  it('confirms delete, closes after success, and retains sheet after failure', async () => {
+  it('shows selected replacement as pending and hides stale workout content', async () => {
+    let finishReplacement: (() => void) | null = null;
+    let replaced = false;
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    server.use(
+      http.post(apiUrl('/api/intervals/events/replace'), async () => {
+        await new Promise<void>((resolve) => { finishReplacement = resolve; });
+        replaced = true;
+        return HttpResponse.json({ newId: 123 });
+      }),
+      http.get(apiUrl('/api/intervals/events/:id'), () => {
+        const detail = defaultPlannedWorkoutDetail();
+        return HttpResponse.json(replaced
+          ? {
+              ...detail,
+              event: { ...detail.event, name: 'W06 Easy' },
+              replacementCategory: 'easy',
+            }
+          : detail);
+      }),
+    );
+
+    await renderSheet(() => {}, {}, (actions) => {
+      actionsRef.current = actions;
+    });
+    await screen.findByText('Workout structure');
+    await act(async () => actionsRef.current?.replace('easy'));
+
+    expect(await screen.findByText('Replacing with Easy…')).toBeOnTheScreen();
+    expect(screen.queryByText('Workout structure')).toBeNull();
+    (finishReplacement as (() => void) | null)?.();
+    expect(await screen.findByText('W06 Easy')).toBeOnTheScreen();
+    expect(screen.getByText('Workout structure')).toBeOnTheScreen();
+  });
+
+  it('closes after a successful registered delete action', async () => {
     let deleted = false;
     const close = vi.fn();
-    const alerts = captureAlert();
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.delete(apiUrl('/api/intervals/events/:id'), () => {
         deleted = true;
@@ -224,49 +265,33 @@ describe('PlannedWorkoutSheet', () => {
       }),
     );
 
-    await render(
-      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
-        <PlannedWorkoutSheet event={event} onClose={close} />
-      </TestAppProviders>,
-    );
-    const user = userEvent.setup();
-    await screen.findByText('Workout structure');
-    await user.press(screen.getByLabelText('Workout actions'));
-    await user.press(screen.getByLabelText('Delete workout'));
-    await act(async () => {
-      alerts[0]?.[2]?.find((button) => button.text === 'Delete')?.onPress?.();
+    await renderSheet(close, {}, (actions) => {
+      actionsRef.current = actions;
     });
+    await screen.findByText('Workout structure');
+    await act(async () => actionsRef.current?.deleteWorkout());
 
     await waitFor(() => expect(deleted).toBe(true));
     expect(close).toHaveBeenCalledTimes(1);
-    expect(alerts).toHaveLength(1);
   });
 
   it('shows mutation error without closing the sheet', async () => {
     const close = vi.fn();
-    const alerts = captureAlert();
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.delete(apiUrl('/api/intervals/events/:id'), () =>
         HttpResponse.json({ error: 'Failed to delete event' }, { status: 502 }),
       ),
     );
 
-    await render(
-      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
-        <PlannedWorkoutSheet event={event} onClose={close} />
-      </TestAppProviders>,
-    );
-    const user = userEvent.setup();
-    await screen.findByText('Workout structure');
-    await user.press(screen.getByLabelText('Workout actions'));
-    await user.press(screen.getByLabelText('Delete workout'));
-    await act(async () => {
-      alerts[0]?.[2]?.find((button) => button.text === 'Delete')?.onPress?.();
+    await renderSheet(close, {}, (actions) => {
+      actionsRef.current = actions;
     });
+    await screen.findByText('Workout structure');
+    await act(async () => actionsRef.current?.deleteWorkout());
 
     expect(await screen.findByText('Failed to delete event')).toBeOnTheScreen();
     expect(close).not.toHaveBeenCalled();
-    expect(alerts).toHaveLength(1);
   });
 
   it('uses one native presentation for easy workouts with rounded values', async () => {
@@ -300,6 +325,7 @@ describe('PlannedWorkoutSheet', () => {
     expect(screen.getByText('~9.3 km')).toBeOnTheScreen();
     expect(screen.getByLabelText('Edit pre-run carbs')).toBeOnTheScreen();
     expect(screen.getByLabelText('Z4, 3.9m, estimated')).toBeOnTheScreen();
+    expect(screen.queryByText('Timeline')).toBeNull();
     expect(screen.queryByText(/3\.868324/)).toBeNull();
     expect(screen.queryByText(/Z4 3\.9m/)).toBeNull();
   });
@@ -328,7 +354,7 @@ describe('PlannedWorkoutSheet', () => {
     expect(screen.queryByText(/intensity=warmup/)).toBeNull();
   });
 
-  it('keeps the planned header and actions visible while detail loads', async () => {
+  it('keeps the planned header visible while detail loads', async () => {
     server.use(
       http.get(apiUrl('/api/intervals/events/:id'), async () => {
         await new Promise((resolve) => setTimeout(resolve, 30));
@@ -340,24 +366,24 @@ describe('PlannedWorkoutSheet', () => {
 
     expect(screen.getByText(/13 August 2026/)).toBeOnTheScreen();
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Workout actions')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Workout actions')).toBeNull();
   });
 
   it('registers actions for the native stack header', async () => {
-    const actionHandlerRef = { current: null as (() => void) | null };
-    await renderSheet(() => {}, {}, (handler) => {
-      actionHandlerRef.current = handler;
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    await renderSheet(() => {}, {}, (actions) => {
+      actionsRef.current = actions;
     });
 
     await screen.findByText('Workout structure');
     expect(screen.queryByLabelText('Workout actions')).toBeNull();
-    const handler = actionHandlerRef.current;
-    expect(handler).toEqual(expect.any(Function));
-    if (handler == null) throw new Error('Native header action was not registered');
-    await act(async () => handler());
-
-    expect(await screen.findByText('Workout actions')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Replace workout')).toBeOnTheScreen();
+    expect(actionsRef.current).toMatchObject({
+      pending: false,
+      currentReplacementCategory: 'quality',
+      move: expect.any(Function),
+      replace: expect.any(Function),
+      deleteWorkout: expect.any(Function),
+    });
   });
 
   it('uses server local time for loaded detail header', async () => {

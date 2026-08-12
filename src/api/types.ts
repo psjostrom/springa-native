@@ -97,6 +97,7 @@ export type PlannedWorkoutDetail = {
     category: PlannedWorkoutCategory;
     description: string;
   };
+  replacementCategory: PlannedWorkoutReplacementCategory | null;
   structure: {
     sections: {
       name: string;

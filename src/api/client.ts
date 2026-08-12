@@ -34,12 +34,10 @@ export type ApiClient = {
     category: PlannedWorkoutReplacementCategory,
   ) => Promise<{ newId: number }>;
   deleteWorkout: (eventId: string) => Promise<{ ok: true }>;
-  getPreRunCarbs: (eventId: string) => Promise<{ carbsG: number | null }>;
   savePreRunCarbs: (
     eventId: string,
     carbsG: number | null,
   ) => Promise<{ ok: true }>;
-  deletePreRunCarbs: (eventId: string) => Promise<{ ok: true }>;
 };
 
 /** Reject null/array/non-objects so callers don't treat garbage as empty settings. */
@@ -159,19 +157,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         `/api/intervals/events/${encodeURIComponent(eventId)}`,
         { method: 'DELETE' },
       ),
-    getPreRunCarbs: (eventId: string) =>
-      apiFetch<{ carbsG: number | null }>(
-        `/api/prerun-carbs?eventId=${encodeURIComponent(eventId)}`,
-      ),
     savePreRunCarbs: (eventId: string, carbsG: number | null) =>
       apiFetch<{ ok: true }>('/api/prerun-carbs', {
         method: 'POST',
         body: JSON.stringify({ eventId, carbsG }),
       }),
-    deletePreRunCarbs: (eventId: string) =>
-      apiFetch<{ ok: true }>(
-        `/api/prerun-carbs?eventId=${encodeURIComponent(eventId)}`,
-        { method: 'DELETE' },
-      ),
   };
 }
