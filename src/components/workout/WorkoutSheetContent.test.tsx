@@ -94,6 +94,25 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByText('Completed workout')).toBeOnTheScreen();
   });
 
+  it('keeps race events on the non-planned detail path', async () => {
+    await renderWithApp(
+      <WorkoutSheetContent
+        event={sampleEvent({
+          id: 'race-future',
+          name: 'Half marathon',
+          type: 'race',
+          category: 'race',
+        })}
+        onClose={() => {}}
+        now={NOW}
+      />,
+    );
+    expect(screen.getByText('Half marathon')).toBeOnTheScreen();
+    expect(screen.getByText('Race')).toBeOnTheScreen();
+    expect(screen.getByText('Completed workout')).toBeOnTheScreen();
+    expect(screen.queryByText('Workout structure')).toBeNull();
+  });
+
   it('shows Missed badge and planned detail for missed events', async () => {
     await renderWithApp(
       <WorkoutSheetContent

@@ -155,7 +155,9 @@ describe('AgendaList', () => {
       </TestAppProviders>,
     );
 
-    await waitFor(() => expect(detailRequests).toContain('threshold-today'));
+    const expectedDetailRequests = ['threshold-today'];
+    await waitFor(() => expect(detailRequests).toEqual(expectedDetailRequests));
+    expect(detailRequests).toContain('threshold-today');
     expect(detailRequests).not.toContain('tempo-missed');
     expect(detailRequests).not.toContain('race-future');
   });

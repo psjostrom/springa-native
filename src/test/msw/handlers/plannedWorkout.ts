@@ -1,10 +1,13 @@
 import { http } from 'msw';
+import type { PlannedWorkoutDetail } from '@/api/types';
 import { apiUrl, jsonOk } from '../helpers';
 
-export function defaultPlannedWorkoutDetail() {
+export function defaultPlannedWorkoutDetail(
+  id = 'event-123',
+): PlannedWorkoutDetail {
   return {
     event: {
-      id: 'event-123',
+      id,
       intervalsEventId: 123,
       startDateLocal: '2026-08-13T12:00:00',
       name: 'Threshold intervals',
@@ -81,7 +84,7 @@ export function defaultPlannedWorkoutDetail() {
 }
 
 export const plannedWorkoutHandlers = [
-  http.get(apiUrl('/api/intervals/events/:id'), () =>
-    jsonOk(defaultPlannedWorkoutDetail()),
+  http.get(apiUrl('/api/intervals/events/:id'), ({ params }) =>
+    jsonOk(defaultPlannedWorkoutDetail(String(params.id))),
   ),
 ];

@@ -12,11 +12,11 @@ import {
   TestAppProviders,
 } from '@/test/TestAppProviders';
 
-function detail(name: string) {
+function detail(name: string, eventId = 'event-123') {
   return {
     event: {
-      id: 'event-123',
-      intervalsEventId: 123,
+      id: eventId,
+      intervalsEventId: Number(eventId.replace('event-', '')),
       startDateLocal: '2026-08-13T12:00:00',
       name,
       category: 'easy',
@@ -38,6 +38,11 @@ function detail(name: string) {
 function DetailProbe() {
   const { data } = usePlannedWorkoutDetail('event-123');
   return <Text>{data?.event.name ?? 'loading'}</Text>;
+}
+
+function DetailStateProbe() {
+  const { isDisabled, isError } = usePlannedWorkoutDetail('event-123');
+  return <Text>{isDisabled ? 'disabled' : isError ? 'error' : 'enabled'}</Text>;
 }
 
 function MutationProbe() {
@@ -95,6 +100,16 @@ function CalendarProbe() {
 }
 
 describe('planned workout query hooks', () => {
+  it('reports disabled detail queries separately from errors', async () => {
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(null)}>
+        <DetailStateProbe />
+      </TestAppProviders>,
+    );
+
+    expect(screen.getByText('disabled')).toBeOnTheScreen();
+  });
+
   it('loads planned detail for a signed-in user', async () => {
     server.use(
       http.get(apiUrl('/api/intervals/events/event-123'), () =>
@@ -113,24 +128,29 @@ describe('planned workout query hooks', () => {
 
   it('publishes fresh detail before refreshing Calendar after replacement', async () => {
     let currentName = 'Before replacement';
+    let currentId = 'event-123';
+    let releaseRefresh: (() => void) | null = null;
     const order: string[] = [];
     server.use(
-      http.get(apiUrl('/api/intervals/events/event-123'), async () => {
+      http.get(apiUrl('/api/intervals/events/:id'), ({ params }) => {
         if (currentName === 'After replacement') {
-          await new Promise((resolve) => setTimeout(resolve, 20));
           order.push('detail');
         }
-        return HttpResponse.json(detail(currentName));
+        return HttpResponse.json(detail(currentName, currentId));
       }),
       http.post(apiUrl('/api/intervals/events/replace'), () => {
         currentName = 'After replacement';
-        return HttpResponse.json({ newId: 123 });
+        currentId = 'event-456';
+        return HttpResponse.json({ newId: 456 });
       }),
-      http.get(apiUrl('/api/intervals/calendar'), () => {
+      http.get(apiUrl('/api/intervals/calendar'), async () => {
+        if (currentName === 'After replacement' && releaseRefresh == null) {
+          await new Promise<void>((resolve) => { releaseRefresh = resolve; });
+        }
         if (currentName === 'After replacement') order.push('calendar');
         return HttpResponse.json([
           {
-            id: 'event-123',
+            id: currentId,
             date: new Date().toISOString(),
             name: currentName,
             description: '',
@@ -156,7 +176,9 @@ describe('planned workout query hooks', () => {
       expect(screen.getByText('Workout: After replacement')).toBeOnTheScreen();
       expect(screen.getByText('Calendar: After replacement')).toBeOnTheScreen();
     });
+    await waitFor(() => expect(releaseRefresh).not.toBeNull());
     expect(order[0]).toBe('detail');
+    releaseRefresh!();
   });
 
   it('optimistically moves detail and rolls back when server rejects it', async () => {
@@ -181,7 +203,8 @@ describe('planned workout query hooks', () => {
     const user = userEvent.setup();
     await user.press(screen.getByLabelText('Move workout'));
     expect(await screen.findByText('Starts: 2026-08-14T15:30:00')).toBeOnTheScreen();
-    (rejectMove as (() => void) | null)?.();
+    await waitFor(() => expect(rejectMove).not.toBeNull());
+    rejectMove!();
     expect(await screen.findByText('Starts: 2026-08-13T12:00:00')).toBeOnTheScreen();
   });
 
@@ -212,23 +235,25 @@ describe('planned workout query hooks', () => {
     );
 
     expect(await screen.findByText('Move pending: no')).toBeOnTheScreen();
-    await waitFor(() => expect(calendarGets).toBe(3));
+    await waitFor(() => expect(calendarGets).toBeGreaterThan(0));
+    const calendarBaseline = calendarGets;
     const user = userEvent.setup();
     await user.press(screen.getByLabelText('Move workout'));
 
-    await waitFor(() => expect(calendarGets).toBeGreaterThan(3));
+    await waitFor(() => expect(calendarGets).toBeGreaterThan(calendarBaseline));
     expect(screen.getByText('Move pending: no')).toBeOnTheScreen();
     (releaseRefresh as (() => void) | null)?.();
   });
 
   it('updates Calendar from fresh replacement detail when Calendar is stale', async () => {
     let currentName = 'W03 Easy';
+    let currentId = 'event-123';
     server.use(
-      http.get(apiUrl('/api/intervals/events/event-123'), () =>
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
         HttpResponse.json({
-          ...detail(currentName),
+          ...detail(currentName, currentId),
           event: {
-            ...detail(currentName).event,
+            ...detail(currentName, currentId).event,
             category: currentName === 'W03 Long' ? 'long' : 'easy',
           },
           replacementCategory: currentName === 'W03 Long' ? 'long' : 'easy',
@@ -236,14 +261,17 @@ describe('planned workout query hooks', () => {
       ),
       http.post(apiUrl('/api/intervals/events/replace'), async ({ request }) => {
         const body = await request.json() as { category: string };
-        if (body.category === 'long') currentName = 'W03 Long';
-        return HttpResponse.json({ newId: 123 });
+        if (body.category === 'long') {
+          currentName = 'W03 Long';
+          currentId = 'event-456';
+        }
+        return HttpResponse.json({ newId: 456 });
       }),
       http.get(apiUrl('/api/intervals/calendar'), () =>
         HttpResponse.json([{
-          id: 'event-123',
+          id: currentId,
           date: new Date().toISOString(),
-          name: 'W03 Easy',
+          name: currentName,
           description: '',
           type: 'planned',
           category: 'easy',
@@ -301,13 +329,14 @@ describe('planned workout query hooks', () => {
 
     expect(await screen.findByText('Carbs: none')).toBeOnTheScreen();
     expect(await screen.findByText('Calendar: Before carb save')).toBeOnTheScreen();
-    await waitFor(() => expect(calendarGets).toBe(3));
+    await waitFor(() => expect(calendarGets).toBeGreaterThan(0));
+    const calendarBaseline = calendarGets;
     const user = userEvent.setup();
     await user.press(screen.getByLabelText('Save pre-run carbs'));
 
     expect(await screen.findByText('Carbs: 30')).toBeOnTheScreen();
     expect(detailGets).toBe(1);
-    expect(calendarGets).toBe(3);
+    expect(calendarGets).toBe(calendarBaseline);
   });
 
   it('does not refetch deleted detail before Calendar refresh', async () => {
@@ -345,10 +374,11 @@ describe('planned workout query hooks', () => {
 
     expect(await screen.findByText('Workout: Delete me')).toBeOnTheScreen();
     expect(await screen.findByText('Calendar: Delete me')).toBeOnTheScreen();
-    await waitFor(() => expect(calendarGets).toBe(3));
+    await waitFor(() => expect(calendarGets).toBeGreaterThan(0));
+    const calendarBaseline = calendarGets;
     const user = userEvent.setup();
     await user.press(screen.getByLabelText('Delete workout'));
-    await waitFor(() => expect(calendarGets).toBeGreaterThan(3));
+    await waitFor(() => expect(calendarGets).toBeGreaterThan(calendarBaseline));
 
     expect(detailGets).toBe(1);
   });

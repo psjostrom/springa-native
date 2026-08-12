@@ -20,10 +20,12 @@ const PLANNED_WORKOUT_STALE_TIME = 60_000;
 function replaceCalendarEvent(
   event: CalendarEvent,
   detail: PlannedWorkoutDetail,
+  replacedEventId: string,
 ): CalendarEvent {
-  if (event.id !== detail.event.id) return event;
+  if (event.id !== replacedEventId) return event;
   return {
     ...event,
+    id: detail.event.id,
     date: new Date(detail.event.startDateLocal),
     name: detail.event.name,
     description: detail.event.description,
@@ -74,6 +76,7 @@ export function usePlannedWorkoutDetail(eventId: string) {
     data: query.data ?? null,
     isLoading: enabled && query.isPending,
     isError: enabled && query.isError,
+    isDisabled: !enabled,
     error: query.error instanceof Error ? query.error.message : null,
     reload: () => {
       void query.refetch();
@@ -140,11 +143,15 @@ export function usePlannedWorkoutMutations(eventId: string) {
     replace: useMutation({
       onMutate: () => queryClient.cancelQueries({ queryKey: calendarKey }),
       mutationFn: async (category: PlannedWorkoutReplacementCategory) => {
-        await client.replaceWorkout(eventId, category);
-        return client.getPlannedWorkoutDetail(eventId);
+        const { newId } = await client.replaceWorkout(eventId, category);
+        return client.getPlannedWorkoutDetail(String(newId));
       },
       onSuccess: (detail) => {
         queryClient.setQueryData(plannedWorkoutKey, detail);
+        queryClient.setQueryData(
+          queryKeys.plannedWorkout(identity, detail.event.id),
+          detail,
+        );
         queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
           { queryKey: calendarKey },
           (current) => current == null
@@ -152,9 +159,10 @@ export function usePlannedWorkoutMutations(eventId: string) {
             : {
                 ...current,
                 pages: current.pages.map((page) =>
-                  page.map((event) => replaceCalendarEvent(event, detail))),
+                  page.map((event) => replaceCalendarEvent(event, detail, eventId))),
               },
         );
+        void queryClient.invalidateQueries({ queryKey: calendarKey });
       },
     }),
     deleteWorkout: useMutation({

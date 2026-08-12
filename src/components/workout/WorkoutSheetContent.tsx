@@ -34,7 +34,7 @@ export function WorkoutSheetContent({
   const badge = getWorkoutStatusBadge(event, now);
   const completed = getCardStatus(event, now) === 'completed';
 
-  if (!completed) {
+  if (!completed && event.type === 'planned') {
     return (
       <View style={styles.root} accessibilityLabel={`Workout ${event.name}`}>
         <PlannedWorkoutSheet

@@ -491,7 +491,17 @@ export function PlannedWorkoutSheet({
   onActionsReady,
   now = new Date(),
 }: PlannedWorkoutSheetProps) {
-  const { data, isLoading, isError, error, reload } = usePlannedWorkoutDetail(event.id);
+  const { data, isDisabled, isLoading, isError, error, reload } =
+    usePlannedWorkoutDetail(event.id);
+
+  if (isDisabled) {
+    return (
+      <View style={styles.center} accessibilityLabel="Workout details unavailable">
+        <Text style={styles.errorTitle}>Workout details unavailable</Text>
+        <Text style={styles.muted}>Sign in to view workout details.</Text>
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
