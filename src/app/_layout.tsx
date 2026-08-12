@@ -40,12 +40,12 @@ function RootNavigator() {
         <Stack.Screen
           name="workout/[id]"
           options={{
-            presentation: 'formSheet',
-            headerShown: false,
-            sheetAllowedDetents: [0.5, 1],
-            sheetInitialDetentIndex: 0,
-            sheetGrabberVisible: true,
-            sheetCornerRadius: 16,
+            presentation: 'card',
+            headerShown: true,
+            headerTintColor: SpringaColors.brand,
+            headerStyle: { backgroundColor: SpringaColors.surface },
+            headerTitleStyle: { color: SpringaColors.text },
+            headerShadowVisible: false,
             contentStyle: { backgroundColor: SpringaColors.surface },
           }}
         />
