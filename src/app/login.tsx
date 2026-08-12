@@ -1,15 +1,11 @@
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/auth/AuthContext';
 import { SpringaMark } from '@/components/shell/SpringaMark';
+import { AppText, Button } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -41,29 +37,25 @@ export default function LoginScreen() {
     >
       <View style={styles.brand}>
         <SpringaMark size={48} />
-        <Text style={styles.wordmark}>springa</Text>
+        <AppText variant="title" tone="brand" style={styles.wordmark}>
+          springa
+        </AppText>
       </View>
 
       <View style={styles.footer}>
-        {displayError ? <Text style={styles.error}>{displayError}</Text> : null}
-        <Pressable
+        {displayError ? (
+          <AppText variant="label" tone="error" style={styles.error}>
+            {displayError}
+          </AppText>
+        ) : null}
+        <Button
+          label="Continue with Google"
           onPress={() => {
             void onContinue();
           }}
-          disabled={busy}
-          accessibilityRole="button"
+          loading={busy}
           accessibilityLabel="Continue with Google"
-          style={({ pressed }) => [
-            styles.button,
-            (pressed || busy) && styles.buttonPressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color={SpringaColors.text} />
-          ) : (
-            <Text style={styles.buttonLabel}>Continue with Google</Text>
-          )}
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -73,42 +65,22 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: SpringaColors.bg,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.xl,
     justifyContent: 'space-between',
   },
   brand: {
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
     marginTop: 64,
   },
   wordmark: {
-    color: SpringaColors.brand,
     fontSize: 36,
-    fontWeight: '800',
     includeFontPadding: false,
   },
   footer: {
-    gap: 12,
+    gap: Spacing.md,
   },
   error: {
-    color: SpringaColors.error,
     textAlign: 'center',
-    fontSize: 14,
-  },
-  button: {
-    backgroundColor: SpringaColors.brand,
-    borderRadius: 12,
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonLabel: {
-    color: SpringaColors.text,
-    fontSize: 16,
-    fontWeight: '700',
   },
 });

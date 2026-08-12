@@ -1,4 +1,3 @@
-export * from './AppBottomSheet';
 export * from './AppText';
 export * from './Badge';
 export * from './Button';

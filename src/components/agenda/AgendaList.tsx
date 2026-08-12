@@ -2,22 +2,17 @@ import { LegendList } from '@legendapp/list/react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, History } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
+import { AppText, Card, StateView } from '@/components/ui';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 import { prefetchPlannedWorkoutDetail } from '@/query/usePlannedWorkout';
 import { SpringaColors } from '@/theme/colors';
+import { IconSize, Spacing } from '@/theme/tokens';
 import { AgendaEventCard } from './AgendaEventCard';
-import { ViewModeSwitcher } from './ViewModeSwitcher';
 
 type AgendaViewMode = 'upcoming' | 'history';
 
@@ -77,27 +72,22 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   if (isLoading) {
     return (
-      <View style={styles.center} accessibilityLabel="Loading calendar">
-        <ActivityIndicator color={SpringaColors.brand} />
-        <Text style={styles.muted}>Loading workouts…</Text>
+      <View accessibilityLabel="Loading calendar">
+        <StateView state="loading" title="Loading workouts…" message="Loading calendar" />
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.title}>Couldn’t load calendar</Text>
-        <Text style={styles.body}>{error ?? 'Something went wrong.'}</Text>
-        <Pressable
-          onPress={reload}
-          accessibilityRole="button"
-          accessibilityLabel="Retry loading calendar"
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>Retry</Text>
-        </Pressable>
-      </View>
+      <StateView
+        state="error"
+        title="Couldn’t load calendar"
+        message={error ?? 'Something went wrong.'}
+        onRetry={reload}
+        retryLabel="Retry"
+        retryAccessibilityLabel="Retry loading calendar"
+      />
     );
   }
 
@@ -128,9 +118,9 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       onEndReachedThreshold={0.5}
       ListHeaderComponent={
         <View style={styles.header}>
-          <View style={styles.switcherCard}>
-            <ViewModeSwitcher />
-          </View>
+          <Card padding="compact">
+            <AppText variant="subheading">Agenda</AppText>
+          </Card>
           {historyMode ? (
             <Pressable
               onPress={() => setView('upcoming')}
@@ -138,8 +128,8 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
               accessibilityLabel="Back to upcoming"
               style={styles.historyNav}
             >
-              <ChevronLeft size={16} color={SpringaColors.muted} />
-              <Text style={styles.historyNavText}>Back to upcoming</Text>
+              <ChevronLeft size={IconSize.sm} color={SpringaColors.muted} />
+              <AppText variant="label" tone="muted">Back to upcoming</AppText>
             </Pressable>
           ) : (
             <Pressable
@@ -148,8 +138,8 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
               accessibilityLabel="Earlier workouts"
               style={styles.earlierButton}
             >
-              <History size={16} color={SpringaColors.muted} />
-              <Text style={styles.earlierButtonText}>Earlier workouts</Text>
+              <History size={IconSize.sm} color={SpringaColors.muted} />
+              <AppText variant="label" tone="muted">Earlier workouts</AppText>
             </Pressable>
           )}
           {historyMode && olderError ? (
@@ -160,27 +150,29 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
               accessibilityRole="button"
               accessibilityLabel="Retry loading earlier workouts"
             >
-              <Text style={styles.edgeError}>Couldn’t load more. Tap to retry.</Text>
+              <AppText variant="caption" tone="error" style={styles.edgeText}>
+                Couldn’t load more. Tap to retry.
+              </AppText>
             </Pressable>
           ) : null}
         </View>
       }
       ListEmptyComponent={
-        <Text style={styles.empty}>
+        <AppText variant="label" tone="muted" style={styles.empty}>
           {historyMode
             ? historyStillLoading
               ? 'Loading earlier…'
               : 'No earlier workouts'
             : 'No workouts scheduled'}
-        </Text>
+        </AppText>
       }
       ListFooterComponent={
         <View style={styles.footer}>
           {historyMode && isFetchingOlder && earlier.length > 0 ? (
-            <Text style={styles.edgeHint}>Loading earlier…</Text>
+            <AppText variant="caption" tone="muted" style={styles.edgeText}>Loading earlier…</AppText>
           ) : null}
           {!historyMode && isFetchingNewer ? (
-            <Text style={styles.edgeHint}>Loading more…</Text>
+            <AppText variant="caption" tone="muted" style={styles.edgeText}>Loading more…</AppText>
           ) : null}
           {!historyMode && newerError ? (
             <Pressable
@@ -190,7 +182,9 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
               accessibilityRole="button"
               accessibilityLabel="Retry loading later workouts"
             >
-              <Text style={styles.edgeError}>Couldn’t load more. Tap to retry.</Text>
+              <AppText variant="caption" tone="error" style={styles.edgeText}>
+                Couldn’t load more. Tap to retry.
+              </AppText>
             </Pressable>
           ) : null}
         </View>
@@ -209,88 +203,27 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
 const styles = StyleSheet.create({
   list: { flex: 1 },
-  header: { gap: 6, marginBottom: 6 },
-  switcherCard: {
-    backgroundColor: SpringaColors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-    padding: 8,
-  },
+  header: { gap: Spacing.sm, marginBottom: Spacing.sm },
   earlierButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-  },
-  earlierButtonText: {
-    color: SpringaColors.muted,
-    fontSize: 14,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
   },
   historyNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 8,
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
   },
-  historyNavText: {
-    color: SpringaColors.muted,
-    fontSize: 14,
-  },
-  footer: { paddingVertical: 8 },
-  edgeHint: {
+  footer: { paddingVertical: Spacing.sm },
+  edgeText: {
     textAlign: 'center',
-    color: SpringaColors.muted,
-    fontSize: 12,
-    paddingVertical: 4,
-  },
-  edgeError: {
-    textAlign: 'center',
-    color: SpringaColors.error,
-    fontSize: 12,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
   },
   empty: {
     textAlign: 'center',
-    color: SpringaColors.muted,
-    fontSize: 14,
-    paddingVertical: 28,
-  },
-  center: {
-    gap: 10,
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  title: {
-    color: SpringaColors.text,
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  body: {
-    color: SpringaColors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  muted: {
-    color: SpringaColors.muted,
-    fontSize: 13,
-  },
-  button: {
-    marginTop: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: SpringaColors.tintBrand,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-  },
-  buttonText: {
-    color: SpringaColors.brand,
-    fontSize: 14,
-    fontWeight: '600',
+    paddingVertical: Spacing.xl,
   },
 });

@@ -11,6 +11,7 @@ export type StateViewProps = {
   title: string;
   message: string;
   retryLabel?: string;
+  retryAccessibilityLabel?: string;
   onRetry?: () => void;
 };
 
@@ -19,6 +20,7 @@ export function StateView({
   title,
   message,
   retryLabel = 'Retry',
+  retryAccessibilityLabel,
   onRetry,
 }: StateViewProps) {
   return (
@@ -26,7 +28,14 @@ export function StateView({
       {state === 'loading' ? <ActivityIndicator color={SpringaColors.brandText} /> : null}
       <AppText variant="subheading">{title}</AppText>
       <AppText tone="muted" style={styles.message}>{message}</AppText>
-      {onRetry ? <Button label={retryLabel} variant="secondary" onPress={onRetry} /> : null}
+      {onRetry ? (
+        <Button
+          label={retryLabel}
+          accessibilityLabel={retryAccessibilityLabel}
+          variant="secondary"
+          onPress={onRetry}
+        />
+      ) : null}
     </View>
   );
 }

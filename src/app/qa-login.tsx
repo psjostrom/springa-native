@@ -1,8 +1,10 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '@/auth/AuthContext';
+import { AppText } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
 
 /**
  * Dev-only deep link target: springa://qa-login?token=…
@@ -53,11 +55,13 @@ export default function QaLoginScreen() {
   return (
     <View style={styles.screen} accessibilityLabel="QA sign-in">
       {error ? (
-        <Text style={styles.error}>{error}</Text>
+        <AppText variant="label" tone="error" style={styles.message}>
+          {error}
+        </AppText>
       ) : (
         <>
-          <ActivityIndicator color={SpringaColors.brand} />
-          <Text style={styles.muted}>Signing in…</Text>
+          <ActivityIndicator color={SpringaColors.brandText} />
+          <AppText variant="label" tone="muted">Signing in…</AppText>
         </>
       )}
     </View>
@@ -70,16 +74,10 @@ const styles = StyleSheet.create({
     backgroundColor: SpringaColors.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    padding: 24,
+    gap: Spacing.md,
+    padding: Spacing.xl,
   },
-  muted: {
-    color: SpringaColors.muted,
-    fontSize: 14,
-  },
-  error: {
-    color: SpringaColors.error,
-    fontSize: 14,
+  message: {
     textAlign: 'center',
   },
 });

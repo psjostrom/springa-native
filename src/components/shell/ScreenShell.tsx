@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { AppText } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
 import { TopBar } from './TopBar';
 
 type ScreenShellProps = {
@@ -13,7 +15,11 @@ export function ScreenShell({ children, title }: ScreenShellProps) {
     <View style={styles.root}>
       <TopBar />
       <View style={styles.body}>
-        {title ? <Text style={styles.title}>{title}</Text> : null}
+        {title ? (
+          <AppText variant="subheading" tone="muted" style={styles.title}>
+            {title}
+          </AppText>
+        ) : null}
         {children}
       </View>
     </View>
@@ -29,9 +35,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    marginTop: 48,
+    marginTop: Spacing.xxl,
     textAlign: 'center',
-    color: SpringaColors.muted,
-    fontSize: 18,
   },
 });

@@ -1,11 +1,7 @@
 import { render, screen, userEvent } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
-import { Button } from './Button';
-import { IconButton } from './IconButton';
-import { MetricCard } from './MetricGrid';
-import { StateView } from './StateView';
-import { TextField } from './TextField';
+import { Button, IconButton, MetricCard, StateView, TextField } from '.';
 
 describe('global UI', () => {
   it('disables a pending button and exposes its busy state', async () => {
