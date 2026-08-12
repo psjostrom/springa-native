@@ -33,6 +33,7 @@ export function MetricCard({
 }: MetricCardProps) {
   return (
     <Pressable
+      accessibilityRole={props.onPress ? 'button' : undefined}
       style={(state) => [
         styles.card,
         state.pressed && props.onPress && styles.pressed,

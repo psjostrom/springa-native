@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
 import { Button } from './Button';
 import { IconButton } from './IconButton';
+import { MetricCard } from './MetricGrid';
 import { StateView } from './StateView';
 import { TextField } from './TextField';
 
@@ -37,6 +38,12 @@ describe('global UI', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Close' })).toBeOnTheScreen();
+  });
+
+  it('exposes interactive metric cards as named buttons', async () => {
+    await render(<MetricCard label="Distance" value="42" unit="km" onPress={() => {}} />);
+
+    expect(screen.getByRole('button', { name: 'Distance 42 km' })).toBeOnTheScreen();
   });
 
   it('associates field errors with an alert', async () => {
