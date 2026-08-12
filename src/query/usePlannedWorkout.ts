@@ -20,12 +20,10 @@ const PLANNED_WORKOUT_STALE_TIME = 60_000;
 function replaceCalendarEvent(
   event: CalendarEvent,
   detail: PlannedWorkoutDetail,
-  replacedEventId: string,
 ): CalendarEvent {
-  if (event.id !== replacedEventId) return event;
+  if (event.id !== detail.event.id) return event;
   return {
     ...event,
-    id: detail.event.id,
     date: new Date(detail.event.startDateLocal),
     name: detail.event.name,
     description: detail.event.description,
@@ -148,10 +146,6 @@ export function usePlannedWorkoutMutations(eventId: string) {
       },
       onSuccess: (detail) => {
         queryClient.setQueryData(plannedWorkoutKey, detail);
-        queryClient.setQueryData(
-          queryKeys.plannedWorkout(identity, detail.event.id),
-          detail,
-        );
         queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
           { queryKey: calendarKey },
           (current) => current == null
@@ -159,10 +153,9 @@ export function usePlannedWorkoutMutations(eventId: string) {
             : {
                 ...current,
                 pages: current.pages.map((page) =>
-                  page.map((event) => replaceCalendarEvent(event, detail, eventId))),
+                  page.map((event) => replaceCalendarEvent(event, detail))),
               },
         );
-        void queryClient.invalidateQueries({ queryKey: calendarKey });
       },
     }),
     deleteWorkout: useMutation({
