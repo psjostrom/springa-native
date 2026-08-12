@@ -1,9 +1,4 @@
 import {
-  BottomSheetModal,
-  BottomSheetView,
-  type BottomSheetMethods,
-} from '@expo/ui/community/bottom-sheet';
-import {
   ChevronLeft,
   ChevronRight,
   Footprints,
@@ -16,9 +11,15 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { PlannedWorkoutReplacementCategory } from '@/api/types';
+import { AppText, Button, Card, IconButton } from '@/components/ui';
+import {
+  AppBottomSheet,
+  type AppBottomSheetMethods,
+} from '@/components/ui/AppBottomSheet';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
+import { IconSize, Radius, Spacing } from '@/theme/tokens';
 import type { PlannedWorkoutActions } from './PlannedWorkoutSheet';
 import { availableReplacementCategories } from './workoutActions';
 
@@ -84,24 +85,26 @@ function ActionRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${label} workout`}
-      style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
+      style={({ pressed }) => pressed && styles.pressed}
     >
-      <View style={[styles.icon, { backgroundColor: `${color}22` }]}>
-        <Icon color={color} size={20} />
-      </View>
-      <View style={styles.actionCopy}>
-        <Text style={[styles.actionLabel, destructive && styles.destructive]}>
-          {label}
-        </Text>
-        <Text style={styles.actionDescription}>{description}</Text>
-      </View>
-      <ChevronRight color={SpringaColors.muted} size={18} />
+      <Card padding="compact" style={styles.actionRow}>
+        <View style={styles.icon}>
+          <Icon color={color} size={IconSize.md} />
+        </View>
+        <View style={styles.actionCopy}>
+          <AppText variant="subheading" tone={destructive ? 'error' : 'primary'}>
+            {label}
+          </AppText>
+          <AppText variant="caption" tone="muted">{description}</AppText>
+        </View>
+        <ChevronRight color={SpringaColors.muted} size={IconSize.sm} />
+      </Card>
     </Pressable>
   );
 }
 
 export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
-  const sheetRef = useRef<BottomSheetMethods>(null);
+  const sheetRef = useRef<AppBottomSheetMethods>(null);
   const afterDismiss = useRef<(() => void) | null>(null);
   const [mode, setMode] = useState<SheetMode>('actions');
 
@@ -120,11 +123,8 @@ export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
   const choices = availableReplacementCategories(actions.currentReplacementCategory);
 
   return (
-    <BottomSheetModal
+    <AppBottomSheet
       ref={sheetRef}
-      enablePanDownToClose
-      enableDynamicSizing
-      backgroundStyle={{ backgroundColor: SpringaColors.surface }}
       onDismiss={() => {
         const action = afterDismiss.current;
         afterDismiss.current = null;
@@ -132,11 +132,11 @@ export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
         action?.();
       }}
     >
-      <BottomSheetView style={styles.sheet}>
+      <View style={styles.sheet}>
         {mode === 'actions' ? (
           <>
-            <Text style={styles.title}>Workout actions</Text>
-            <Text style={styles.subtitle} numberOfLines={2}>{workoutName}</Text>
+            <AppText variant="heading">Workout actions</AppText>
+            <AppText variant="label" tone="muted" numberOfLines={2}>{workoutName}</AppText>
             <View style={styles.actionList}>
               <ActionRow
                 label="Replace"
@@ -164,17 +164,17 @@ export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
           </>
         ) : mode === 'replace' ? (
           <>
-            <Pressable
-              onPress={() => setMode('actions')}
-              accessibilityRole="button"
-              accessibilityLabel="Back to workout actions"
-              style={styles.back}
-            >
-              <ChevronLeft color={SpringaColors.muted} size={20} />
-              <Text style={styles.backText}>Workout actions</Text>
-            </Pressable>
-            <Text style={styles.title}>Replace workout</Text>
-            <Text style={styles.subtitle}>Choose a different workout</Text>
+            <View style={styles.back}>
+              <IconButton
+                accessibilityLabel="Back to workout actions"
+                onPress={() => setMode('actions')}
+              >
+                <ChevronLeft color={SpringaColors.muted} size={IconSize.md} />
+              </IconButton>
+              <AppText variant="label" tone="muted">Workout actions</AppText>
+            </View>
+            <AppText variant="heading">Replace workout</AppText>
+            <AppText variant="label" tone="muted">Choose a different workout</AppText>
             <View style={styles.replacementGrid}>
               {choices.map((category) => {
                 const choice = replacementChoices[category];
@@ -185,11 +185,16 @@ export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
                     onPress={() => dismissThen(() => actions.replace(category))}
                     accessibilityRole="button"
                     accessibilityLabel={`Replace with ${choice.label}`}
-                    style={({ pressed }) => [styles.replacementCard, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                      styles.replacementChoice,
+                      pressed && styles.pressed,
+                    ]}
                   >
-                    <Icon color={choice.color} size={22} />
-                    <Text style={styles.replacementLabel}>{choice.label}</Text>
-                    <Text style={styles.replacementDescription}>{choice.description}</Text>
+                    <Card padding="compact" style={styles.replacementCard}>
+                      <Icon color={choice.color} size={IconSize.lg} />
+                      <AppText variant="subheading">{choice.label}</AppText>
+                      <AppText variant="caption" tone="muted">{choice.description}</AppText>
+                    </Card>
                   </Pressable>
                 );
               })}
@@ -197,53 +202,33 @@ export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
           </>
         ) : (
           <>
-            <Text style={styles.title}>Delete workout?</Text>
-            <Text style={styles.subtitle}>This removes {workoutName} from your plan.</Text>
-            <Pressable
-              onPress={() => dismissThen(actions.deleteWorkout)}
-              accessibilityRole="button"
+            <AppText variant="heading">Delete workout?</AppText>
+            <AppText variant="label" tone="muted">
+              This removes {workoutName} from your plan.
+            </AppText>
+            <Button
+              label="Delete workout"
               accessibilityLabel="Confirm delete workout"
-              style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
-            >
-              <Trash2 color={SpringaColors.text} size={20} />
-              <Text style={styles.deleteButtonText}>Delete workout</Text>
-            </Pressable>
+              variant="destructive"
+              onPress={() => dismissThen(actions.deleteWorkout)}
+            />
           </>
         )}
-      </BottomSheetView>
-    </BottomSheetModal>
+      </View>
+    </AppBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
   sheet: {
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 24,
+    gap: Spacing.sm,
   },
-  title: {
-    color: SpringaColors.text,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: SpringaColors.muted,
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  actionList: { gap: 8 },
+  actionList: { gap: Spacing.sm },
   actionRow: {
     minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
+    gap: Spacing.md,
     backgroundColor: SpringaColors.surfaceAlt,
   },
   icon: {
@@ -251,47 +236,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 38,
     height: 38,
-    borderRadius: 11,
+    borderRadius: Radius.lg,
+    backgroundColor: SpringaColors.surface,
   },
-  actionCopy: { flex: 1, gap: 2 },
-  actionLabel: { color: SpringaColors.text, fontSize: 16, fontWeight: '700' },
-  actionDescription: { color: SpringaColors.muted, fontSize: 13 },
-  destructive: { color: SpringaColors.error },
+  actionCopy: { flex: 1, gap: Spacing.xxs },
   back: {
-    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
   },
-  backText: { color: SpringaColors.muted, fontSize: 14, fontWeight: '600' },
-  replacementGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  replacementCard: {
+  replacementGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  replacementChoice: {
     minWidth: 132,
     flexBasis: 140,
     flexGrow: 1,
+  },
+  replacementCard: {
+    flex: 1,
     minHeight: 112,
-    gap: 7,
-    padding: 12,
-    borderRadius: 13,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
+    gap: Spacing.sm,
     backgroundColor: SpringaColors.surfaceAlt,
   },
-  replacementLabel: { color: SpringaColors.text, fontSize: 16, fontWeight: '700' },
-  replacementDescription: { color: SpringaColors.muted, fontSize: 12 },
-  deleteButton: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    backgroundColor: SpringaColors.error,
-  },
-  deleteButtonText: { color: SpringaColors.text, fontSize: 16, fontWeight: '700' },
   pressed: { opacity: 0.72 },
 });

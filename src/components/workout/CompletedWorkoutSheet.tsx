@@ -1,22 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { SpringaColors } from '@/theme/colors';
+import { AppText, Card } from '@/components/ui';
 
 /** Placeholder body for completed — filled in milestone 5. */
 export function CompletedWorkoutSheet() {
   return (
-    <View style={styles.box} accessibilityLabel="Completed workout details">
-      <Text style={styles.text}>Completed workout</Text>
-    </View>
+    <Card padding="compact" accessibilityLabel="Completed workout details">
+      <AppText tone="muted">Completed workout</AppText>
+    </Card>
   );
 }
-
-const styles = StyleSheet.create({
-  box: {
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-  },
-  text: {
-    color: SpringaColors.muted,
-    fontSize: 14,
-  },
-});

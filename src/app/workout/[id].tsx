@@ -10,6 +10,7 @@ import type { PlannedWorkoutActions } from '@/components/workout/PlannedWorkoutS
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
 
 /** Workout detail stack screen — identity = `/workout/[id]`; data = calendar Query cache. */
 export default function WorkoutSheetScreen() {
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: SpringaColors.surface,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
   },
 });
