@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
@@ -59,7 +59,8 @@ export function useCalendarEvents() {
     enabled: calendarEnabled,
   });
 
-  const events = mergeCalendarEvents(query.data?.pages ?? []);
+  const pages = query.data?.pages;
+  const events = useMemo(() => mergeCalendarEvents(pages ?? []), [pages]);
   const prefetchedFor = useRef<string | null>(null);
   const {
     isSuccess,

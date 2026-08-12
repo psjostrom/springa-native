@@ -8,6 +8,7 @@ import { AgendaGate } from '@/components/agenda/AgendaGate';
 import { AgendaList } from '@/components/agenda/AgendaList';
 import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
+import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
 import {
   makeTestAuthValue,
   makeTestSession,
@@ -133,5 +134,31 @@ describe('AgendaList', () => {
     });
     // LegendList may not mount rows under Vitest layout; error clear is the gate.
     expect(screen.queryByLabelText('Loading calendar')).toBeNull();
+  });
+
+  it('prefetches current and future planned detail without touching missed or race events', async () => {
+    const detailRequests: string[] = [];
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), ({ params }) => {
+        detailRequests.push(String(params.id));
+        return HttpResponse.json(defaultPlannedWorkoutDetail());
+      }),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <View style={{ width: 390, height: 800 }}>
+          <AgendaGate>
+            <AgendaList />
+          </AgendaGate>
+        </View>
+      </TestAppProviders>,
+    );
+
+    const expectedDetailRequests = ['threshold-today'];
+    await waitFor(() => expect(detailRequests).toEqual(expectedDetailRequests));
+    expect(detailRequests).toContain('threshold-today');
+    expect(detailRequests).not.toContain('tempo-missed');
+    expect(detailRequests).not.toContain('race-future');
   });
 });
