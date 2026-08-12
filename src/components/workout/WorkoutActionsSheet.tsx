@@ -1,9 +1,4 @@
 import {
-  BottomSheetModal,
-  BottomSheetView,
-  type BottomSheetMethods,
-} from '@expo/ui/community/bottom-sheet';
-import {
   ChevronLeft,
   ChevronRight,
   Footprints,
@@ -15,21 +10,19 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { PlannedWorkoutReplacementCategory } from '@/api/types';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
 import type { PlannedWorkoutActions } from './PlannedWorkoutSheet';
+import { WorkoutActionsBottomSheet } from './WorkoutActionsBottomSheet';
 import { availableReplacementCategories } from './workoutActions';
 
 type SheetMode = 'actions' | 'replace' | 'delete';
 
-export type WorkoutActionsSheetMethods = {
-  present: () => void;
-};
-
 type Props = {
-  ref?: Ref<WorkoutActionsSheetMethods>;
+  isPresented: boolean;
+  onDismiss: () => void;
   actions: PlannedWorkoutActions;
   workoutName: string;
 };
@@ -100,39 +93,24 @@ function ActionRow({
   );
 }
 
-export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
-  const sheetRef = useRef<BottomSheetMethods>(null);
-  const afterDismiss = useRef<(() => void) | null>(null);
+export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutName }: Props) {
   const [mode, setMode] = useState<SheetMode>('actions');
 
-  useImperativeHandle(ref, () => ({
-    present: () => {
-      setMode('actions');
-      sheetRef.current?.present();
-    },
-  }), []);
+  const dismiss = () => {
+    setMode('actions');
+    onDismiss();
+  };
 
   const dismissThen = (action: () => void) => {
-    afterDismiss.current = action;
-    sheetRef.current?.dismiss();
+    dismiss();
+    action();
   };
 
   const choices = availableReplacementCategories(actions.currentReplacementCategory);
 
   return (
-    <BottomSheetModal
-      ref={sheetRef}
-      enablePanDownToClose
-      enableDynamicSizing
-      backgroundStyle={{ backgroundColor: SpringaColors.surface }}
-      onDismiss={() => {
-        const action = afterDismiss.current;
-        afterDismiss.current = null;
-        setMode('actions');
-        action?.();
-      }}
-    >
-      <BottomSheetView style={styles.sheet}>
+    <WorkoutActionsBottomSheet isPresented={isPresented} onDismiss={dismiss}>
+      <View style={styles.sheet}>
         {mode === 'actions' ? (
           <>
             <Text style={styles.title}>Workout actions</Text>
@@ -210,17 +188,19 @@ export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
             </Pressable>
           </>
         )}
-      </BottomSheetView>
-    </BottomSheetModal>
+      </View>
+    </WorkoutActionsBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
   sheet: {
+    width: '100%',
     gap: 8,
     paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 24,
+    backgroundColor: SpringaColors.surface,
   },
   title: {
     color: SpringaColors.text,

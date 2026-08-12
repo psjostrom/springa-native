@@ -1,10 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import {
-  WorkoutActionsSheet,
-  type WorkoutActionsSheetMethods,
-} from '@/components/workout/WorkoutActionsSheet';
+import { WorkoutActionsSheet } from '@/components/workout/WorkoutActionsSheet';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
 import type { PlannedWorkoutActions } from '@/components/workout/PlannedWorkoutSheet';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
@@ -17,7 +14,7 @@ export default function WorkoutSheetScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { events, isLoading } = useCalendarEvents();
   const event = id ? findCalendarEvent(events, id) : undefined;
-  const sheetRef = useRef<WorkoutActionsSheetMethods | null>(null);
+  const [actionsPresented, setActionsPresented] = useState(false);
   const [actions, setActions] = useState<PlannedWorkoutActions | null>(null);
 
   useEffect(() => {
@@ -48,7 +45,7 @@ export default function WorkoutSheetScreen() {
           <Stack.Toolbar.Button
             accessibilityLabel="Workout actions"
             disabled={actions.pending}
-            onPress={() => sheetRef.current?.present()}
+            onPress={() => setActionsPresented(true)}
           >
             <Stack.Toolbar.Icon
               src={require('../../../assets/images/ellipsis.png')}
@@ -67,7 +64,8 @@ export default function WorkoutSheetScreen() {
       </View>
       {actions ? (
         <WorkoutActionsSheet
-          ref={sheetRef}
+          isPresented={actionsPresented}
+          onDismiss={() => setActionsPresented(false)}
           actions={actions}
           workoutName={event?.name ?? 'Workout'}
         />
