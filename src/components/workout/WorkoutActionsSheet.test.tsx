@@ -1,27 +1,31 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { Text } from 'react-native';
+import { describe, expect, it } from 'vitest';
 import type { PlannedWorkoutActions } from './PlannedWorkoutSheet';
 import { WorkoutActionsSheet } from './WorkoutActionsSheet';
 
-const actions: PlannedWorkoutActions = {
-  currentReplacementCategory: 'quality',
-  deleteWorkout: vi.fn(),
-  move: vi.fn(),
-  pending: false,
-  replace: vi.fn(),
-};
-
 function Harness() {
   const [isPresented, setIsPresented] = useState(true);
+  const [moveStarted, setMoveStarted] = useState(false);
+  const actions: PlannedWorkoutActions = {
+    currentReplacementCategory: 'quality',
+    deleteWorkout: () => {},
+    move: () => setMoveStarted(true),
+    pending: false,
+    replace: () => {},
+  };
 
   return (
-    <WorkoutActionsSheet
-      isPresented={isPresented}
-      onDismiss={() => setIsPresented(false)}
-      actions={actions}
-      workoutName="Threshold intervals"
-    />
+    <>
+      <WorkoutActionsSheet
+        isPresented={isPresented}
+        onDismiss={() => setIsPresented(false)}
+        actions={actions}
+        workoutName="Threshold intervals"
+      />
+      {moveStarted ? <Text>Move started</Text> : null}
+    </>
   );
 }
 
@@ -31,7 +35,7 @@ describe('WorkoutActionsSheet', () => {
 
     fireEvent.press(view.getByLabelText('Move workout'));
 
-    expect(actions.move).toHaveBeenCalledOnce();
+    await waitFor(() => expect(view.getByText('Move started')).toBeTruthy());
     await waitFor(() => expect(view.queryByText('Workout actions')).toBeNull());
   });
 });
