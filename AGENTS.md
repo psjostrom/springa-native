@@ -20,6 +20,7 @@ Native tabs: https://docs.expo.dev/router/advanced/native-tabs/
 - **Diabetes chrome:** shell assumes BG pill (live when `diabetesMode`) + Simulate tab present.
 - **Native dirs:** `android/` and `ios/` are prebuild output and gitignored — never commit them. App id: `com.springa.app`.
 - **Specs vs plans:** commit approved designs under `docs/superpowers/specs/`. Implementation plans under `docs/superpowers/plans/` are gitignored — do not commit. `.superpowers/` SDD runs are local-exclude only.
+- **PR titles:** use Conventional Commits format (`<type>(optional-scope): description`) before opening or updating a PR; CI enforces it.
 
 ## Commands
 
