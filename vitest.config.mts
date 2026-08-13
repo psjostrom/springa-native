@@ -8,13 +8,22 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [reactNative({ platform: 'android' })],
   resolve: {
-    alias: {
-      '@': path.join(root, 'src'),
-      '@react-native-community/datetimepicker': path.join(
-        root,
-        'src/test/DateTimePickerTestDouble.tsx',
-      ),
-    },
+    alias: [
+      {
+        find: /^@expo\/ui\/jetpack-compose$/,
+        replacement: path.join(root, 'src/test/ExpoUiTestDouble.tsx'),
+      },
+      {
+        find: /^@expo\/ui\/swift-ui\/modifiers$/,
+        replacement: path.join(root, 'src/test/ExpoUiTestDouble.tsx'),
+      },
+      { find: /^@expo\/ui$/, replacement: path.join(root, 'src/test/ExpoUiTestDouble.tsx') },
+      {
+        find: '@react-native-community/datetimepicker',
+        replacement: path.join(root, 'src/test/DateTimePickerTestDouble.tsx'),
+      },
+      { find: '@', replacement: path.join(root, 'src') },
+    ],
   },
   test: {
     include: ['src/**/*.{test,spec}.{ts,tsx}'],

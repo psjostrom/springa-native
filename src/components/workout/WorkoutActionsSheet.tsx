@@ -10,27 +10,21 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { PlannedWorkoutReplacementCategory } from '@/api/types';
 import { AppText, Button, Card, IconButton } from '@/components/ui';
-import {
-  AppBottomSheet,
-  type AppBottomSheetMethods,
-} from '@/components/ui/AppBottomSheet';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
 import { IconSize, Radius, Spacing } from '@/theme/tokens';
 import type { PlannedWorkoutActions } from './PlannedWorkoutSheet';
+import { WorkoutActionsBottomSheet } from './WorkoutActionsBottomSheet';
 import { availableReplacementCategories } from './workoutActions';
 
 type SheetMode = 'actions' | 'replace' | 'delete';
 
-export type WorkoutActionsSheetMethods = {
-  present: () => void;
-};
-
 type Props = {
-  ref?: Ref<WorkoutActionsSheetMethods>;
+  isPresented: boolean;
+  onDismiss: () => void;
   actions: PlannedWorkoutActions;
   workoutName: string;
 };
@@ -103,35 +97,23 @@ function ActionRow({
   );
 }
 
-export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
-  const sheetRef = useRef<AppBottomSheetMethods>(null);
-  const afterDismiss = useRef<(() => void) | null>(null);
+export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutName }: Props) {
   const [mode, setMode] = useState<SheetMode>('actions');
 
-  useImperativeHandle(ref, () => ({
-    present: () => {
-      setMode('actions');
-      sheetRef.current?.present();
-    },
-  }), []);
+  const dismiss = () => {
+    setMode('actions');
+    onDismiss();
+  };
 
   const dismissThen = (action: () => void) => {
-    afterDismiss.current = action;
-    sheetRef.current?.dismiss();
+    dismiss();
+    action();
   };
 
   const choices = availableReplacementCategories(actions.currentReplacementCategory);
 
   return (
-    <AppBottomSheet
-      ref={sheetRef}
-      onDismiss={() => {
-        const action = afterDismiss.current;
-        afterDismiss.current = null;
-        setMode('actions');
-        action?.();
-      }}
-    >
+    <WorkoutActionsBottomSheet isPresented={isPresented} onDismiss={dismiss}>
       <View style={styles.sheet}>
         {mode === 'actions' ? (
           <>
@@ -215,13 +197,18 @@ export function WorkoutActionsSheet({ ref, actions, workoutName }: Props) {
           </>
         )}
       </View>
-    </AppBottomSheet>
+    </WorkoutActionsBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
   sheet: {
+    width: '100%',
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xl,
+    backgroundColor: SpringaColors.surface,
   },
   actionList: { gap: Spacing.sm },
   actionRow: {

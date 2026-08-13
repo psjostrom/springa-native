@@ -41,9 +41,11 @@ percentage-based card grids.
 ## Actions
 
 Keep the toolbar ellipsis, but make it present a Springa-styled bottom sheet
-rather than a popup menu. Use `@expo/ui/community/bottom-sheet` so the platform
-owns modal presentation, backdrop, gestures, and dismissal while Springa owns the
-sheet content.
+rather than a popup menu. Use Expo UI's controlled platform sheets, with existing
+React Native content hosted by `RNHostView`, so the platform owns modal
+presentation, backdrop, gestures, and dismissal while Springa owns sheet content.
+Android uses the Compose sheet directly because the universal component does not
+expose its container color. React state owns presentation; no imperative refs.
 
 - Root sheet: Replace, Move, Delete workout.
 - Replace: switch the sheet content to compact labeled choices. Omit the current
