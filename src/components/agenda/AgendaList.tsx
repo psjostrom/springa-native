@@ -73,7 +73,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   if (isLoading) {
     return (
       <View accessibilityLabel="Loading calendar">
-        <StateView state="loading" title="Loading workouts…" message="Loading calendar" />
+        <StateView loading title="Loading workouts…" message="Loading calendar" />
       </View>
     );
   }
@@ -81,7 +81,6 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   if (isError) {
     return (
       <StateView
-        state="error"
         title="Couldn’t load calendar"
         message={error ?? 'Something went wrong.'}
         onRetry={reload}
@@ -118,7 +117,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       onEndReachedThreshold={0.5}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Card padding="compact">
+          <Card>
             <AppText variant="subheading">Agenda</AppText>
           </Card>
           {historyMode ? (

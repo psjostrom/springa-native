@@ -29,7 +29,6 @@ export function WorkoutSheetContent({
     return (
       <View style={styles.root} accessibilityLabel="Workout not found">
         <StateView
-          state="empty"
           title="Workout not found"
           message="This workout is no longer available."
         />

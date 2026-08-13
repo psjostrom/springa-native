@@ -3,7 +3,7 @@ export * from './Badge';
 export * from './Button';
 export * from './Card';
 export * from './IconButton';
-export * from './MetricGrid';
+export * from './Grid';
 export * from './Section';
 export * from './StateView';
 export * from './TextField';

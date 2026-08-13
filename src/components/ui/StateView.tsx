@@ -4,10 +4,8 @@ import { Spacing } from '@/theme/tokens';
 import { AppText } from './AppText';
 import { Button } from './Button';
 
-export type StateViewState = 'loading' | 'empty' | 'unavailable' | 'error';
-
 export type StateViewProps = {
-  state: StateViewState;
+  loading?: boolean;
   title: string;
   message: string;
   retryLabel?: string;
@@ -16,7 +14,7 @@ export type StateViewProps = {
 };
 
 export function StateView({
-  state,
+  loading = false,
   title,
   message,
   retryLabel = 'Retry',
@@ -25,7 +23,7 @@ export function StateView({
 }: StateViewProps) {
   return (
     <View style={styles.state}>
-      {state === 'loading' ? <ActivityIndicator color={SpringaColors.brandText} /> : null}
+      {loading ? <ActivityIndicator color={SpringaColors.brandText} /> : null}
       <AppText variant="subheading">{title}</AppText>
       <AppText tone="muted" style={styles.message}>{message}</AppText>
       {onRetry ? (

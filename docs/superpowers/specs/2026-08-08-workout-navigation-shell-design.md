@@ -6,6 +6,7 @@ Repo: `springa-native` (Expo SDK 57)
 Parent: `docs/superpowers/specs/2026-08-06-native-core-parity-roadmap-design.md`  
 Depends on: milestone 2 (`2026-08-07-live-agenda-design.md`)  
 Test harness: `2026-08-07-vitest-msw-design.md`
+Design system: `2026-08-12-native-design-system-design.md`
 
 ## Goal
 
@@ -71,6 +72,8 @@ Agenda card tap
 - Completed: short placeholder copy (e.g. “Completed workout”) — no Overview widgets
 - Missed: planned body + Missed badge in chrome
 
+Milestones 4 and 5 replace these bodies by composing `src/components/ui/` primitives. Shared visual structure belongs in general components such as `Card`, `Grid`, `Section`, `AppText`, `Badge`, `StateView`, `Button`, `TextField`, and `AppBottomSheet`; planned-workout, report-card, stats, splits, carbs, feedback, and glucose semantics stay in feature components.
+
 ### Sheet
 
 - Dark Springa surface
@@ -108,4 +111,4 @@ Agenda card tap
 
 ## Follow-up
 
-Milestone 4 — Planned detail (full). Milestone 5 — Completed Overview.
+Milestone 4 — Planned detail (full). Milestone 5 — Completed Overview. Both use the native design system and add no screen-named global primitives.

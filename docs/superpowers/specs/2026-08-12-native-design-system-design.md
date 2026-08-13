@@ -77,11 +77,11 @@ Components use system fonts. No font package or theme provider is added.
 
 ## Global components
 
-All global components are presentational. They accept data and callbacks through props and never read Query, auth, Router, or Zustand state.
+Components in `src/components/ui/` are presentational. They accept data and callbacks through props and never read Query, auth, Router, or Zustand state. Existing application-shell components remain outside that boundary.
 
 ### Existing shell
 
-`ScreenShell` remains the screen-root primitive. It owns the Springa background and shared top bar placement. NativeTabs remains platform-owned and outside the component library.
+`ScreenShell` remains the screen-root primitive. It accepts screen content only and owns the Springa background and shared top bar placement; each screen owns its content title. NativeTabs remains platform-owned and outside the component library.
 
 ### `AppText`
 
@@ -89,15 +89,15 @@ Wraps React Native `Text` and retains `TextProps`. It provides the six typograph
 
 ### `Card`
 
-Provides `surface`, border, continuous radius where supported, and standard padding. It supports default, compact, and unpadded content so both standalone cards and M5 widget containers can use the same boundary. Domain-specific accent borders remain caller-owned.
+Provides a border, continuous radius where supported, and one standard padding. It accepts arbitrary children and three semantic tones: `default` uses `surface`, `subtle` uses `surfaceAlt`, and `brand` uses `tintBrand` with the translucent brand border used by Springa's workout summary. Callers own content and layout, not repeated card colors or boundaries.
 
 ### `Button`
 
-Provides primary, secondary, destructive, and ghost variants plus compact and default sizes. It owns pressed, disabled, and loading presentation and the minimum touch target. Primary uses `brandAction`; destructive uses the error tint treatment.
+Provides primary, secondary, and destructive variants. It owns pressed, disabled, and loading presentation and the minimum touch target. Primary uses `brandAction`; destructive uses the error tint treatment. Additional sizes or variants wait for a concrete consumer.
 
 ### `IconButton`
 
-Provides icon-only actions with a required accessibility label and 44-point target. It is used for shell and sheet chrome where a full text button is inappropriate.
+Provides the current transparent icon-only action with a required accessibility label and 44-point target. It is used for shell and sheet chrome where a full text button is inappropriate. Visual variants wait for a concrete consumer.
 
 ### `Badge`
 
@@ -105,36 +105,40 @@ Provides neutral, brand, success, warning, and error treatments. Brand badges us
 
 ### `AppBottomSheet`
 
-Wraps `@expo/ui/community/bottom-sheet` for transient, local interactions. It owns Springa surface color, content spacing, native drag indication, pan/back/scrim dismissal, dynamic content sizing, and optional snap points. It exposes `present()`, `dismiss()`, and an `onDismiss` completion callback that fires once after imperative, pan, Android back, or scrim dismissal. Content, queued actions, and feature mode remain caller-owned.
+Wraps Expo UI's controlled platform sheets for transient, local interactions. React state owns visibility through `isPresented`; no imperative ref or `present()`/`dismiss()` method is exposed to application or feature code. Android's wrapper privately owns the Compose `ModalBottomSheetRef` because `hide()` is the platform API whose promise resolves after the native exit animation. iOS uses the universal Expo `BottomSheet` completion callback. Android continues to use Compose `ModalBottomSheet` directly so Springa can set native container/content colors, with a device-width `Host` so React Native content and hit targets remain full width.
+
+The wrapper owns Springa surface color, content spacing, native drag indication, pan/back/scrim dismissal, React Native hosting, keyboard-to-sheet presentation sequencing, and native dismissal completion. Its public contract is `AppBottomSheet({ children, isPresented, onDismiss, onDismissComplete? })`: `onDismiss` requests caller-owned visibility to become false, while `onDismissComplete` fires only after native dismissal finishes. If the keyboard is visible when `isPresented` becomes true, the wrapper dismisses it and waits for `keyboardDidHide` before mounting the sheet. Content and feature mode remain caller-owned. Snap points stay out of the first contract until a concrete consumer needs them.
 
 Router stack screens remain the separate choice for navigable, deep-linkable content. Workout detail stays a full-screen route-owned stack `card`; this migration does not change its presentation. No abstraction attempts to hide route presentation and transient bottom sheets behind one modal API.
 
-Workout actions is the first `AppBottomSheet` consumer. A future M6 glucose graph popover may reuse it if that milestone includes the popover.
+Workout actions is the first `AppBottomSheet` consumer.
 
 ### `Section`
 
-Groups a heading, optional icon, optional trailing action, and content. It standardizes spacing for current workout sections and M5 Overview widgets without controlling widget data or order.
+Groups a text heading and arbitrary content. It standardizes current section spacing without predicting icons, trailing actions, widget data, or ordering.
 
-### `MetricCard` and `MetricGrid`
+### `Grid`
 
-`MetricCard` renders label, value, optional unit, optional judgment, and optional meter. `MetricGrid` uses content-width-driven wrapping rather than percentage cells. At the default font scale it uses two columns only when both cells meet their minimum content width. At any enlarged system font scale, or when two minimum-width cells do not fit, it uses one column. Labels, values, units, and judgments wrap without truncation. Current workout metrics and M5 report-card/stat widgets use these primitives; score calculation and explanatory content stay in domain components.
+Lays out arbitrary children with native flex wrapping and a shared gap. Cells grow evenly from the standard 112-point minimum and 130-point basis already used by Springa's compact two-column workout summary, naturally falling back to fewer columns when content width is constrained. It does not inspect font scale, measure itself in JavaScript, style its children, or define metric-specific content.
+
+The planned-workout summary composes a `brand` `Card`, `Grid`, and `AppText` to match the existing design on `main`: one tinted container with compact label/value cells. Feature widgets may compose the same structural primitives, but report-card judgments, meters, units, icons, and domain behavior remain feature components until their actual designs exist.
 
 ### `StateView`
 
-Renders explicit loading, empty, unavailable, or error content with an optional retry action. It replaces repeated centered spinner/message/retry layouts. Feature code continues to decide which state applies and supplies user-facing copy.
+Renders caller-supplied title and message content with an optional loading indicator and retry action. Its visual-state contract is `loading?: boolean`; it does not encode an unused taxonomy of loading, empty, unavailable, and error states.
 
 ### `TextField`
 
-Wraps React Native `TextInput` with Springa surface, border, focus, disabled, and error treatment. It supports controlled numeric, single-line, and multiline input. Current pre-run carbs and M5 carbs/feedback are its concrete consumers.
+Wraps React Native `TextInput` with Springa surface, border, focus, disabled, and error treatment. It retains native input props; pre-run carbs is its current concrete consumer.
 
 ## Data and state flow
 
 - Tokens and UI components contain no product state.
 - Query hooks remain sole owners of server data and mutation state.
-- Router remains sole owner of workout route identity and route-level sheet presentation.
+- Router remains sole owner of workout route identity and the workout action sheet's controlled presentation state.
 - Feature components translate domain state into UI-component props.
-- `AppBottomSheet` owns only visibility and native presentation. It forwards one settled `onDismiss` event for every native dismissal path. Feature sheets may defer a mutation until that event through their own callback state; the global wrapper does not queue business actions.
-- `StateView` does not infer loading or error conditions.
+- `AppBottomSheet` renders native presentation from caller-owned `isPresented` state, forwards dismissal requests through `onDismiss`, and reports native completion through `onDismissComplete`. It owns no feature state or business action; workout actions retain their pending action until completion is reported.
+- `StateView` does not infer loading or error conditions. Its only visual state input is whether to show the loading indicator; callers supply the title, message, and retry action.
 
 ## Error and interaction behavior
 
@@ -142,14 +146,16 @@ Wraps React Native `TextInput` with Springa surface, border, focus, disabled, an
 - Errors expose concise copy and retry only when retry is valid.
 - Disabled and pending actions cannot fire twice.
 - Mutation failures remain visible in their feature context and use `accessibilityRole="alert"` where appropriate.
-- Bottom sheets reset feature mode after dismissal. Android back, scrim tap, and pan dismissal retain native behavior.
+- Bottom sheets reset feature mode after native dismissal completes. Android back, scrim tap, and pan dismissal flow through the same controlled state callback.
+- A sheet requested while the keyboard is visible waits for `keyboardDidHide` before presentation, avoiding simultaneous IME and sheet animations.
+- Actions that open another native surface or change the underlying route run only after `onDismissComplete`, never in the same turn as the dismissal request.
 - Font scaling and screen-reader labels remain enabled through every wrapper.
 - Current no-op Theme and Month/Week controls are removed. Deferred features are not presented as actionable accessibility targets.
 
 ## Migration
 
-1. Expand the palette and add shared metric tokens.
-2. Add global components with focused behavior tests.
+1. Expand the palette and add shared visual tokens.
+2. Add global components with focused behavior tests. Delete `MetricCard`; replace `MetricGrid` with structural `Grid`; remove unused `Card` padding, `Button` size/ghost, `IconButton` variant, `Section` icon/trailing, `StateView` state, and `ScreenShell` title APIs.
 3. Migrate shell, login, QA login, and placeholder tabs; remove the no-op Theme control.
 4. Migrate Calendar/Agenda; replace the no-op Month/Week switcher with a static Agenda heading until those modes have an approved milestone.
 5. Migrate planned and completed workout surfaces, inputs, and actions, including `AppBottomSheet`.
@@ -164,8 +170,8 @@ The migration changes visual rhythm and component consistency but not data contr
 - Do not test design documentation wording or snapshot whole style trees.
 - Run test discovery, focused tests, the full Vitest suite, TypeScript, and lint.
 - Android QA covers Calendar Agenda, workout detail, and the three-dot action sheet using semantic inspection, logs, and matched screenshots.
-- Bottom-sheet regression QA covers pan, scrim, and Android back dismissal; one settled `onDismiss`; feature-mode reset; an immediate underlying-screen tap after dismissal; move-picker handoff and cancellation; and content reachability at enlarged text.
-- Metric QA covers default two-column layout plus narrow-width and enlarged-text one-column layout without clipped labels, values, units, or judgments.
+- Bottom-sheet regression QA covers pan, scrim, and Android back dismissal; controlled-state reset; feature-mode reset; an immediate underlying-screen tap after dismissal; move-picker handoff and cancellation; full-width Android content; and content reachability at enlarged text.
+- Grid QA covers native wrapping at wide and constrained widths. Android QA verifies the planned-workout summary matches the compact `main` layout without clipped labels or values.
 - Compare before/after screenshots quantitatively, then inspect changes against this design. A non-zero diff is expected because spacing and typography become consistent.
 
 ## Out of scope
@@ -182,7 +188,7 @@ The migration changes visual rhythm and component consistency but not data contr
 ## Success criteria
 
 - Every implemented screen uses one palette and token scale.
-- Repeated text, card, button, badge, input, state, section, metric, and transient-sheet presentation uses the global components.
+- Repeated text, card, grid, button, badge, input, state, section, and transient-sheet presentation uses the global components.
 - Route-owned stack screens and local transient bottom sheets keep distinct ownership.
 - No unused Expo template theme path or dead component remains.
 - Existing product behavior and accessibility remain intact.

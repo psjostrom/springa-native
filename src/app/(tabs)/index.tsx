@@ -13,7 +13,7 @@ export default function CalendarScreen() {
     <ScreenShell>
       <View style={styles.body}>
         <AgendaGate>
-          <Card padding="compact" style={styles.card}>
+          <Card style={styles.card}>
             <AgendaList
               onOpenWorkout={(eventId) => {
                 router.push({ pathname: '/workout/[id]', params: { id: eventId } });

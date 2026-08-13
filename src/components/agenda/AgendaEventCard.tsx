@@ -66,7 +66,6 @@ export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
       style={styles.pressable}
     >
       <Card
-        padding="compact"
         style={[
           styles.card,
           { borderLeftColor: statusBorderColor(status) },

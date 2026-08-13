@@ -1,18 +1,14 @@
 import { Pressable, StyleSheet, type PressableProps } from 'react-native';
-import { SpringaColors } from '@/theme/colors';
 import { MinTouchTarget, Radius } from '@/theme/tokens';
-import type { ButtonVariant } from './Button';
 
 export type IconButtonProps = Omit<PressableProps, 'children' | 'accessibilityLabel'> & {
   accessibilityLabel: string;
   children: React.ReactNode;
-  variant?: ButtonVariant;
 };
 
 export function IconButton({
   accessibilityLabel,
   children,
-  variant = 'ghost',
   disabled,
   style,
   ...props
@@ -25,7 +21,6 @@ export function IconButton({
       disabled={disabled}
       style={(state) => [
         styles.button,
-        styles[variant],
         state.pressed && styles.pressed,
         disabled && styles.disabled,
         typeof style === 'function' ? style(state) : style,
@@ -45,14 +40,6 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderRadius: Radius.pill,
   },
-  primary: { backgroundColor: SpringaColors.brandAction },
-  secondary: {
-    backgroundColor: SpringaColors.surfaceAlt,
-    borderColor: SpringaColors.border,
-    borderWidth: 1,
-  },
-  destructive: { backgroundColor: SpringaColors.tintError },
-  ghost: { backgroundColor: 'transparent' },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.48 },
 });

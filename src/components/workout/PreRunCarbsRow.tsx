@@ -9,9 +9,15 @@ type PreRunCarbsRowProps = {
   value: number | null;
   pending: boolean;
   onSave: (value: number | null) => Promise<void>;
+  onInputFocus?: (target: number) => void;
 };
 
-export function PreRunCarbsRow({ value, pending, onSave }: PreRunCarbsRowProps) {
+export function PreRunCarbsRow({
+  value,
+  pending,
+  onSave,
+  onInputFocus,
+}: PreRunCarbsRowProps) {
   const inputRef = useRef<TextInput>(null);
   const draftRef = useRef('');
   const committingRef = useRef<string | null>(null);
@@ -56,7 +62,7 @@ export function PreRunCarbsRow({ value, pending, onSave }: PreRunCarbsRowProps) 
   };
 
   return (
-    <Card padding="compact" style={styles.row} accessibilityLabel="Pre-run carbs">
+    <Card tone="subtle" style={styles.row} accessibilityLabel="Pre-run carbs">
       <AppText tone="muted" style={styles.label} selectable>
         Pre-run carbs
       </AppText>
@@ -73,6 +79,7 @@ export function PreRunCarbsRow({ value, pending, onSave }: PreRunCarbsRowProps) 
               setError(null);
             }}
             onBlur={() => void commit()}
+            onFocus={(event) => onInputFocus?.(event.nativeEvent.target)}
             onSubmitEditing={() => {
               void commit();
               inputRef.current?.blur();
@@ -109,9 +116,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: SpringaColors.surfaceAlt,
   },
   label: {
     flex: 1,

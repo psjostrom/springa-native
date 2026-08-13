@@ -1,7 +1,7 @@
 # Native workout detail design
 
 Date: 2026-08-11
-Revised: 2026-08-12
+Revised: 2026-08-13
 Status: implemented and verified
 Repo: `springa-native`
 
@@ -25,12 +25,15 @@ selection, dismissal, and destructive-action presentation to platform controls.
 
 - Keep `/workout/[id]` as a full-screen native stack card titled `Workout`.
 - Show workout name once in content, followed by date and a quiet status label.
-- Present duration, distance, fuel, and total carbs as a compact wrapping summary
-  on `SpringaColors.tintBrand`, with a subtle brand border. This remains the
+- Present duration, distance, fuel, and total carbs as one `Card` with the
+  `brand` tone. Compose its arbitrary label/value cells with `Grid` and
+  `AppText`, matching the compact two-column layout on `main`. This remains the
   screen's one quiet brand-tinted surface.
-- Group pre-run carbs and clothing as restrained information rows.
-- Make workout structure the primary surface. Use open rows, separators, and zone
-  accents instead of nested cards.
+- Group pre-run carbs and clothing as restrained information rows composed from
+  `Card`, `AppText`, `Badge`, `TextField`, and `IconButton`.
+- Make workout structure the primary surface. Use one `Section` and one
+  `subtle` `Card` containing open rows, separators, and zone accents; do not add
+  per-step cards or a workout-specific global component.
 - Place the timeline bar inside the structure section. Do not render a separate
   Timeline card or duplicate segment-duration text.
 - Render user-facing workout notes after structure when present.
@@ -48,8 +51,8 @@ Android uses the Compose sheet directly because the universal component does not
 expose its container color. React state owns presentation; no imperative refs.
 
 - Root sheet: Replace, Move, Delete workout.
-- Replace: switch the sheet content to compact labeled choices. Omit the current
-  replacement category. Unknown or custom legacy workouts show all choices.
+- Replace: switch the sheet content to compact labeled choices and always show
+  Easy, Quality, Long, and Club Run, including the current category.
 - Move: dismiss the sheet and open the native date picker, followed by the native
   time picker. Confirming time starts the move immediately. Cancelling either
   picker makes no change. No in-screen move editor, Save Move, or Cancel remains.
@@ -112,16 +115,19 @@ inline retryable error.
 
 ## Design-system fit
 
-Use existing semantic `SpringaColors` and `HrZoneColors`; add no screen-local raw
-brand colors. Native controls own platform chrome. Keep local layout components
-focused on semantic roles so a later design-system task can promote repeated
-patterns only after another screen proves reuse.
+Follow `2026-08-12-native-design-system-design.md`. Use existing semantic
+`SpringaColors`, `HrZoneColors`, and general components in `src/components/ui/`;
+add no screen-local raw brand colors. `Card` and `Grid` accept arbitrary content,
+while workout summary mapping, structure rows, replacement choices, and mutation
+feedback remain feature-local. Native controls own platform chrome. Add a global
+component only when repeated visual structure cannot be expressed by existing
+general primitives.
 
 ## Verification
 
 - Integration tests cover carb submit/blur, validation, cache behavior, mutation
-  failures, same-category omission, pending replacement state, atomic replacement
-  rendering, direct move confirmation, and workout actions.
+  failures, all replacement categories, pending replacement state, atomic
+  replacement rendering, direct move confirmation, and workout actions.
 - Existing API parsing and rendering coverage remains green.
 - Run focused tests, full tests, typecheck, lint, and Android device QA.
 - Device QA covers sheet motion, an immediate underlying-screen tap after sheet

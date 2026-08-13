@@ -1,7 +1,8 @@
 import { render, screen, userEvent } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
-import { Button, IconButton, MetricCard, StateView, TextField } from '.';
+import { Button, Card, Grid, IconButton, StateView, TextField } from '.';
+import { SpringaColors } from '@/theme/colors';
 
 describe('global UI', () => {
   it('disables a pending button and exposes its busy state', async () => {
@@ -19,11 +20,25 @@ describe('global UI', () => {
   it('offers retry only when supplied', async () => {
     const onRetry = vi.fn();
     await render(
-      <StateView state="error" title="Couldn’t load" message="Try again." onRetry={onRetry} />,
+      <StateView title="Couldn’t load" message="Try again." onRetry={onRetry} />,
     );
 
     await userEvent.setup().press(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetry).toHaveBeenCalledOnce();
+  });
+
+  it('shows progress only for a loading state', async () => {
+    const loadingView = await render(
+      <StateView loading title="Loading" message="Please wait" />,
+    );
+    expect(
+      loadingView.container.queryAll((node) => node.type === 'AndroidProgressBar'),
+    ).toHaveLength(1);
+
+    await loadingView.rerender(<StateView title="Empty" message="Nothing here" />);
+    expect(
+      loadingView.container.queryAll((node) => node.type === 'AndroidProgressBar'),
+    ).toHaveLength(0);
   });
 
   it('keeps icon-only controls named', async () => {
@@ -36,10 +51,22 @@ describe('global UI', () => {
     expect(screen.getByRole('button', { name: 'Close' })).toBeOnTheScreen();
   });
 
-  it('exposes interactive metric cards as named buttons', async () => {
-    await render(<MetricCard label="Distance" value="42" unit="km" onPress={() => {}} />);
+  it('composes arbitrary content in a brand card and grid', async () => {
+    await render(
+      <Card tone="brand" accessibilityLabel="Summary">
+        <Grid>
+          <Text>First block</Text>
+          <Text>Second block</Text>
+        </Grid>
+      </Card>,
+    );
 
-    expect(screen.getByRole('button', { name: 'Distance 42 km' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Summary')).toHaveStyle({
+      backgroundColor: SpringaColors.tintBrand,
+      borderColor: `${SpringaColors.brand}66`,
+    });
+    expect(screen.getByText('First block')).toBeOnTheScreen();
+    expect(screen.getByText('Second block')).toBeOnTheScreen();
   });
 
   it('associates field errors with an alert', async () => {

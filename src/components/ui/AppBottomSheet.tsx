@@ -1,53 +1,49 @@
-import {
-  BottomSheetModal,
-  BottomSheetView,
-  type BottomSheetMethods,
-} from '@expo/ui/community/bottom-sheet';
-import { forwardRef, useImperativeHandle, useRef, type ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
+import { BottomSheet, RNHostView } from '@expo/ui';
+import { presentationBackground } from '@expo/ui/swift-ui/modifiers';
+import type { ReactElement } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { SpringaColors } from '@/theme/colors';
 import { Spacing } from '@/theme/tokens';
-
-export type AppBottomSheetMethods = {
-  present(): void;
-  dismiss(): void;
-};
+import { useKeyboardDismissedPresentation } from './useKeyboardDismissedPresentation';
 
 export type AppBottomSheetProps = {
-  children: ReactNode;
-  snapPoints?: (string | number)[];
-  onDismiss?: () => void;
+  children: ReactElement;
+  isPresented: boolean;
+  onDismiss: () => void;
+  onDismissComplete?: () => void;
 };
 
-export const AppBottomSheet = forwardRef<AppBottomSheetMethods, AppBottomSheetProps>(
-  function AppBottomSheet({ children, snapPoints, onDismiss }, ref) {
-    const nativeRef = useRef<BottomSheetMethods>(null);
+export function AppBottomSheet({
+  children,
+  isPresented,
+  onDismiss,
+  onDismissComplete,
+}: AppBottomSheetProps) {
+  const shouldPresent = useKeyboardDismissedPresentation(isPresented);
 
-    useImperativeHandle(ref, () => ({
-      present: () => nativeRef.current?.present(),
-      dismiss: () => nativeRef.current?.dismiss(),
-    }), []);
-
-    return (
-      <BottomSheetModal
-        ref={nativeRef}
-        snapPoints={snapPoints}
-        enableDynamicSizing={snapPoints == null}
-        enablePanDownToClose
-        backgroundStyle={{ backgroundColor: SpringaColors.surface }}
-        onDismiss={onDismiss}
-      >
-        <BottomSheetView style={styles.content}>{children}</BottomSheetView>
-      </BottomSheetModal>
-    );
-  },
-);
+  return (
+    <BottomSheet
+      isPresented={shouldPresent}
+      onDismiss={() => {
+        onDismiss();
+        onDismissComplete?.();
+      }}
+      modifiers={[presentationBackground(SpringaColors.surface)]}
+    >
+      <RNHostView matchContents>
+        <View style={styles.content}>{children}</View>
+      </RNHostView>
+    </BottomSheet>
+  );
+}
 
 const styles = StyleSheet.create({
   content: {
+    width: '100%',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.xs,
     paddingBottom: Spacing.xl,
+    backgroundColor: SpringaColors.surface,
   },
 });

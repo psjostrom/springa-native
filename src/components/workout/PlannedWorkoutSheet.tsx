@@ -6,7 +6,7 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   CalendarEvent,
   ClothingRecommendation,
@@ -19,8 +19,7 @@ import {
   AppText,
   Badge,
   Card,
-  MetricCard,
-  MetricGrid,
+  Grid,
   Section,
   StateView,
 } from '@/components/ui';
@@ -52,7 +51,6 @@ type PlannedWorkoutSheetProps = {
 
 export type PlannedWorkoutActions = {
   pending: boolean;
-  currentReplacementCategory: PlannedWorkoutReplacementCategory | null;
   move: () => void;
   replace: (category: PlannedWorkoutReplacementCategory) => void;
   deleteWorkout: () => void;
@@ -125,7 +123,7 @@ function ClothingSection({
 }) {
   return (
     <Section title="What to wear" accessibilityLabel="What to wear">
-      <Card padding="compact">
+      <Card>
         <ClothingContent clothing={clothing} />
       </Card>
     </Section>
@@ -156,7 +154,7 @@ function MetricValues({ detail }: { detail: PlannedWorkoutDetail }) {
   return metrics.filter((metric): metric is NonNullable<typeof metric> => metric != null);
 }
 
-function NativeMetricGrid({ detail }: { detail: PlannedWorkoutDetail }) {
+function WorkoutSummary({ detail }: { detail: PlannedWorkoutDetail }) {
   const metrics = MetricValues({ detail });
   if (metrics.length === 0) return null;
 
@@ -168,11 +166,20 @@ function NativeMetricGrid({ detail }: { detail: PlannedWorkoutDetail }) {
   };
 
   return (
-    <MetricGrid accessibilityLabel="Workout metrics">
-      {metrics.map((metric) => (
-        <MetricCard key={metric.key} label={labels[metric.key]} value={metric.value} />
-      ))}
-    </MetricGrid>
+    <Card tone="brand" accessibilityLabel="Workout metrics">
+      <Grid>
+        {metrics.map((metric) => (
+          <View key={metric.key} style={styles.metricCell}>
+            <AppText variant="label" tone="muted" selectable>
+              {labels[metric.key]}
+            </AppText>
+            <AppText variant="subheading" style={styles.metricValue} selectable>
+              {metric.value}
+            </AppText>
+          </View>
+        ))}
+      </Grid>
+    </Card>
   );
 }
 
@@ -180,7 +187,7 @@ function StructureSections({ detail }: { detail: PlannedWorkoutDetail }) {
   const timeline = detail.structure.timeline;
   return (
     <Section title="Workout structure" accessibilityLabel="Workout structure">
-      <Card padding="compact" style={styles.structureCard}>
+      <Card tone="subtle" style={styles.structureCard}>
         {detail.structure.sections.length === 0 ? (
           <AppText tone="muted" selectable>
             No parsed structure available.
@@ -204,7 +211,7 @@ function StructureSections({ detail }: { detail: PlannedWorkoutDetail }) {
                       {formatWorkoutStepDuration(step.duration)}
                     </AppText>
                     <View style={[styles.zonePill, { backgroundColor: zoneColors[step.zone] }]}>
-                      <AppText variant="label" style={styles.zoneText}>
+                      <AppText variant="label" style={styles.zoneText} numberOfLines={1}>
                         {step.label ?? zoneLabels[step.zone]}
                       </AppText>
                     </View>
@@ -277,7 +284,7 @@ function WorkoutDescription({ description }: { description: string }) {
   if (notes == null) return null;
 
   return (
-    <Card padding="compact" accessibilityLabel="Workout description">
+    <Card accessibilityLabel="Workout description">
       <AppText tone="muted" selectable>
         {notes}
       </AppText>
@@ -289,19 +296,22 @@ function NativePresentation({
   detail,
   carbsPending,
   onSaveCarbs,
+  onCarbsInputFocus,
 }: {
   detail: PlannedWorkoutDetail;
   carbsPending: boolean;
   onSaveCarbs: (value: number | null) => Promise<void>;
+  onCarbsInputFocus: (target: number) => void;
 }) {
   return (
     <View style={styles.presentationContent}>
-      <NativeMetricGrid detail={detail} />
+      <WorkoutSummary detail={detail} />
       <View style={styles.informationRows}>
         <PreRunCarbsRow
           value={detail.preRunCarbsG}
           pending={carbsPending}
           onSave={onSaveCarbs}
+          onInputFocus={onCarbsInputFocus}
         />
         <ClothingSection clothing={detail.clothing} />
       </View>
@@ -333,6 +343,7 @@ function DetailBody({
   const [movePickerValue, setMovePickerValue] = useState(detailDate);
   const [replacementPending, setReplacementPending] =
     useState<PlannedWorkoutReplacementCategory | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const saveMove = async (moveDate: Date) => {
     if (Number.isNaN(moveDate.getTime())) {
@@ -342,7 +353,6 @@ function DetailBody({
     setActionMessage(null);
     try {
       await mutations.move.mutateAsync(formatLocalDateTime(moveDate));
-      setActionMessage('Workout moved.');
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : 'Failed to move workout.');
     }
@@ -403,11 +413,19 @@ function DetailBody({
 
   const actions = useMemo<PlannedWorkoutActions>(() => ({
     pending: actionPending,
-    currentReplacementCategory: detail.replacementCategory,
     move: openMove,
     replace: (category) => void replaceWorkout(category),
     deleteWorkout: () => void deleteWorkout(),
-  }), [actionPending, deleteWorkout, detail.replacementCategory, openMove, replaceWorkout]);
+  }), [actionPending, deleteWorkout, openMove, replaceWorkout]);
+
+  const scrollCarbsAboveKeyboard = useCallback((target: number) => {
+    if (Platform.OS !== 'android') return;
+    scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
+      target,
+      Spacing.lg,
+      true,
+    );
+  }, []);
 
   useEffect(() => {
     if (onActionsReady == null) return;
@@ -439,29 +457,32 @@ function DetailBody({
         </View>
       ) : (
         <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-        accessibilityLabel="Planned workout details"
-      >
-        <PlannedWorkoutHeader
-          event={event}
-          name={detail.event.name}
-          date={detailDate}
-          now={now}
-        />
-        {actionMessage ? (
-          <AppText variant="caption" tone="muted" accessibilityRole="alert" selectable>
-            {actionMessage}
-          </AppText>
-        ) : null}
-        <NativePresentation
-          detail={detail}
-          carbsPending={mutations.savePreRunCarbs.isPending}
-          onSaveCarbs={async (value) => {
-            await mutations.savePreRunCarbs.mutateAsync(value);
-          }}
-        />
+          ref={scrollRef}
+          contentInsetAdjustmentBehavior="automatic"
+          scrollsChildToFocus={Platform.OS === 'android' ? false : undefined}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.content}
+          accessibilityLabel="Planned workout details"
+        >
+          <PlannedWorkoutHeader
+            event={event}
+            name={detail.event.name}
+            date={detailDate}
+            now={now}
+          />
+          {actionMessage ? (
+            <AppText variant="caption" tone="muted" accessibilityRole="alert" selectable>
+              {actionMessage}
+            </AppText>
+          ) : null}
+          <NativePresentation
+            detail={detail}
+            carbsPending={mutations.savePreRunCarbs.isPending}
+            onCarbsInputFocus={scrollCarbsAboveKeyboard}
+            onSaveCarbs={async (value) => {
+              await mutations.savePreRunCarbs.mutateAsync(value);
+            }}
+          />
         </ScrollView>
       )}
     </View>
@@ -480,7 +501,6 @@ export function PlannedWorkoutSheet({
   if (isDisabled) {
     return (
       <StateView
-        state="unavailable"
         title="Workout details unavailable"
         message="Sign in to view workout details."
       />
@@ -495,7 +515,7 @@ export function PlannedWorkoutSheet({
           now={now}
         />
         <StateView
-          state="loading"
+          loading
           title="Loading workout details…"
           message="Workout details will appear when ready."
         />
@@ -506,7 +526,6 @@ export function PlannedWorkoutSheet({
   if (isError || data == null) {
     return (
       <StateView
-        state="error"
         title="Couldn’t load workout details"
         message={error ?? 'Something went wrong.'}
         retryAccessibilityLabel="Retry loading workout details"
@@ -556,6 +575,13 @@ const styles = StyleSheet.create({
   presentationContent: {
     gap: Spacing.lg,
   },
+  metricCell: {
+    gap: Spacing.xxs,
+    padding: Spacing.xs,
+  },
+  metricValue: {
+    fontVariant: ['tabular-nums'],
+  },
   informationRows: {
     gap: Spacing.md,
   },
@@ -569,7 +595,6 @@ const styles = StyleSheet.create({
   },
   structureCard: {
     gap: Spacing.md,
-    backgroundColor: SpringaColors.surfaceAlt,
   },
   structureSection: {
     gap: Spacing.sm,
@@ -604,7 +629,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   zonePill: {
-    maxWidth: 104,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.pill,

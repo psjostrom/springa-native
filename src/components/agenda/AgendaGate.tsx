@@ -16,7 +16,6 @@ export function AgendaGate({ children }: AgendaGateProps) {
   if (status === 'error') {
     return (
       <StateView
-        state="error"
         title="Couldn’t load settings"
         message={error ?? 'Something went wrong.'}
         onRetry={reload}
@@ -29,7 +28,6 @@ export function AgendaGate({ children }: AgendaGateProps) {
   if (status === 'ready' && !settings?.intervalsConnected) {
     return (
       <StateView
-        state="unavailable"
         title="Intervals not connected"
         message="Connect Intervals.icu in Springa on the web, then retry here."
         onRetry={reload}
