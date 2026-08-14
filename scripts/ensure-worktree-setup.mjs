@@ -29,10 +29,23 @@ function hasApiUrl(path) {
   return readFileSync(path, 'utf8')
     .split(/\r?\n/)
     .some((line) => {
-      const value = line.match(
+      const rawValue = line.match(
         /^\s*(?:export\s+)?EXPO_PUBLIC_SPRINGA_API_URL\s*=\s*(.*)$/,
       )?.[1].trim();
-      return Boolean(value && value !== "''" && value !== '""' && !value.startsWith('#'));
+      if (!rawValue || rawValue.startsWith('#')) return false;
+
+      const quote = rawValue[0];
+      const value =
+        (quote === '"' || quote === "'") && rawValue.endsWith(quote)
+          ? rawValue.slice(1, -1)
+          : rawValue;
+
+      try {
+        const url = new URL(value);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch {
+        return false;
+      }
     });
 }
 

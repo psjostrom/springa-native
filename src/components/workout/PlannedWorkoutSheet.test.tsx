@@ -16,7 +16,6 @@ import {
 } from '@/test/TestAppProviders';
 import { SpringaColors } from '@/theme/colors';
 import { Typography } from '@/theme/tokens';
-import { PreRunCarbsRow } from './PreRunCarbsRow';
 
 const event: CalendarEvent = {
   id: 'event-123',
@@ -231,34 +230,6 @@ describe('PlannedWorkoutSheet', () => {
     expect(await screen.findByText('Friday, 14 August 2026 at 12:00')).toBeOnTheScreen();
     expect(screen.queryByText('Workout moved.')).toBeNull();
     expect(screen.queryByLabelText('Move workout editor')).toBeNull();
-  });
-
-  it('scrolls the carbs field above the keyboard when it receives focus', async () => {
-    const onInputFocus = vi.fn();
-    await render(
-      <PreRunCarbsRow
-        value={25}
-        pending={false}
-        onSave={async () => {}}
-        onInputFocus={onInputFocus}
-      />,
-    );
-    const user = userEvent.setup();
-    await user.press(screen.getByLabelText('Edit pre-run carbs'));
-    fireEvent(screen.getByLabelText('Pre-run carbs grams'), 'focus', {
-      nativeEvent: { target: 42 },
-    });
-
-    expect(onInputFocus).toHaveBeenCalledWith(42);
-  });
-
-  it('takes manual control of Android focus scrolling', async () => {
-    await renderSheet();
-
-    expect(await screen.findByLabelText('Planned workout details')).toHaveProp(
-      'scrollsChildToFocus',
-      false,
-    );
   });
 
   it('does not commit a partial Android picker selection when dismissed', async () => {

@@ -112,6 +112,21 @@ describe('worktree bootstrap', () => {
     expect(result.stderr).toContain('Missing EXPO_PUBLIC_SPRINGA_API_URL');
   });
 
+  it('fails before Expo starts when the API URL is malformed', () => {
+    const { worktree } = makeLinkedWorktree();
+    writeFileSync(
+      join(worktree, '.env'),
+      'EXPO_PUBLIC_SPRINGA_API_URL=not-a-url\n',
+    );
+    const env = { ...process.env };
+    delete env.EXPO_PUBLIC_SPRINGA_API_URL;
+
+    const result = runBootstrap(worktree, env);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Missing EXPO_PUBLIC_SPRINGA_API_URL');
+  });
+
   it('production ignores a development-only API URL', () => {
     const { primary, worktree } = makeLinkedWorktree();
     writeFileSync(

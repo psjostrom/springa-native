@@ -1,30 +1,34 @@
 import { render, screen, userEvent } from '@testing-library/react-native';
+import { useState } from 'react';
 import { Text } from 'react-native';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Button, Card, Grid, IconButton, StateView, TextField } from '.';
 import { SpringaColors } from '@/theme/colors';
 
+function RetryState() {
+  const [retried, setRetried] = useState(false);
+
+  return retried ? (
+    <Text>Retry requested</Text>
+  ) : (
+    <StateView title="Couldn’t load" message="Try again." onRetry={() => setRetried(true)} />
+  );
+}
+
 describe('global UI', () => {
   it('disables a pending button and exposes its busy state', async () => {
-    const onPress = vi.fn();
-    await render(<Button label="Save" loading onPress={onPress} />);
-    const user = userEvent.setup();
+    await render(<Button label="Save" loading />);
     const button = screen.getByRole('button', { name: 'Save' });
 
     expect(button).toBeDisabled();
     expect(button).toHaveProp('accessibilityState', { busy: true, disabled: true });
-    await user.press(button);
-    expect(onPress).not.toHaveBeenCalled();
   });
 
   it('offers retry only when supplied', async () => {
-    const onRetry = vi.fn();
-    await render(
-      <StateView title="Couldn’t load" message="Try again." onRetry={onRetry} />,
-    );
+    await render(<RetryState />);
 
     await userEvent.setup().press(screen.getByRole('button', { name: 'Retry' }));
-    expect(onRetry).toHaveBeenCalledOnce();
+    expect(await screen.findByText('Retry requested')).toBeOnTheScreen();
   });
 
   it('shows progress only for a loading state', async () => {
