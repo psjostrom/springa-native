@@ -56,6 +56,24 @@ describe('AgendaEventCard', () => {
 });
 
 describe('AgendaList', () => {
+  it('shows Agenda without inactive Month or Week actions', async () => {
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <View style={{ width: 390, height: 800 }}>
+          <AgendaGate>
+            <AgendaList />
+          </AgendaGate>
+        </View>
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Agenda')).toBeOnTheScreen();
+    expect(screen.queryByText('Month')).toBeNull();
+    expect(screen.queryByText('Week')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Month' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Week' })).toBeNull();
+  });
+
   it('shows empty copy when the calendar returns no events', async () => {
     server.use(
       http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([])),

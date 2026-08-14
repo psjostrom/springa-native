@@ -14,6 +14,8 @@ import {
   makeTestSession,
   TestAppProviders,
 } from '@/test/TestAppProviders';
+import { SpringaColors } from '@/theme/colors';
+import { Typography } from '@/theme/tokens';
 
 const event: CalendarEvent = {
   id: 'event-123',
@@ -45,6 +47,44 @@ function detailWithCarbs(carbsG: number | null) {
 }
 
 describe('PlannedWorkoutSheet', () => {
+  it('renders the compact workout summary from general primitives', async () => {
+    await renderSheet();
+
+    expect(await screen.findByLabelText('Workout metrics')).toHaveStyle({
+      backgroundColor: SpringaColors.tintBrand,
+      borderColor: `${SpringaColors.brand}66`,
+    });
+    expect(screen.getByText('Duration')).toHaveStyle(Typography.label);
+    expect(screen.getByText('65m')).toHaveStyle(Typography.subheading);
+    expect(screen.getByText('Distance')).toHaveStyle(Typography.label);
+    expect(screen.getByText('~9.2 km')).toHaveStyle(Typography.subheading);
+  });
+
+  it('keeps the Recovery zone label on one line', async () => {
+    const detail = defaultPlannedWorkoutDetail();
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json({
+          ...detail,
+          structure: {
+            ...detail.structure,
+            sections: [
+              {
+                name: 'Main set',
+                repeats: null,
+                steps: [{ label: null, duration: '200m', zone: 'z1', detail: '' }],
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    await renderSheet();
+
+    expect(await screen.findByText('Recovery')).toHaveProp('numberOfLines', 1);
+  });
+
   it('renders empty derived fields and unavailable clothing without guessing', async () => {
     server.use(
       http.get(apiUrl('/api/intervals/events/:id'), () =>
@@ -160,10 +200,19 @@ describe('PlannedWorkoutSheet', () => {
 
   it('moves a workout with a local date-time value', async () => {
     let movedTo = '';
+    let startDateLocal = '2026-08-13T12:00:00';
     const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () => {
+        const detail = defaultPlannedWorkoutDetail();
+        return HttpResponse.json({
+          ...detail,
+          event: { ...detail.event, startDateLocal },
+        });
+      }),
       http.put(apiUrl('/api/intervals/events/:id'), async ({ request }) => {
         movedTo = String(((await request.json()) as { start_date_local: string }).start_date_local);
+        startDateLocal = movedTo;
         return HttpResponse.json({ ok: true });
       }),
     );
@@ -178,7 +227,8 @@ describe('PlannedWorkoutSheet', () => {
     await user.press(await screen.findByLabelText('Select move date'));
 
     await waitFor(() => expect(movedTo).toBe('2026-08-14T12:00:00'));
-    expect(await screen.findByText('Workout moved.')).toBeOnTheScreen();
+    expect(await screen.findByText('Friday, 14 August 2026 at 12:00')).toBeOnTheScreen();
+    expect(screen.queryByText('Workout moved.')).toBeNull();
     expect(screen.queryByLabelText('Move workout editor')).toBeNull();
   });
 
@@ -379,7 +429,6 @@ describe('PlannedWorkoutSheet', () => {
     expect(screen.queryByLabelText('Workout actions')).toBeNull();
     expect(actionsRef.current).toMatchObject({
       pending: false,
-      currentReplacementCategory: 'quality',
       move: expect.any(Function),
       replace: expect.any(Function),
       deleteWorkout: expect.any(Function),

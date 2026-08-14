@@ -1,8 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
+import { AppText, Badge, Card } from '@/components/ui';
 import { formatDuration, formatHrMin } from '@/domain/format';
 import { getCardStatus, getEventIcon } from '@/domain/eventStatus';
 import { SpringaColors } from '@/theme/colors';
+import { Radius, Spacing, Typography } from '@/theme/tokens';
 
 type AgendaEventCardProps = {
   event: CalendarEvent;
@@ -61,44 +63,49 @@ export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
       }}
       accessibilityRole="button"
       accessibilityLabel={`Open workout ${event.name}`}
-      style={[
-        styles.card,
-        { borderLeftColor: statusBorderColor(status) },
-        missed && styles.cardMissed,
-      ]}
+      style={styles.pressable}
     >
-      <View style={styles.dateCol}>
-        <Text style={styles.weekday}>{weekday}</Text>
-        <Text style={styles.day}>{day}</Text>
-        <Text style={styles.month}>{month}</Text>
-      </View>
-
-      <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text style={styles.icon}>{getEventIcon(event)}</Text>
-          <Text style={[styles.title, missed && styles.titleMissed]} numberOfLines={1}>
-            {event.name}
-          </Text>
+      <Card
+        style={[
+          styles.card,
+          { borderLeftColor: statusBorderColor(status) },
+          missed && styles.cardMissed,
+        ]}
+      >
+        <View style={styles.dateCol}>
+          <AppText variant="caption" tone="muted" style={styles.weekday}>{weekday}</AppText>
+          <AppText variant="heading">{day}</AppText>
+          <AppText variant="caption" tone="muted">{month}</AppText>
         </View>
 
-        {planned && (hasMetrics || hasFuel) ? (
-          <View style={styles.chips}>
-            {hasMetrics ? (
-              <View style={styles.chip}>
-                <Text style={styles.chipText}>
-                  {[
+        <View style={styles.body}>
+          <View style={styles.titleRow}>
+            <AppText style={styles.icon}>{getEventIcon(event)}</AppText>
+            <AppText
+              variant="label"
+              style={[styles.title, missed && styles.titleMissed]}
+              numberOfLines={1}
+            >
+              {event.name}
+            </AppText>
+          </View>
+
+          {planned && (hasMetrics || hasFuel) ? (
+            <View style={styles.chips}>
+              {hasMetrics ? (
+                <Badge
+                  label={[
                     durationLabel != null ? `~${durationLabel}` : null,
                     distanceKm != null ? `${distanceKm} km` : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
-                </Text>
-              </View>
-            ) : null}
-            {hasFuel ? (
-              <View style={[styles.chip, styles.fuelChip]}>
-                <Text style={styles.chipText}>
-                  {[
+                />
+              ) : null}
+              {hasFuel ? (
+                <Badge
+                  tone="warning"
+                  label={[
                     event.fuelRate != null ? `${event.fuelRate}g/h` : null,
                     event.prescribedCarbsG != null
                       ? `${event.prescribedCarbsG}g total`
@@ -106,55 +113,47 @@ export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
                   ]
                     .filter(Boolean)
                     .join(' · ')}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
+                />
+              ) : null}
+            </View>
+          ) : null}
 
-        {completed ? (
-          <View style={styles.stats}>
-            {durationLabel != null ? (
-              <Text style={styles.stat}>
-                <Text style={styles.statValue}>{durationLabel}</Text>
-              </Text>
-            ) : null}
-            {distanceKm != null ? (
-              <Text style={styles.stat}>
-                <Text style={styles.statValue}>{distanceKm} km</Text>
-              </Text>
-            ) : null}
-            {event.pace != null ? (
-              <Text style={styles.stat}>
-                <Text style={styles.statValue}>{formatPaceMinPerKm(event.pace)}</Text>
-                <Text style={styles.statUnit}> /km</Text>
-              </Text>
-            ) : null}
-            {event.avgHr != null ? (
-              <Text style={styles.stat}>
-                <Text style={styles.statValue}>{event.avgHr}</Text>
-                <Text style={styles.statUnit}> bpm</Text>
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
+          {completed ? (
+            <View style={styles.stats}>
+              {durationLabel != null ? (
+                <AppText variant="caption">{durationLabel}</AppText>
+              ) : null}
+              {distanceKm != null ? (
+                <AppText variant="caption">{distanceKm} km</AppText>
+              ) : null}
+              {event.pace != null ? (
+                <AppText variant="caption">
+                  {formatPaceMinPerKm(event.pace)}
+                  <AppText variant="caption" tone="muted"> /km</AppText>
+                </AppText>
+              ) : null}
+              {event.avgHr != null ? (
+                <AppText variant="caption">
+                  {event.avgHr}
+                  <AppText variant="caption" tone="muted"> bpm</AppText>
+                </AppText>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Card>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  pressable: { marginBottom: Spacing.sm },
   card: {
     flexDirection: 'row',
-    gap: 10,
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
+    gap: Spacing.md,
+    borderRadius: Radius.md,
     borderLeftWidth: 3,
-    backgroundColor: SpringaColors.surface,
     overflow: 'hidden',
-    marginBottom: 8,
   },
   cardMissed: {
     borderColor: SpringaColors.error + '4D',
@@ -166,37 +165,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weekday: {
-    fontSize: 12,
-    color: SpringaColors.muted,
     textTransform: 'uppercase',
-  },
-  day: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: SpringaColors.text,
-  },
-  month: {
-    fontSize: 12,
-    color: SpringaColors.muted,
   },
   body: {
     flex: 1,
     minWidth: 0,
-    gap: 8,
+    gap: Spacing.sm,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   icon: {
-    fontSize: 16,
+    fontSize: Typography.body.fontSize,
   },
   title: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: SpringaColors.text,
   },
   titleMissed: {
     textDecorationLine: 'line-through',
@@ -204,39 +189,11 @@ const styles = StyleSheet.create({
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-  },
-  chip: {
-    backgroundColor: SpringaColors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  fuelChip: {
-    backgroundColor: SpringaColors.tintWarning,
-    borderColor: SpringaColors.warning + '4D',
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: SpringaColors.text,
+    gap: Spacing.sm,
   },
   stats: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-  },
-  stat: {
-    fontSize: 13,
-    color: SpringaColors.muted,
-  },
-  statValue: {
-    fontWeight: '600',
-    color: SpringaColors.text,
-  },
-  statUnit: {
-    color: SpringaColors.muted,
+    gap: Spacing.md,
   },
 });

@@ -1,14 +1,12 @@
 import {
   ActivityIndicator,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   CalendarEvent,
   ClothingRecommendation,
@@ -18,10 +16,19 @@ import type {
   WorkoutZone,
 } from '@/api/types';
 import {
+  AppText,
+  Badge,
+  Card,
+  Grid,
+  Section,
+  StateView,
+} from '@/components/ui';
+import {
   usePlannedWorkoutDetail,
   usePlannedWorkoutMutations,
 } from '@/query/usePlannedWorkout';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
+import { Radius, Spacing } from '@/theme/tokens';
 import {
   extractWorkoutNotes,
   formatDistanceKm,
@@ -44,7 +51,6 @@ type PlannedWorkoutSheetProps = {
 
 export type PlannedWorkoutActions = {
   pending: boolean;
-  currentReplacementCategory: PlannedWorkoutReplacementCategory | null;
   move: () => void;
   replace: (category: PlannedWorkoutReplacementCategory) => void;
   deleteWorkout: () => void;
@@ -83,9 +89,9 @@ function weatherSummary(weather: ClothingRecommendation['weather']): string {
 function ClothingContent({ clothing }: { clothing: PlannedWorkoutClothing }) {
   if (clothing.status === 'unavailable') {
     return (
-      <Text style={styles.muted} selectable>
+      <AppText tone="muted" selectable>
         Clothing unavailable: {clothing.reason === 'outside-window' ? 'outside forecast window' : 'forecast unavailable'}.
-      </Text>
+      </AppText>
     );
   }
 
@@ -100,16 +106,12 @@ function ClothingContent({ clothing }: { clothing: PlannedWorkoutClothing }) {
     <View style={styles.clothingContent}>
       <View style={styles.chips}>
         {items.map((item) => (
-          <View key={item} style={styles.chip}>
-            <Text style={styles.chipText} selectable>
-              {item}
-            </Text>
-          </View>
+          <Badge key={item} label={item} />
         ))}
       </View>
-      <Text style={styles.weather} selectable>
+      <AppText variant="caption" tone="muted" selectable>
         {weatherSummary(recommendation.weather)}
-      </Text>
+      </AppText>
     </View>
   );
 }
@@ -120,13 +122,11 @@ function ClothingSection({
   clothing: PlannedWorkoutClothing;
 }) {
   return (
-    <View
-      style={styles.infoCard}
-      accessibilityLabel="What to wear"
-    >
-      <Text style={styles.eyebrow}>What to wear</Text>
-      <ClothingContent clothing={clothing} />
-    </View>
+    <Section title="What to wear" accessibilityLabel="What to wear">
+      <Card>
+        <ClothingContent clothing={clothing} />
+      </Card>
+    </Section>
   );
 }
 
@@ -154,7 +154,7 @@ function MetricValues({ detail }: { detail: PlannedWorkoutDetail }) {
   return metrics.filter((metric): metric is NonNullable<typeof metric> => metric != null);
 }
 
-function NativeMetricGrid({ detail }: { detail: PlannedWorkoutDetail }) {
+function WorkoutSummary({ detail }: { detail: PlannedWorkoutDetail }) {
   const metrics = MetricValues({ detail });
   if (metrics.length === 0) return null;
 
@@ -166,88 +166,85 @@ function NativeMetricGrid({ detail }: { detail: PlannedWorkoutDetail }) {
   };
 
   return (
-    <View style={styles.nativeMetricGrid} accessibilityLabel="Workout metrics">
-      {metrics.map((metric) => (
-        <View key={metric.key} style={styles.nativeMetricCell}>
-          <Text style={styles.muted} selectable>
-            {labels[metric.key]}
-          </Text>
-          <Text style={styles.nativeMetricValue} selectable>
-            {metric.value}
-          </Text>
-        </View>
-      ))}
-    </View>
+    <Card tone="brand" accessibilityLabel="Workout metrics">
+      <Grid>
+        {metrics.map((metric) => (
+          <View key={metric.key} style={styles.metricCell}>
+            <AppText variant="label" tone="muted" selectable>
+              {labels[metric.key]}
+            </AppText>
+            <AppText variant="subheading" style={styles.metricValue} selectable>
+              {metric.value}
+            </AppText>
+          </View>
+        ))}
+      </Grid>
+    </Card>
   );
 }
 
 function StructureSections({ detail }: { detail: PlannedWorkoutDetail }) {
   const timeline = detail.structure.timeline;
   return (
-    <View style={styles.nativeStructureCard} accessibilityLabel="Workout structure">
-      <Text style={styles.sectionTitle}>Workout structure</Text>
-      {detail.structure.sections.length === 0 ? (
-        <Text style={styles.muted} selectable>
-          No parsed structure available.
-        </Text>
-      ) : (
-        detail.structure.sections.map((section) => (
-          <View key={`${section.name}-${section.repeats ?? 'single'}`} style={styles.structureSection}>
-            <View style={styles.sectionHeadingRow}>
-              <Text style={styles.sectionHeading} selectable>
-                {section.name}
-              </Text>
-              {section.repeats != null ? (
-                <View style={styles.repeatPill}>
-                  <Text style={styles.repeatText}>{section.repeats}x</Text>
-                </View>
-              ) : null}
-            </View>
-            <View style={styles.nativeSectionSteps}>
-              {section.steps.map((step, index) => (
-                <View
-                  key={`${step.duration}-${step.zone}-${index}`}
-                  style={[
-                    styles.stepRow,
-                    styles.nativeStepRow,
-                    index === section.steps.length - 1 && styles.lastStepRow,
-                  ]}
-                >
-                  <Text style={styles.stepDuration} selectable>
-                    {formatWorkoutStepDuration(step.duration)}
-                  </Text>
-                  <View style={[styles.zonePill, { backgroundColor: zoneColors[step.zone] }]}>
-                    <Text style={styles.zoneText}>{step.label ?? zoneLabels[step.zone]}</Text>
+    <Section title="Workout structure" accessibilityLabel="Workout structure">
+      <Card tone="subtle" style={styles.structureCard}>
+        {detail.structure.sections.length === 0 ? (
+          <AppText tone="muted" selectable>
+            No parsed structure available.
+          </AppText>
+        ) : (
+          detail.structure.sections.map((section) => (
+            <View key={`${section.name}-${section.repeats ?? 'single'}`} style={styles.structureSection}>
+              <View style={styles.sectionHeadingRow}>
+                <AppText variant="subheading" selectable>
+                  {section.name}
+                </AppText>
+                {section.repeats != null ? <Badge label={`${section.repeats}x`} tone="brand" /> : null}
+              </View>
+              <View style={styles.sectionSteps}>
+                {section.steps.map((step, index) => (
+                  <View
+                    key={`${step.duration}-${step.zone}-${index}`}
+                    style={[styles.stepRow, index === section.steps.length - 1 && styles.lastStepRow]}
+                  >
+                    <AppText variant="subheading" style={styles.stepDuration} selectable>
+                      {formatWorkoutStepDuration(step.duration)}
+                    </AppText>
+                    <View style={[styles.zonePill, { backgroundColor: zoneColors[step.zone] }]}>
+                      <AppText variant="label" style={styles.zoneText} numberOfLines={1}>
+                        {step.label ?? zoneLabels[step.zone]}
+                      </AppText>
+                    </View>
+                    <AppText variant="caption" tone="muted" style={styles.stepDetail} selectable>
+                      {step.detail}
+                    </AppText>
                   </View>
-                  <Text style={styles.stepDetail} selectable>
-                    {step.detail}
-                  </Text>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
+          ))
+        )}
+        {timeline.length > 0 ? (
+          <View style={styles.timeline} accessibilityLabel="Workout timeline">
+            {timeline.map((segment, index) => (
+              <View
+                key={`${segment.zone}-${segment.durationMinutes}-${index}`}
+                accessible
+                accessibilityLabel={`${segment.zone.toUpperCase()}, ${formatTimelineMinutes(segment.durationMinutes)}${segment.estimated ? ', estimated' : ''}`}
+                style={[
+                  styles.timelineSegment,
+                  {
+                    flex: Math.max(segment.durationMinutes, 0.1),
+                    height: `${timelineSegmentHeightPercent(segment.intensityPercent)}%`,
+                    backgroundColor: zoneColors[segment.zone],
+                  },
+                ]}
+              />
+            ))}
           </View>
-        ))
-      )}
-      {timeline.length > 0 ? (
-        <View style={styles.timeline} accessibilityLabel="Workout timeline">
-          {timeline.map((segment, index) => (
-            <View
-              key={`${segment.zone}-${segment.durationMinutes}-${index}`}
-              accessible
-              accessibilityLabel={`${segment.zone.toUpperCase()}, ${formatTimelineMinutes(segment.durationMinutes)}${segment.estimated ? ', estimated' : ''}`}
-              style={[
-                styles.timelineSegment,
-                {
-                  flex: Math.max(segment.durationMinutes, 0.1),
-                  height: `${timelineSegmentHeightPercent(segment.intensityPercent)}%`,
-                  backgroundColor: zoneColors[segment.zone],
-                },
-              ]}
-            />
-          ))}
-        </View>
-      ) : null}
-    </View>
+        ) : null}
+      </Card>
+    </Section>
   );
 }
 
@@ -266,24 +263,17 @@ function PlannedWorkoutHeader({
 
   return (
     <View style={styles.plannedHeader}>
-      <Text style={styles.headerTitle} selectable>
+      <AppText variant="title" selectable>
         {name ?? event.name}
-      </Text>
+      </AppText>
       <View style={styles.headerMeta}>
-        <Text style={styles.headerDate} selectable>
+        <AppText tone="muted" style={styles.headerDate} selectable>
           {formatWorkoutDate(date ?? event.date)}
-        </Text>
-        <View
-          style={[
-            styles.badge,
-            badge.label === 'Missed' && styles.badgeMissed,
-            badge.label === 'Completed' && styles.badgeCompleted,
-          ]}
-        >
-          <Text style={[styles.badgeText, badge.label === 'Missed' && styles.badgeTextMissed]}>
-            {badge.label}
-          </Text>
-        </View>
+        </AppText>
+        <Badge
+          label={badge.label}
+          tone={badge.label === 'Missed' ? 'error' : badge.label === 'Completed' ? 'success' : 'brand'}
+        />
       </View>
     </View>
   );
@@ -294,11 +284,11 @@ function WorkoutDescription({ description }: { description: string }) {
   if (notes == null) return null;
 
   return (
-    <View style={styles.descriptionCard} accessibilityLabel="Workout description">
-      <Text style={styles.description} selectable>
+    <Card accessibilityLabel="Workout description">
+      <AppText tone="muted" selectable>
         {notes}
-      </Text>
-    </View>
+      </AppText>
+    </Card>
   );
 }
 
@@ -306,19 +296,22 @@ function NativePresentation({
   detail,
   carbsPending,
   onSaveCarbs,
+  onCarbsInputFocus,
 }: {
   detail: PlannedWorkoutDetail;
   carbsPending: boolean;
   onSaveCarbs: (value: number | null) => Promise<void>;
+  onCarbsInputFocus: (target: number) => void;
 }) {
   return (
     <View style={styles.presentationContent}>
-      <NativeMetricGrid detail={detail} />
+      <WorkoutSummary detail={detail} />
       <View style={styles.informationRows}>
         <PreRunCarbsRow
           value={detail.preRunCarbsG}
           pending={carbsPending}
           onSave={onSaveCarbs}
+          onInputFocus={onCarbsInputFocus}
         />
         <ClothingSection clothing={detail.clothing} />
       </View>
@@ -350,6 +343,7 @@ function DetailBody({
   const [movePickerValue, setMovePickerValue] = useState(detailDate);
   const [replacementPending, setReplacementPending] =
     useState<PlannedWorkoutReplacementCategory | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const saveMove = async (moveDate: Date) => {
     if (Number.isNaN(moveDate.getTime())) {
@@ -359,7 +353,6 @@ function DetailBody({
     setActionMessage(null);
     try {
       await mutations.move.mutateAsync(formatLocalDateTime(moveDate));
-      setActionMessage('Workout moved.');
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : 'Failed to move workout.');
     }
@@ -420,11 +413,19 @@ function DetailBody({
 
   const actions = useMemo<PlannedWorkoutActions>(() => ({
     pending: actionPending,
-    currentReplacementCategory: detail.replacementCategory,
     move: openMove,
     replace: (category) => void replaceWorkout(category),
     deleteWorkout: () => void deleteWorkout(),
-  }), [actionPending, deleteWorkout, detail.replacementCategory, openMove, replaceWorkout]);
+  }), [actionPending, deleteWorkout, openMove, replaceWorkout]);
+
+  const scrollCarbsAboveKeyboard = useCallback((target: number) => {
+    if (Platform.OS !== 'android') return;
+    scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
+      target,
+      Spacing.lg,
+      true,
+    );
+  }, []);
 
   useEffect(() => {
     if (onActionsReady == null) return;
@@ -449,36 +450,39 @@ function DetailBody({
       ) : null}
       {replacementPending ? (
         <View style={styles.replacementPending} accessibilityLiveRegion="polite">
-          <ActivityIndicator color={SpringaColors.brand} />
-          <Text style={styles.headerTitle}>
+          <ActivityIndicator color={SpringaColors.brandText} />
+          <AppText variant="title">
             Replacing with {{ easy: 'Easy', quality: 'Quality', long: 'Long', club: 'Club Run' }[replacementPending]}…
-          </Text>
+          </AppText>
         </View>
       ) : (
         <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-        accessibilityLabel="Planned workout details"
-      >
-        <PlannedWorkoutHeader
-          event={event}
-          name={detail.event.name}
-          date={detailDate}
-          now={now}
-        />
-        {actionMessage ? (
-          <Text style={styles.message} accessibilityRole="alert" selectable>
-            {actionMessage}
-          </Text>
-        ) : null}
-        <NativePresentation
-          detail={detail}
-          carbsPending={mutations.savePreRunCarbs.isPending}
-          onSaveCarbs={async (value) => {
-            await mutations.savePreRunCarbs.mutateAsync(value);
-          }}
-        />
+          ref={scrollRef}
+          contentInsetAdjustmentBehavior="automatic"
+          scrollsChildToFocus={Platform.OS === 'android' ? false : undefined}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.content}
+          accessibilityLabel="Planned workout details"
+        >
+          <PlannedWorkoutHeader
+            event={event}
+            name={detail.event.name}
+            date={detailDate}
+            now={now}
+          />
+          {actionMessage ? (
+            <AppText variant="caption" tone="muted" accessibilityRole="alert" selectable>
+              {actionMessage}
+            </AppText>
+          ) : null}
+          <NativePresentation
+            detail={detail}
+            carbsPending={mutations.savePreRunCarbs.isPending}
+            onCarbsInputFocus={scrollCarbsAboveKeyboard}
+            onSaveCarbs={async (value) => {
+              await mutations.savePreRunCarbs.mutateAsync(value);
+            }}
+          />
         </ScrollView>
       )}
     </View>
@@ -496,10 +500,10 @@ export function PlannedWorkoutSheet({
 
   if (isDisabled) {
     return (
-      <View style={styles.center} accessibilityLabel="Workout details unavailable">
-        <Text style={styles.errorTitle}>Workout details unavailable</Text>
-        <Text style={styles.muted}>Sign in to view workout details.</Text>
-      </View>
+      <StateView
+        title="Workout details unavailable"
+        message="Sign in to view workout details."
+      />
     );
   }
 
@@ -510,28 +514,23 @@ export function PlannedWorkoutSheet({
           event={event}
           now={now}
         />
-        <View style={styles.center}>
-          <ActivityIndicator color={SpringaColors.brand} />
-          <Text style={styles.muted}>Loading workout details…</Text>
-        </View>
+        <StateView
+          loading
+          title="Loading workout details…"
+          message="Workout details will appear when ready."
+        />
       </View>
     );
   }
 
   if (isError || data == null) {
     return (
-      <View style={styles.center} accessibilityLabel="Planned workout details">
-        <Text style={styles.errorTitle}>Couldn’t load workout details</Text>
-        <Text style={styles.muted} selectable>{error ?? 'Something went wrong.'}</Text>
-        <Pressable
-          onPress={reload}
-          accessibilityRole="button"
-          accessibilityLabel="Retry loading workout details"
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>Retry</Text>
-        </Pressable>
-      </View>
+      <StateView
+        title="Couldn’t load workout details"
+        message={error ?? 'Something went wrong.'}
+        retryAccessibilityLabel="Retry loading workout details"
+        onRetry={reload}
+      />
     );
   }
 
@@ -557,174 +556,68 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   plannedHeader: {
-    gap: 6,
-    paddingBottom: 4,
+    gap: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   headerMeta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   headerDate: {
     flexShrink: 1,
-    color: SpringaColors.muted,
-    fontSize: 15,
-  },
-  headerTitle: {
-    color: SpringaColors.text,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '800',
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    backgroundColor: SpringaColors.tintBrand,
-  },
-  badgeMissed: {
-    backgroundColor: SpringaColors.tintError,
-  },
-  badgeCompleted: {
-    backgroundColor: SpringaColors.tintSuccess,
-  },
-  badgeText: {
-    color: SpringaColors.muted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  badgeTextMissed: {
-    color: SpringaColors.error,
   },
   content: {
-    gap: 16,
-    paddingBottom: 32,
+    gap: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   presentationContent: {
-    gap: 14,
+    gap: Spacing.lg,
   },
-  informationRows: {
-    gap: 8,
+  metricCell: {
+    gap: Spacing.xxs,
+    padding: Spacing.xs,
   },
-  infoCard: {
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    backgroundColor: SpringaColors.surfaceAlt,
-  },
-  eyebrow: {
-    color: SpringaColors.muted,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  nativeMetricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    padding: 10,
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: `${SpringaColors.brand}66`,
-    backgroundColor: SpringaColors.tintBrand,
-  },
-  nativeMetricCell: {
-    minWidth: 112,
-    flexBasis: 130,
-    flexGrow: 1,
-    gap: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
-  nativeMetricValue: {
-    color: SpringaColors.text,
-    fontSize: 17,
-    fontWeight: '700',
+  metricValue: {
     fontVariant: ['tabular-nums'],
   },
+  informationRows: {
+    gap: Spacing.md,
+  },
   clothingContent: {
-    gap: 7,
+    gap: Spacing.sm,
   },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: Spacing.sm,
   },
-  chip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-    backgroundColor: SpringaColors.surface,
-  },
-  chipText: {
-    color: SpringaColors.muted,
-    fontSize: 13,
-  },
-  weather: {
-    color: SpringaColors.muted,
-    fontSize: 13,
-  },
-  nativeStructureCard: {
-    gap: 14,
-    padding: 14,
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    backgroundColor: SpringaColors.surfaceAlt,
-  },
-  sectionTitle: {
-    color: SpringaColors.text,
-    fontSize: 17,
-    fontWeight: '700',
+  structureCard: {
+    gap: Spacing.md,
   },
   structureSection: {
-    gap: 6,
+    gap: Spacing.sm,
   },
   sectionHeadingRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
-  sectionHeading: {
-    color: SpringaColors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  repeatPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: SpringaColors.brand,
-  },
-  repeatText: {
-    color: SpringaColors.text,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  nativeSectionSteps: {
+  sectionSteps: {
     gap: 0,
-    paddingLeft: 12,
+    paddingLeft: Spacing.md,
     borderLeftWidth: 2,
     borderLeftColor: SpringaColors.borderSubtle,
   },
   stepRow: {
-    minHeight: 44,
+    minHeight: 42,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8,
-  },
-  nativeStepRow: {
-    minHeight: 42,
-    paddingVertical: 8,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: SpringaColors.border,
   },
@@ -733,92 +626,38 @@ const styles = StyleSheet.create({
   },
   stepDuration: {
     minWidth: 44,
-    color: SpringaColors.text,
-    fontSize: 16,
-    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   zonePill: {
-    maxWidth: 104,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 14,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.pill,
   },
   zoneText: {
     color: SpringaColors.bg,
-    fontSize: 13,
-    fontWeight: '800',
   },
   stepDetail: {
     minWidth: 132,
     flexBasis: 160,
     flexGrow: 1,
-    color: SpringaColors.muted,
-    fontSize: 13,
-  },
-  descriptionCard: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  description: {
-    color: SpringaColors.muted,
-    fontSize: 16,
-    lineHeight: 24,
   },
   timeline: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 2,
+    gap: Spacing.xxs,
     height: 34,
     overflow: 'hidden',
-    borderRadius: 8,
+    borderRadius: Radius.md,
     borderCurve: 'continuous',
   },
   timelineSegment: {
     minWidth: 3,
   },
-  muted: {
-    color: SpringaColors.muted,
-    fontSize: 14,
-  },
-  center: {
-    flex: 1,
-    gap: 10,
-    alignItems: 'center',
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-  },
   replacementPending: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  errorTitle: {
-    color: SpringaColors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  button: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: SpringaColors.tintBrand,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-  },
-  buttonText: {
-    color: SpringaColors.brand,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  message: {
-    color: SpringaColors.muted,
-    fontSize: 13,
-    paddingBottom: 6,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.xl,
   },
 });

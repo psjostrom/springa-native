@@ -1,20 +1,19 @@
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { ScreenShell } from '@/components/shell/ScreenShell';
-import { SpringaColors } from '@/theme/colors';
+import { AppText } from '@/components/ui';
+import { Spacing } from '@/theme/tokens';
 
 export default function CoachScreen() {
   return (
     <ScreenShell>
-      <Text style={styles.title}>Coach</Text>
+      <AppText variant="subheading" tone="muted" style={styles.title}>Coach</AppText>
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
   title: {
-    marginTop: 48,
+    marginTop: Spacing.xxl,
     textAlign: 'center',
-    color: SpringaColors.muted,
-    fontSize: 18,
   },
 });

@@ -40,6 +40,7 @@ This is a **milestone roadmap**, not an implementation plan. Each milestone need
 | Secrets | Intervals / Nightscout keys stay server-side |
 | Auth | Google OAuth; session must work for native (cookie-only Auth.js is insufficient) |
 | Domain logic | Stays on Springa server; do not reimplement calendar pipeline / report card / BG model in the app |
+| UI system | Every milestone composes the general primitives in `src/components/ui/`; domain widgets stay feature-local |
 | Fixtures | Drop for Agenda once live calendar works; no mock HTTP clients |
 | Platform QA | Android primary; keep iOS-safe APIs |
 
@@ -78,10 +79,10 @@ Expo Router `formSheet` (`/workout/[id]`) equivalent of web `?workout=` → `Eve
 Full planned actions, not read-only. Prefer reusing existing Springa mutation routes over inventing new ones.
 
 **5 — Completed Overview**  
-Match web Overview tab widget set where APIs already support it (`report-card`, `stats`, `pace-splits`, carbs, feedback, etc.). Streams/Deep Dive and AI Analysis wait for a later roadmap.
+Match the web Overview tab widget set where APIs already support it (`report-card`, `stats`, `pace-splits`, carbs, feedback, etc.). Compose each widget from applicable general native design-system primitives such as `Section`, `Card`, `Grid`, `AppText`, `Badge`, `StateView`, `Button`, and `TextField`. Report-card judgments, meters, split tables, charts, and workout-specific behavior remain feature components; do not add global `MetricCard`, `OverviewCard`, or widget-named primitives. Streams/Deep Dive and AI Analysis wait for a later roadmap.
 
 **6 — Live BG**  
-Replace the static header pill. Same visibility rules as web `CurrentBGPill`. Graph popover can be minimal or follow-up inside this milestone’s own design.
+Replace the static header pill. Same visibility rules as web `CurrentBGPill`. Keep `BgPill` as the domain component and compose its presentation from applicable general design-system primitives. A graph popover can use `AppBottomSheet` only if milestone 6's own design needs a transient sheet; chart and glucose behavior stay feature-local.
 
 ## Working rules
 
@@ -89,6 +90,7 @@ Replace the static header pill. Same visibility rules as web `CurrentBGPill`. Gr
 2. **No drive-by full parity.** Deferred surfaces stay deferred until a later roadmap.
 3. **Ask before** new native modules, persistence beyond session needs, or physical-device data wipes (`AGENTS.md`).
 4. **Verify** with the repo’s usual commands (`tsc`, lint, fixture tests where relevant) plus Android smoke for UI milestones.
+5. **Use the design system.** Extend a general primitive only for repeated visual structure. Keep one-screen or domain-specific content in its feature and update the design-system spec before adding a new global component.
 
 ## Success criteria (roadmap complete)
 
@@ -105,6 +107,7 @@ Completed Deep Dive / Analysis → Month/Week → Intel → Coach / Planner / Si
 ## References
 
 - Native shell: `docs/superpowers/specs/2026-08-06-app-skeleton-mockup-design.md`
+- Native design system: `docs/superpowers/specs/2026-08-12-native-design-system-design.md`
 - Web Agenda / modal: `AgendaView`, `EventModal`, `lib/modalWidgets.ts` in `springa`
 - Web auth: `lib/auth.ts`, `requireAuth()` in `lib/apiHelpers.ts`
 - Constraints: `AGENTS.md` (auth before real data; no networking without approved design)

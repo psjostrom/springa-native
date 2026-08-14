@@ -10,15 +10,21 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { PlannedWorkoutReplacementCategory } from '@/api/types';
+import { AppText, Button, Card, IconButton } from '@/components/ui';
+import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
+import { IconSize, Radius, Spacing } from '@/theme/tokens';
 import type { PlannedWorkoutActions } from './PlannedWorkoutSheet';
-import { WorkoutActionsBottomSheet } from './WorkoutActionsBottomSheet';
-import { availableReplacementCategories } from './workoutActions';
 
 type SheetMode = 'actions' | 'replace' | 'delete';
+
+type PendingAction =
+  | { type: 'move' }
+  | { type: 'replace'; category: PlannedWorkoutReplacementCategory }
+  | { type: 'delete' };
 
 type Props = {
   isPresented: boolean;
@@ -57,6 +63,13 @@ const replacementChoices: Record<
   },
 };
 
+const replacementCategories: PlannedWorkoutReplacementCategory[] = [
+  'easy',
+  'quality',
+  'long',
+  'club',
+];
+
 function ActionRow({
   label,
   description,
@@ -77,44 +90,54 @@ function ActionRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${label} workout`}
-      style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
+      style={({ pressed }) => pressed && styles.pressed}
     >
-      <View style={[styles.icon, { backgroundColor: `${color}22` }]}>
-        <Icon color={color} size={20} />
-      </View>
-      <View style={styles.actionCopy}>
-        <Text style={[styles.actionLabel, destructive && styles.destructive]}>
-          {label}
-        </Text>
-        <Text style={styles.actionDescription}>{description}</Text>
-      </View>
-      <ChevronRight color={SpringaColors.muted} size={18} />
+      <Card tone="subtle" style={styles.actionRow}>
+        <View style={styles.icon}>
+          <Icon color={color} size={IconSize.md} />
+        </View>
+        <View style={styles.actionCopy}>
+          <AppText variant="subheading" tone={destructive ? 'error' : 'primary'}>
+            {label}
+          </AppText>
+          <AppText variant="caption" tone="muted">{description}</AppText>
+        </View>
+        <ChevronRight color={SpringaColors.muted} size={IconSize.sm} />
+      </Card>
     </Pressable>
   );
 }
 
 export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutName }: Props) {
   const [mode, setMode] = useState<SheetMode>('actions');
+  const pendingActionRef = useRef<PendingAction | null>(null);
 
-  const dismiss = () => {
-    setMode('actions');
+  const dismissFor = (action: PendingAction) => {
+    pendingActionRef.current = action;
     onDismiss();
   };
 
-  const dismissThen = (action: () => void) => {
-    dismiss();
-    action();
+  const completeDismissal = () => {
+    const pendingAction = pendingActionRef.current;
+    pendingActionRef.current = null;
+    setMode('actions');
+
+    if (pendingAction?.type === 'move') actions.move();
+    else if (pendingAction?.type === 'replace') actions.replace(pendingAction.category);
+    else if (pendingAction?.type === 'delete') actions.deleteWorkout();
   };
 
-  const choices = availableReplacementCategories(actions.currentReplacementCategory);
-
   return (
-    <WorkoutActionsBottomSheet isPresented={isPresented} onDismiss={dismiss}>
+    <AppBottomSheet
+      isPresented={isPresented}
+      onDismiss={onDismiss}
+      onDismissComplete={completeDismissal}
+    >
       <View style={styles.sheet}>
         {mode === 'actions' ? (
           <>
-            <Text style={styles.title}>Workout actions</Text>
-            <Text style={styles.subtitle} numberOfLines={2}>{workoutName}</Text>
+            <AppText variant="heading">Workout actions</AppText>
+            <AppText variant="label" tone="muted" numberOfLines={2}>{workoutName}</AppText>
             <View style={styles.actionList}>
               <ActionRow
                 label="Replace"
@@ -128,7 +151,7 @@ export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutNa
                 description="Change date and time"
                 icon={Move}
                 color={SpringaColors.muted}
-                onPress={() => dismissThen(actions.move)}
+                onPress={() => dismissFor({ type: 'move' })}
               />
               <ActionRow
                 label="Delete"
@@ -142,32 +165,37 @@ export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutNa
           </>
         ) : mode === 'replace' ? (
           <>
-            <Pressable
-              onPress={() => setMode('actions')}
-              accessibilityRole="button"
-              accessibilityLabel="Back to workout actions"
-              style={styles.back}
-            >
-              <ChevronLeft color={SpringaColors.muted} size={20} />
-              <Text style={styles.backText}>Workout actions</Text>
-            </Pressable>
-            <Text style={styles.title}>Replace workout</Text>
-            <Text style={styles.subtitle}>Choose a different workout</Text>
+            <View style={styles.back}>
+              <IconButton
+                accessibilityLabel="Back to workout actions"
+                onPress={() => setMode('actions')}
+              >
+                <ChevronLeft color={SpringaColors.muted} size={IconSize.md} />
+              </IconButton>
+              <AppText variant="label" tone="muted">Workout actions</AppText>
+            </View>
+            <AppText variant="heading">Replace workout</AppText>
+            <AppText variant="label" tone="muted">Choose a different workout</AppText>
             <View style={styles.replacementGrid}>
-              {choices.map((category) => {
+              {replacementCategories.map((category) => {
                 const choice = replacementChoices[category];
                 const Icon = choice.icon;
                 return (
                   <Pressable
                     key={category}
-                    onPress={() => dismissThen(() => actions.replace(category))}
+                    onPress={() => dismissFor({ type: 'replace', category })}
                     accessibilityRole="button"
                     accessibilityLabel={`Replace with ${choice.label}`}
-                    style={({ pressed }) => [styles.replacementCard, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                      styles.replacementChoice,
+                      pressed && styles.pressed,
+                    ]}
                   >
-                    <Icon color={choice.color} size={22} />
-                    <Text style={styles.replacementLabel}>{choice.label}</Text>
-                    <Text style={styles.replacementDescription}>{choice.description}</Text>
+                    <Card tone="subtle" style={styles.replacementCard}>
+                      <Icon color={choice.color} size={IconSize.lg} />
+                      <AppText variant="subheading">{choice.label}</AppText>
+                      <AppText variant="caption" tone="muted">{choice.description}</AppText>
+                    </Card>
                   </Pressable>
                 );
               })}
@@ -175,103 +203,58 @@ export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutNa
           </>
         ) : (
           <>
-            <Text style={styles.title}>Delete workout?</Text>
-            <Text style={styles.subtitle}>This removes {workoutName} from your plan.</Text>
-            <Pressable
-              onPress={() => dismissThen(actions.deleteWorkout)}
-              accessibilityRole="button"
+            <AppText variant="heading">Delete workout?</AppText>
+            <AppText variant="label" tone="muted">
+              This removes {workoutName} from your plan.
+            </AppText>
+            <Button
+              label="Delete workout"
               accessibilityLabel="Confirm delete workout"
-              style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
-            >
-              <Trash2 color={SpringaColors.text} size={20} />
-              <Text style={styles.deleteButtonText}>Delete workout</Text>
-            </Pressable>
+              variant="destructive"
+              onPress={() => dismissFor({ type: 'delete' })}
+            />
           </>
         )}
       </View>
-    </WorkoutActionsBottomSheet>
+    </AppBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
   sheet: {
-    width: '100%',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 24,
-    backgroundColor: SpringaColors.surface,
+    gap: Spacing.sm,
   },
-  title: {
-    color: SpringaColors.text,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: SpringaColors.muted,
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  actionList: { gap: 8 },
+  actionList: { gap: Spacing.sm },
   actionRow: {
     minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-    backgroundColor: SpringaColors.surfaceAlt,
+    gap: Spacing.md,
   },
   icon: {
     alignItems: 'center',
     justifyContent: 'center',
     width: 38,
     height: 38,
-    borderRadius: 11,
+    borderRadius: Radius.lg,
+    backgroundColor: SpringaColors.surface,
   },
-  actionCopy: { flex: 1, gap: 2 },
-  actionLabel: { color: SpringaColors.text, fontSize: 16, fontWeight: '700' },
-  actionDescription: { color: SpringaColors.muted, fontSize: 13 },
-  destructive: { color: SpringaColors.error },
+  actionCopy: { flex: 1, gap: Spacing.xxs },
   back: {
-    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
   },
-  backText: { color: SpringaColors.muted, fontSize: 14, fontWeight: '600' },
-  replacementGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  replacementCard: {
+  replacementGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  replacementChoice: {
     minWidth: 132,
     flexBasis: 140,
     flexGrow: 1,
+  },
+  replacementCard: {
+    flex: 1,
     minHeight: 112,
-    gap: 7,
-    padding: 12,
-    borderRadius: 13,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-    backgroundColor: SpringaColors.surfaceAlt,
+    gap: Spacing.sm,
   },
-  replacementLabel: { color: SpringaColors.text, fontSize: 16, fontWeight: '700' },
-  replacementDescription: { color: SpringaColors.muted, fontSize: 12 },
-  deleteButton: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    backgroundColor: SpringaColors.error,
-  },
-  deleteButtonText: { color: SpringaColors.text, fontSize: 16, fontWeight: '700' },
   pressed: { opacity: 0.72 },
 });

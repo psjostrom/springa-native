@@ -1,7 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
+import { AppText, Badge, StateView } from '@/components/ui';
 import { getCardStatus } from '@/domain/eventStatus';
 import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
 import { CompletedWorkoutSheet } from './CompletedWorkoutSheet';
 import {
   PlannedWorkoutSheet,
@@ -26,7 +28,10 @@ export function WorkoutSheetContent({
   if (event == null) {
     return (
       <View style={styles.root} accessibilityLabel="Workout not found">
-        <Text style={styles.title}>Workout not found</Text>
+        <StateView
+          title="Workout not found"
+          message="This workout is no longer available."
+        />
       </View>
     );
   }
@@ -51,24 +56,12 @@ export function WorkoutSheetContent({
     <View style={styles.root} accessibilityLabel={`Workout ${event.name}`}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.date}>{formatWorkoutDate(event.date)}</Text>
-          <Text style={styles.title}>{event.name}</Text>
-          <View
-            style={[
-              styles.badge,
-              badge.label === 'Missed' && styles.badgeMissed,
-              badge.label === 'Completed' && styles.badgeCompleted,
-            ]}
-          >
-            <Text
-              style={[
-                styles.badgeText,
-                badge.label === 'Missed' && styles.badgeTextMissed,
-              ]}
-            >
-              {badge.label}
-            </Text>
-          </View>
+          <AppText variant="caption" tone="muted">{formatWorkoutDate(event.date)}</AppText>
+          <AppText variant="heading">{event.name}</AppText>
+          <Badge
+            label={badge.label}
+            tone={badge.label === 'Missed' ? 'error' : badge.label === 'Completed' ? 'success' : badge.label === 'Race' ? 'warning' : 'brand'}
+          />
         </View>
       </View>
 
@@ -80,7 +73,7 @@ export function WorkoutSheetContent({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    gap: 8,
+    gap: Spacing.sm,
     minHeight: 120,
     backgroundColor: SpringaColors.surface,
   },
@@ -88,46 +81,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: Spacing.md,
   },
   headerText: {
     flex: 1,
-    gap: 6,
+    gap: Spacing.sm,
     minWidth: 0,
-  },
-  date: {
-    fontSize: 13,
-    color: SpringaColors.muted,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: SpringaColors.text,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    marginTop: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: SpringaColors.tintBrand,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-  },
-  badgeMissed: {
-    backgroundColor: SpringaColors.tintError,
-    borderColor: SpringaColors.error + '4D',
-  },
-  badgeCompleted: {
-    backgroundColor: SpringaColors.tintSuccess,
-    borderColor: SpringaColors.success + '4D',
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: SpringaColors.text,
-  },
-  badgeTextMissed: {
-    color: SpringaColors.error,
   },
 });

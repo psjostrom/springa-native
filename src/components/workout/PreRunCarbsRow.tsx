@@ -1,15 +1,23 @@
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 import { Pencil } from 'lucide-react-native';
+import { AppText, Card, IconButton, TextField } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
 
 type PreRunCarbsRowProps = {
   value: number | null;
   pending: boolean;
   onSave: (value: number | null) => Promise<void>;
+  onInputFocus?: (target: number) => void;
 };
 
-export function PreRunCarbsRow({ value, pending, onSave }: PreRunCarbsRowProps) {
+export function PreRunCarbsRow({
+  value,
+  pending,
+  onSave,
+  onInputFocus,
+}: PreRunCarbsRowProps) {
   const inputRef = useRef<TextInput>(null);
   const draftRef = useRef('');
   const committingRef = useRef<string | null>(null);
@@ -54,13 +62,13 @@ export function PreRunCarbsRow({ value, pending, onSave }: PreRunCarbsRowProps) 
   };
 
   return (
-    <View style={styles.row} accessibilityLabel="Pre-run carbs">
-      <Text style={styles.label} selectable>
+    <Card tone="subtle" style={styles.row} accessibilityLabel="Pre-run carbs">
+      <AppText tone="muted" style={styles.label} selectable>
         Pre-run carbs
-      </Text>
+      </AppText>
       {editing ? (
         <View style={styles.editor}>
-          <TextInput
+          <TextField
             ref={inputRef}
             autoFocus
             value={draft}
@@ -71,6 +79,7 @@ export function PreRunCarbsRow({ value, pending, onSave }: PreRunCarbsRowProps) 
               setError(null);
             }}
             onBlur={() => void commit()}
+            onFocus={(event) => onInputFocus?.(event.nativeEvent.target)}
             onSubmitEditing={() => {
               void commit();
               inputRef.current?.blur();
@@ -80,32 +89,23 @@ export function PreRunCarbsRow({ value, pending, onSave }: PreRunCarbsRowProps) 
             returnKeyType="done"
             submitBehavior="submit"
             placeholder="0"
-            placeholderTextColor={SpringaColors.muted}
             style={styles.input}
             editable={!pending}
+            error={error ?? undefined}
           />
-          <Text style={styles.unit}>g</Text>
+          <AppText tone="muted">g</AppText>
         </View>
       ) : (
-        <Pressable
-          onPress={beginEditing}
-          accessibilityRole="button"
-          accessibilityLabel="Edit pre-run carbs"
-          hitSlop={8}
-          style={styles.valueAction}
-        >
-          <Text style={styles.value} selectable>
+        <View style={styles.valueAction}>
+          <AppText variant="subheading" style={styles.value} selectable>
             {value == null ? 'Add' : `${value} g`}
-          </Text>
-          <Pencil color={SpringaColors.muted} size={16} />
-        </Pressable>
+          </AppText>
+          <IconButton accessibilityLabel="Edit pre-run carbs" onPress={beginEditing}>
+            <Pencil color={SpringaColors.muted} size={16} />
+          </IconButton>
+        </View>
       )}
-      {error ? (
-        <Text style={styles.error} accessibilityRole="alert" selectable>
-          {error}
-        </Text>
-      ) : null}
-    </View>
+    </Card>
   );
 }
 
@@ -115,58 +115,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    backgroundColor: SpringaColors.surfaceAlt,
+    gap: Spacing.sm,
   },
   label: {
     flex: 1,
     minWidth: 128,
-    color: SpringaColors.muted,
-    fontSize: 16,
   },
   valueAction: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.xs,
   },
   value: {
-    color: SpringaColors.text,
-    fontSize: 17,
-    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   editor: {
-    minHeight: 44,
+    minWidth: 128,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.sm,
   },
   input: {
     minWidth: 88,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: SpringaColors.brand,
-    borderRadius: 10,
-    borderCurve: 'continuous',
-    color: SpringaColors.text,
-    backgroundColor: SpringaColors.surface,
-    fontSize: 17,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
-  },
-  unit: {
-    color: SpringaColors.muted,
-    fontSize: 16,
-  },
-  error: {
-    width: '100%',
-    color: SpringaColors.error,
-    fontSize: 13,
   },
 });

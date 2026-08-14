@@ -3,7 +3,8 @@ import { StyleSheet, View } from 'react-native';
 import { AgendaGate } from '@/components/agenda/AgendaGate';
 import { AgendaList } from '@/components/agenda/AgendaList';
 import { ScreenShell } from '@/components/shell/ScreenShell';
-import { SpringaColors } from '@/theme/colors';
+import { Card } from '@/components/ui';
+import { Spacing } from '@/theme/tokens';
 
 export default function CalendarScreen() {
   const router = useRouter();
@@ -12,13 +13,13 @@ export default function CalendarScreen() {
     <ScreenShell>
       <View style={styles.body}>
         <AgendaGate>
-          <View style={styles.card}>
+          <Card style={styles.card}>
             <AgendaList
               onOpenWorkout={(eventId) => {
                 router.push({ pathname: '/workout/[id]', params: { id: eventId } });
               }}
             />
-          </View>
+          </Card>
         </AgendaGate>
       </View>
     </ScreenShell>
@@ -26,13 +27,6 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, padding: 4, paddingBottom: 8 },
-  card: {
-    flex: 1,
-    backgroundColor: SpringaColors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-    padding: 8,
-  },
+  body: { flex: 1, padding: Spacing.xs, paddingBottom: Spacing.sm },
+  card: { flex: 1 },
 });

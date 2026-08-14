@@ -42,7 +42,7 @@ function RootNavigator() {
           options={{
             presentation: 'card',
             headerShown: true,
-            headerTintColor: SpringaColors.brand,
+            headerTintColor: SpringaColors.brandText,
             headerStyle: { backgroundColor: SpringaColors.surface },
             headerTitleStyle: { color: SpringaColors.text },
             headerShadowVisible: false,
