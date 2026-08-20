@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { ApiError, createApiClient, parseUserSettings } from './client';
 import { apiUrl } from '@/test/msw/helpers';
+import { degradedCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
 import { server } from '@/test/msw/server';
 
 const baseUrl = process.env.EXPO_PUBLIC_SPRINGA_API_URL ?? 'https://www.springa.run';
@@ -210,6 +211,129 @@ describe('createApiClient', () => {
       status: 422,
       message: 'Plan settings required',
       code: 'PLAN_SETTINGS_REQUIRED',
+    });
+  });
+
+  it('returns the parsed completed workout overview on 200', async () => {
+    const overview = await makeClient().getCompletedWorkoutOverview('activity-123');
+
+    expect(overview.activityId).toBe('activity-123');
+    expect(overview.reportCard.bg?.rating).toBe('good');
+    expect(overview.reportCard.hrZone?.expectedRepSec).toBe(185);
+    expect(overview.reportCard.recovery?.postHypo).toBe(true);
+    expect(overview.splits).toEqual([
+      { km: 1, paceMinPerKm: 5.42, avgHr: 142, elevationChangeM: 3.5 },
+      { km: 2, paceMinPerKm: 5.38, avgHr: null, elevationChangeM: null },
+    ]);
+    expect(overview.preRunCarbs).toEqual({
+      grams: 45,
+      source: 'activity',
+      fallbackEventId: null,
+    });
+  });
+
+  it('parses a degraded overview response with nulls preserved', async () => {
+    server.use(
+      http.get(apiUrl('/api/intervals/activity/activity-123/overview'), () =>
+        HttpResponse.json(degradedCompletedOverview()),
+      ),
+    );
+
+    const overview = await makeClient().getCompletedWorkoutOverview('activity-123');
+
+    expect(overview.reportCard).toEqual({
+      bg: null,
+      hrZone: null,
+      entryTrend: null,
+      recovery: null,
+    });
+    expect(overview.splits).toBeNull();
+    expect(overview.preRunCarbs).toEqual({
+      grams: null,
+      source: 'none',
+      fallbackEventId: null,
+    });
+  });
+
+  it('sends exact completed-overview mutation payloads', async () => {
+    const putBodies: unknown[] = [];
+    const feedbackBodies: unknown[] = [];
+    let deleteUrl: string | null = null;
+    server.use(
+      http.put(apiUrl('/api/intervals/activity/:id'), async ({ request }) => {
+        putBodies.push(await request.json());
+        return HttpResponse.json({ ok: true });
+      }),
+      http.delete(apiUrl('/api/prerun-carbs'), ({ request }) => {
+        deleteUrl = request.url;
+        return HttpResponse.json({ ok: true });
+      }),
+      http.post(apiUrl('/api/run-feedback'), async ({ request }) => {
+        feedbackBodies.push(await request.json());
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    const client = makeClient();
+    await expect(client.updateActivityCarbs('activity-123', 60)).resolves.toEqual({
+      ok: true,
+    });
+    await expect(client.updateActivityPreRunCarbs('activity-123', 30)).resolves.toEqual({
+      ok: true,
+    });
+    await expect(client.updateActivityPreRunCarbs('activity-123', null)).resolves.toEqual({
+      ok: true,
+    });
+    await expect(client.deletePreRunCarbs(202)).resolves.toBeUndefined();
+    await expect(
+      client.saveRunFeedback('activity-123', 'good', 'Felt strong'),
+    ).resolves.toEqual({ ok: true });
+
+    expect(putBodies).toEqual([
+      { carbs_ingested: 60 },
+      { PreRunCarbsG: 30 },
+      { PreRunCarbsG: 0 },
+    ]);
+    expect(new URL(deleteUrl!).searchParams.get('eventId')).toBe('202');
+    expect(feedbackBodies).toEqual([
+      { activityId: 'activity-123', rating: 'good', comment: 'Felt strong' },
+    ]);
+  });
+
+  it('throws ApiError with status on overview failures', async () => {
+    server.use(
+      http.get(apiUrl('/api/intervals/activity/missing/overview'), () =>
+        HttpResponse.json({ error: 'Activity not found' }, { status: 404 }),
+      ),
+      http.get(apiUrl('/api/intervals/activity/broken/overview'), () =>
+        HttpResponse.json({ error: 'boom' }, { status: 502 }),
+      ),
+      http.post(apiUrl('/api/run-feedback'), () =>
+        HttpResponse.json({ error: 'Invalid input' }, { status: 400 }),
+      ),
+    );
+
+    await expect(
+      makeClient().getCompletedWorkoutOverview('missing'),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      makeClient().getCompletedWorkoutOverview('broken'),
+    ).rejects.toMatchObject({ status: 502 });
+    await expect(
+      makeClient().saveRunFeedback('activity-123', 'bad', ''),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('throws ApiError when overview JSON is malformed', async () => {
+    server.use(
+      http.get(apiUrl('/api/intervals/activity/x/overview'), () =>
+        HttpResponse.json({ events: [] }),
+      ),
+    );
+
+    await expect(makeClient().getCompletedWorkoutOverview('x')).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Completed workout overview response had unexpected shape',
     });
   });
 });

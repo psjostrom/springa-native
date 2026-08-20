@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react-native';
 import type { CalendarEvent } from '@/api/types';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
@@ -70,7 +70,7 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByLabelText('Workout Threshold intervals')).toHaveStyle({ flex: 1 });
   });
 
-  it('shows planned chrome and placeholder for upcoming planned', async () => {
+  it('shows planned chrome and detail for upcoming planned', async () => {
     await renderWithApp(
       <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} now={NOW} />,
     );
@@ -81,20 +81,48 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByText('65m')).toBeOnTheScreen();
   });
 
-  it('shows completed placeholder for completed events', async () => {
+  it('shows the Calendar summary and Overview content for completed events', async () => {
     await renderWithApp(
       <WorkoutSheetContent
-        event={sampleEvent({ type: 'completed', name: 'Easy Run' })}
+        event={sampleEvent({
+          id: 'easy-past',
+          type: 'completed',
+          name: 'Easy Run',
+          activityId: 'activity-123',
+        })}
         onClose={() => {}}
         now={NOW}
       />,
     );
     expect(screen.getByText('Easy Run')).toBeOnTheScreen();
     expect(screen.getByText('Completed')).toBeOnTheScreen();
-    expect(screen.getByText('Completed workout')).toBeOnTheScreen();
+    expect(await screen.findByText('Fueling')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Run report')).toBeOnTheScreen();
+    expect(screen.getByText('Km 1')).toBeOnTheScreen();
+    expect(screen.queryByText('Completed workout')).toBeNull();
+    expect(screen.queryByText('Workout structure')).toBeNull();
   });
 
-  it('keeps race events on the non-planned detail path', async () => {
+  it('exposes no planned action controls for completed events', async () => {
+    const onActionsReady = vi.fn();
+    await renderWithApp(
+      <WorkoutSheetContent
+        event={sampleEvent({
+          id: 'easy-past',
+          type: 'completed',
+          name: 'Easy Run',
+          activityId: 'activity-123',
+        })}
+        onClose={() => {}}
+        now={NOW}
+        onActionsReady={onActionsReady}
+      />,
+    );
+    expect(await screen.findByText('Fueling')).toBeOnTheScreen();
+    expect(onActionsReady).not.toHaveBeenCalled();
+  });
+
+  it('keeps race events on the planned detail path', async () => {
     await renderWithApp(
       <WorkoutSheetContent
         event={sampleEvent({
@@ -107,10 +135,11 @@ describe('WorkoutSheetContent', () => {
         now={NOW}
       />,
     );
-    expect(screen.getByText('Half marathon')).toBeOnTheScreen();
     expect(screen.getByText('Race')).toBeOnTheScreen();
-    expect(screen.getByText('Completed workout')).toBeOnTheScreen();
-    expect(screen.queryByText('Workout structure')).toBeNull();
+    expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
+    expect(screen.getByText('T-shirt')).toBeOnTheScreen();
+    expect(screen.getByText('65m')).toBeOnTheScreen();
+    expect(screen.queryByText('Completed workout')).toBeNull();
   });
 
   it('shows Missed badge and planned detail for missed events', async () => {

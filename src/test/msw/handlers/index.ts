@@ -3,6 +3,7 @@ import { settingsHandlers } from './settings';
 import { calendarHandlers } from './calendar';
 import { bgHandlers } from './bg';
 import { plannedWorkoutHandlers } from './plannedWorkout';
+import { completedWorkoutOverviewHandlers } from './completedWorkoutOverview';
 
 export const handlers = [
   ...authHandlers,
@@ -10,4 +11,5 @@ export const handlers = [
   ...calendarHandlers,
   ...bgHandlers,
   ...plannedWorkoutHandlers,
+  ...completedWorkoutOverviewHandlers,
 ];

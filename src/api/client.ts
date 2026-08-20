@@ -1,11 +1,13 @@
 import { getApiBaseUrl } from '@/auth/config';
 import { parseBgPayload } from './bg';
 import { parseCalendarEvents } from './calendar';
+import { parseCompletedWorkoutOverview } from './completedWorkoutOverview';
 import { ApiError } from './errors';
 import { parsePlannedWorkoutDetail } from './plannedWorkout';
 import type {
   BgPayload,
   CalendarEvent,
+  CompletedWorkoutOverview,
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
   UserSettings,
@@ -37,6 +39,23 @@ export type ApiClient = {
   savePreRunCarbs: (
     eventId: string,
     carbsG: number | null,
+  ) => Promise<{ ok: true }>;
+  getCompletedWorkoutOverview: (
+    activityId: string,
+  ) => Promise<CompletedWorkoutOverview>;
+  updateActivityCarbs: (
+    activityId: string,
+    carbsG: number,
+  ) => Promise<{ ok: true }>;
+  updateActivityPreRunCarbs: (
+    activityId: string,
+    carbsG: number | null,
+  ) => Promise<{ ok: true }>;
+  deletePreRunCarbs: (eventId: number) => Promise<void>;
+  saveRunFeedback: (
+    activityId: string,
+    rating: 'good' | 'bad',
+    comment: string,
   ) => Promise<{ ok: true }>;
 };
 
@@ -161,6 +180,43 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       apiFetch<{ ok: true }>('/api/prerun-carbs', {
         method: 'POST',
         body: JSON.stringify({ eventId, carbsG }),
+      }),
+    getCompletedWorkoutOverview: async (activityId: string) =>
+      parseCompletedWorkoutOverview(
+        await apiFetch<unknown>(
+          `/api/intervals/activity/${encodeURIComponent(activityId)}/overview`,
+        ),
+      ),
+    updateActivityCarbs: (activityId: string, carbsG: number) =>
+      apiFetch<{ ok: true }>(
+        `/api/intervals/activity/${encodeURIComponent(activityId)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ carbs_ingested: carbsG }),
+        },
+      ),
+    updateActivityPreRunCarbs: (activityId: string, carbsG: number | null) =>
+      apiFetch<{ ok: true }>(
+        `/api/intervals/activity/${encodeURIComponent(activityId)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ PreRunCarbsG: carbsG ?? 0 }),
+        },
+      ),
+    deletePreRunCarbs: async (eventId: number) => {
+      await apiFetch<unknown>(
+        `/api/prerun-carbs?eventId=${encodeURIComponent(String(eventId))}`,
+        { method: 'DELETE' },
+      );
+    },
+    saveRunFeedback: (
+      activityId: string,
+      rating: 'good' | 'bad',
+      comment: string,
+    ) =>
+      apiFetch<{ ok: true }>('/api/run-feedback', {
+        method: 'POST',
+        body: JSON.stringify({ activityId, rating, comment }),
       }),
   };
 }

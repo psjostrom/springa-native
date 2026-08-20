@@ -50,10 +50,28 @@ export type CalendarEvent = {
   duration?: number;
   avgHr?: number;
   maxHr?: number;
+  load?: number;
+  intensity?: number;
   pace?: number;
+  calories?: number;
+  cadence?: number;
+  zoneTimes?: HeartRateZoneTimes;
   fuelRate?: number | null;
   prescribedCarbsG?: number | null;
+  carbsIngested?: number | null;
+  preRunCarbsG?: number | null;
+  rating?: string | null;
+  feedbackComment?: string | null;
   activityId?: string;
+  pairedEventId?: number;
+};
+
+export type HeartRateZoneTimes = {
+  z1: number;
+  z2: number;
+  z3: number;
+  z4: number;
+  z5: number;
 };
 
 export type WorkoutZone = 'z1' | 'z2' | 'z3' | 'z4' | 'z5';
@@ -124,6 +142,61 @@ export type PlannedWorkoutDetail = {
   };
   preRunCarbsG: number | null;
   clothing: PlannedWorkoutClothing;
+};
+
+/** Completed workout overview from Springa GET /api/intervals/activity/[id]/overview. */
+export type CompletedWorkoutOverview = {
+  activityId: string;
+  reportCard: {
+    bg: CompletedBgScore | null;
+    hrZone: CompletedHrZoneScore | null;
+    entryTrend: CompletedEntryTrendScore | null;
+    recovery: CompletedRecoveryScore | null;
+  };
+  splits: CompletedSplit[] | null;
+  preRunCarbs: {
+    grams: number | null;
+    source: 'activity' | 'paired-event' | 'none';
+    fallbackEventId: number | null;
+  };
+};
+
+export type CompletedBgScore = {
+  rating: 'good' | 'ok' | 'bad';
+  startBG: number;
+  minBG: number;
+  hypo: boolean;
+  worstRate: number;
+  lbgi: number;
+};
+
+export type CompletedHrZoneScore = {
+  rating: 'good' | 'ok' | 'bad';
+  targetZone: string;
+  pctInTarget: number;
+  expectedRepSec?: number;
+};
+
+export type CompletedEntryTrendScore = {
+  rating: 'good' | 'ok' | 'bad';
+  slope30m: number;
+  stability: number;
+  label: string;
+};
+
+export type CompletedRecoveryScore = {
+  rating: 'good' | 'ok' | 'bad';
+  drop30m: number;
+  nadir: number;
+  postHypo: boolean;
+  label: string;
+};
+
+export type CompletedSplit = {
+  km: number;
+  paceMinPerKm: number;
+  avgHr: number | null;
+  elevationChangeM: number | null;
 };
 
 export type BgPayload = {
