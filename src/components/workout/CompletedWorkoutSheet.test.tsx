@@ -100,6 +100,18 @@ describe('CompletedWorkoutSheet', () => {
     expect(attempts).toBe(2);
   });
 
+  it('shows an unavailable state without error copy when the query is disabled', async () => {
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(null)}>
+        <CompletedWorkoutSheet event={completedEvent} />
+      </TestAppProviders>,
+    );
+
+    expect(screen.getByText('Workout details unavailable')).toBeOnTheScreen();
+    expect(screen.queryByText('Couldn’t load workout details')).toBeNull();
+    expect(screen.queryByLabelText('Retry loading workout details')).toBeNull();
+  });
+
   it('renders cached Overview content without refetching', async () => {
     const gets = { count: 0 };
     server.use(

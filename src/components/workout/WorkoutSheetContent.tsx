@@ -45,7 +45,7 @@ export function WorkoutSheetContent({
           </View>
         </View>
 
-        <CompletedWorkoutSheet event={event} />
+        <CompletedWorkoutSheet key={event.id} event={event} />
       </View>
     );
   }

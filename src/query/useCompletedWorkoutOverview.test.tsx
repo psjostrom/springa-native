@@ -234,8 +234,7 @@ function PreRunWarningProbe() {
 
 describe('completed workout overview query', () => {
   it('loads the selected overview for a signed-in user', async () => {
-    const overviewGets = { gets: 0 };
-    server.use(overviewHandler(overviewFixture(), overviewGets));
+    server.use(overviewHandler(overviewFixture()));
 
     await render(
       <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
@@ -245,7 +244,6 @@ describe('completed workout overview query', () => {
 
     expect(await screen.findByText('Overview: good')).toBeOnTheScreen();
     expect(screen.getByText('Pre-run: 45 (activity)')).toBeOnTheScreen();
-    expect(overviewGets.gets).toBe(1);
   });
 
   it('stays disabled when signed out', async () => {

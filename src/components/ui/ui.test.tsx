@@ -79,4 +79,12 @@ describe('global UI', () => {
     expect(screen.getByLabelText('Carbs')).toBeOnTheScreen();
     expect(screen.getByRole('alert')).toHaveTextContent('Whole grams only');
   });
+
+  it('exposes a non-editable text field as disabled', async () => {
+    await render(<TextField accessibilityLabel="Carbs" editable={false} />);
+
+    expect(screen.getByLabelText('Carbs')).toHaveProp('accessibilityState', {
+      disabled: true,
+    });
+  });
 });

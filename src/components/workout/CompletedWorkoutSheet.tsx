@@ -18,9 +18,8 @@ export function CompletedWorkoutSheet({
 }: {
   event: CalendarEvent;
 }): ReactElement {
-  const { data, isLoading, isError, error, reload } = useCompletedWorkoutOverview(
-    event.activityId ?? '',
-  );
+  const { data, isEnabled, isLoading, isError, error, reload } =
+    useCompletedWorkoutOverview(event.activityId ?? '');
   const mutations = useCompletedWorkoutMutations(event);
 
   const feedbackError = mutations.saveFeedback.isError
@@ -48,12 +47,16 @@ export function CompletedWorkoutSheet({
             <StateView
               loading={isLoading}
               title={
-                isLoading
+                !isEnabled
+                  ? 'Workout details unavailable'
+                  : isLoading
                   ? 'Loading workout details…'
                   : 'Couldn’t load workout details'
               }
               message={
-                isLoading
+                !isEnabled
+                  ? 'Workout details aren’t available in this state.'
+                  : isLoading
                   ? 'Workout details will appear when ready.'
                   : (error ?? 'Something went wrong.')
               }

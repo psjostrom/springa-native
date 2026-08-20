@@ -126,13 +126,17 @@ describe('CompletedFueling', () => {
     await waitFor(() => expect(savePreRunCarbs).toHaveBeenCalledWith(null));
   });
 
-  it('renders the pre-run source label from Overview data', async () => {
+  it('labels an activity pre-run value', async () => {
     await renderFueling({}, { grams: 45, source: 'activity', fallbackEventId: null });
     expect(screen.getByText('Activity')).toBeOnTheScreen();
+  });
 
+  it('labels a paired-event pre-run fallback', async () => {
     await renderFueling({}, { grams: 30, source: 'paired-event', fallbackEventId: 7 });
     expect(screen.getByText('Fallback')).toBeOnTheScreen();
+  });
 
+  it('labels an unavailable pre-run value', async () => {
     await renderFueling({}, { grams: null, source: 'none', fallbackEventId: null });
     expect(screen.getByText('Not recorded')).toBeOnTheScreen();
   });

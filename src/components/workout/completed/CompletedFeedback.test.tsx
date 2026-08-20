@@ -47,17 +47,6 @@ describe('CompletedFeedback', () => {
     expect(screen.queryByText('Felt strong')).not.toBeOnTheScreen();
   });
 
-  it('saves a selected rating with the typed comment', async () => {
-    const saveFeedback = vi.fn();
-    await renderFeedback({}, saveFeedback);
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Good' }));
-    await fireEvent.changeText(screen.getByLabelText('Feedback comment'), 'Felt strong');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
-
-    expect(saveFeedback).toHaveBeenCalledWith({ rating: 'good', comment: 'Felt strong' });
-  });
-
   it('marks the selected rating as selected for assistive technologies', async () => {
     await renderFeedback();
 

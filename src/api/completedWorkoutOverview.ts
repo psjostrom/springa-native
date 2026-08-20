@@ -25,6 +25,10 @@ function scoreString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+function nullableIntegerId(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) ? value : null;
+}
+
 function parseRating(value: unknown): 'good' | 'ok' | 'bad' | null {
   return value === 'good' || value === 'ok' || value === 'bad' ? value : null;
 }
@@ -124,7 +128,7 @@ function parsePreRunCarbs(value: unknown): CompletedWorkoutOverview['preRunCarbs
   return {
     grams: scoreNumber(value.grams),
     source,
-    fallbackEventId: scoreNumber(value.fallbackEventId),
+    fallbackEventId: nullableIntegerId(value.fallbackEventId),
   };
 }
 

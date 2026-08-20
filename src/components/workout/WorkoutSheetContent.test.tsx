@@ -1,10 +1,15 @@
 import { type ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { describe, expect, it } from 'vitest';
+import { render, screen, userEvent } from '@testing-library/react-native';
 import type { CalendarEvent } from '@/api/types';
+import { ApiClientProvider } from '@/api/ApiClientProvider';
+import { AuthProviderForTests } from '@/auth/AuthContext';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
 import { getWorkoutStatusBadge } from '@/components/workout/workoutStatusBadge';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
+import { queryKeys } from '@/query/keys';
+import { defaultCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
 import {
   makeTestAuthValue,
   makeTestSession,
@@ -103,23 +108,51 @@ describe('WorkoutSheetContent', () => {
     expect(screen.queryByText('Workout structure')).toBeNull();
   });
 
-  it('exposes no planned action controls for completed events', async () => {
-    const onActionsReady = vi.fn();
-    await renderWithApp(
-      <WorkoutSheetContent
-        event={sampleEvent({
-          id: 'easy-past',
-          type: 'completed',
-          name: 'Easy Run',
-          activityId: 'activity-123',
-        })}
-        onClose={() => {}}
-        now={NOW}
-        onActionsReady={onActionsReady}
-      />,
+  it('clears completed editor drafts when the selected event changes', async () => {
+    const auth = makeTestAuthValue(makeTestSession());
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60_000 } },
+    });
+    queryClient.setQueryData(
+      queryKeys.completedWorkoutOverview('runner@example.com', 'activity-123'),
+      defaultCompletedOverview('activity-123'),
     );
-    expect(await screen.findByText('Fueling')).toBeOnTheScreen();
-    expect(onActionsReady).not.toHaveBeenCalled();
+    queryClient.setQueryData(
+      queryKeys.completedWorkoutOverview('runner@example.com', 'activity-456'),
+      defaultCompletedOverview('activity-456'),
+    );
+    const renderTree = (event: CalendarEvent) => (
+      <AuthProviderForTests value={auth}>
+        <ApiClientProvider>
+          <QueryClientProvider client={queryClient}>
+            <WorkoutSheetContent event={event} onClose={() => {}} now={NOW} />
+          </QueryClientProvider>
+        </ApiClientProvider>
+      </AuthProviderForTests>
+    );
+    const first = sampleEvent({
+      id: 'first-run',
+      type: 'completed',
+      name: 'First run',
+      activityId: 'activity-123',
+    });
+    const second = sampleEvent({
+      id: 'second-run',
+      type: 'completed',
+      name: 'Second run',
+      activityId: 'activity-456',
+    });
+    const view = await render(renderTree(first));
+    const user = userEvent.setup();
+
+    await user.press(await screen.findByRole('button', { name: 'Good' }));
+    await user.type(screen.getByLabelText('Feedback comment'), 'First draft');
+
+    view.rerender(renderTree(second));
+
+    expect(await screen.findByText('Second run')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Feedback comment')).toHaveProp('value', '');
+    expect(screen.getByRole('button', { name: 'Good', selected: false })).toBeOnTheScreen();
   });
 
   it('keeps race events on the planned detail path', async () => {

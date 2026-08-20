@@ -54,6 +54,7 @@ export function useCompletedWorkoutOverview(activityId: string) {
 
   return {
     data: query.data ?? null,
+    isEnabled: enabled,
     isLoading: enabled && query.isPending,
     isError: enabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,

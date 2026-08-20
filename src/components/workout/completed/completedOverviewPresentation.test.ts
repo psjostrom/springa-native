@@ -25,7 +25,9 @@ describe('completedOverviewPresentation', () => {
   it('names BG behavior from server values', () => {
     const score = (hypo: boolean, worstRate: number) => ({ hypo, worstRate });
     expect(bgJudgment(score(false, -0.1))).toBe('Stable');
+    expect(bgJudgment(score(false, -0.11))).toBe('Stable');
     expect(bgJudgment(score(false, -0.13))).toBe('Dropping');
+    expect(bgJudgment(score(false, -0.17))).toBe('Dropping');
     expect(bgJudgment(score(false, -0.19))).toBe('Crashing');
     expect(bgJudgment(score(true, -0.05))).toBe('Hypo');
   });

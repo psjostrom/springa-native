@@ -268,6 +268,15 @@ describe('parseCompletedWorkoutOverview', () => {
     });
   });
 
+  it('rejects a fractional fallbackEventId', () => {
+    const parsed = parseCompletedWorkoutOverview({
+      ...richOverview,
+      preRunCarbs: { grams: 30, source: 'paired-event', fallbackEventId: 1.5 },
+    });
+
+    expect(parsed.preRunCarbs.fallbackEventId).toBeNull();
+  });
+
   it('rejects an invalid preRunCarbs source', () => {
     expect(() =>
       parseCompletedWorkoutOverview({
