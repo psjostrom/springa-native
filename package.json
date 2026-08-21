@@ -53,7 +53,7 @@
     "start:clear": "npm run setup:worktree -- development && expo start --clear",
     "android": "npm run setup:worktree -- development && expo run:android",
     "android:device": "npm run setup:worktree -- development && expo run:android --device",
-    "android:release": "npm run setup:worktree -- production && expo run:android --variant release --device",
+    "android:release": "npm run setup:worktree -- production && expo run:android --variant release --device --no-bundler",
     "ios": "npm run setup:worktree -- development && expo run:ios",
     "ios:device": "npm run setup:worktree -- development && expo run:ios --device",
     "ios:release": "npm run setup:worktree -- production && expo run:ios --configuration Release --device",
