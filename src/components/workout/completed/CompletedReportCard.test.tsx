@@ -36,19 +36,27 @@ describe('CompletedReportCard', () => {
   it('renders only non-null report results', async () => {
     await renderCard({ entryTrend: null });
 
-    expect(screen.getByText('Blood Glucose')).toBeOnTheScreen();
-    expect(screen.getByText('Recovery')).toBeOnTheScreen();
-    expect(screen.queryByText('Pre-Run trend')).not.toBeOnTheScreen();
+    expect(screen.getAllByText('Blood Glucose')).toHaveLength(1);
+    expect(screen.getByText('During run')).toBeOnTheScreen();
+    expect(screen.getByText('After run')).toBeOnTheScreen();
+    expect(screen.queryByText('Before run')).not.toBeOnTheScreen();
   });
 
-  it('shows BG judgment, values, and units', async () => {
+  it('groups during-run glucose outcome and names every value', async () => {
     await renderCard();
 
+    expect(screen.getByText('During run')).toBeOnTheScreen();
     expect(screen.getByText('Crashing')).toBeOnTheScreen();
-    expect(screen.getByText('6.8 → 4.9 mmol/L')).toBeOnTheScreen();
-    expect(screen.getByText('-0.600/min')).toBeOnTheScreen();
+    expect(screen.getByText('Start')).toBeOnTheScreen();
+    expect(screen.getByText('6.8 mmol/L')).toBeOnTheScreen();
+    expect(screen.getByText('Lowest')).toBeOnTheScreen();
+    expect(screen.getByText('4.9 mmol/L')).toBeOnTheScreen();
+    expect(screen.getByText('Steepest 5-min change')).toBeOnTheScreen();
+    expect(screen.getByText('-3.0 mmol/L')).toBeOnTheScreen();
     expect(
-      screen.getByLabelText('Blood Glucose, Crashing, 6.8 to 4.9 mmol/L, worst rate -0.600 per minute'),
+      screen.getByLabelText(
+        'During run, Crashing, start 6.8 mmol/L, lowest 4.9 mmol/L, steepest 5-minute change -3.0 mmol/L',
+      ),
     ).toBeOnTheScreen();
   });
 
@@ -64,25 +72,37 @@ describe('CompletedReportCard', () => {
     expect(screen.getByText('Crashing')).toBeOnTheScreen();
   });
 
-  it('shows trend label, slope judgment, and unit context', async () => {
+  it('groups pre-run trend with a five-minute glucose change', async () => {
     await renderCard();
 
-    expect(screen.getByText('Pre-Run trend')).toBeOnTheScreen();
-    expect(screen.getByText('+0.90/min')).toBeOnTheScreen();
+    expect(screen.getByText('Before run')).toBeOnTheScreen();
+    expect(screen.getByText('5-min change')).toBeOnTheScreen();
+    expect(screen.getByText('+4.5 mmol/L')).toBeOnTheScreen();
     expect(
-      screen.getByLabelText('Pre-Run trend, Stable, +0.90 mmol/L per minute'),
+      screen.getByLabelText('Before run, Stable, 5-minute change +4.5 mmol/L'),
     ).toBeOnTheScreen();
   });
 
-  it('shows recovery label, drop context, and nadir judgment', async () => {
+  it('separates the first 30-minute recovery change from the later low', async () => {
     await renderCard();
 
+    expect(screen.getByText('After run')).toBeOnTheScreen();
     expect(screen.getByText('Deep drop')).toBeOnTheScreen();
-    expect(screen.getByText('low 4.2')).toBeOnTheScreen();
-    expect(screen.getByText('-2.4 mmol/L (30 min)')).toBeOnTheScreen();
+    expect(screen.getByText('First 30 min')).toBeOnTheScreen();
+    expect(screen.getByText('-2.4 mmol/L')).toBeOnTheScreen();
+    expect(screen.getByText('Lowest after run')).toBeOnTheScreen();
+    expect(screen.getByText('4.2 mmol/L')).toBeOnTheScreen();
     expect(
-      screen.getByLabelText('Recovery, Deep drop, -2.4 mmol/L per 30 minutes, low 4.2 mmol/L'),
+      screen.getByLabelText(
+        'After run, Deep drop, first 30-minute change -2.4 mmol/L, lowest after run 4.2 mmol/L',
+      ),
     ).toBeOnTheScreen();
+  });
+
+  it('does not expose per-minute glucose rates', async () => {
+    await renderCard();
+
+    expect(screen.queryByText(/\/min/)).not.toBeOnTheScreen();
   });
 
   it('keeps HR zone compliance out of the report card grid', async () => {

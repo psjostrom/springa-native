@@ -1,35 +1,28 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Droplets } from 'lucide-react-native';
 import type {
   CompletedBgScore,
   CompletedEntryTrendScore,
   CompletedRecoveryScore,
   CompletedWorkoutOverview,
 } from '@/api/types';
-import { AppText, Card, Grid } from '@/components/ui';
-import { Spacing } from '@/theme/tokens';
+import { AppText, Card, Section } from '@/components/ui';
+import { SpringaColors } from '@/theme/colors';
+import { Radius, Spacing } from '@/theme/tokens';
 import {
   bgJudgment,
+  formatFiveMinuteChange,
   formatMmol,
-  formatRatePerMin,
-  formatSlopePerMin,
 } from './completedOverviewPresentation';
 
 type CompletedReportCardProps = {
   reportCard: CompletedWorkoutOverview['reportCard'];
 };
 
-type CellProps = {
-  label: string;
-  accessibilityLabel: string;
-  judgment: string;
-  tone: 'success' | 'warning' | 'error';
-  value: string;
-  unit?: string;
-  caption?: string;
-};
+type Tone = 'success' | 'warning' | 'error';
 
-function ratingTone(rating: 'good' | 'ok' | 'bad'): CellProps['tone'] {
+function ratingTone(rating: 'good' | 'ok' | 'bad'): Tone {
   switch (rating) {
     case 'good':
       return 'success';
@@ -40,61 +33,90 @@ function ratingTone(rating: 'good' | 'ok' | 'bad'): CellProps['tone'] {
   }
 }
 
-function ReportCell({ label, accessibilityLabel, judgment, tone, value, unit, caption }: CellProps) {
+function ReportPanel({
+  title,
+  judgment,
+  tone,
+  accessibilityLabel,
+  children,
+}: {
+  title: string;
+  judgment: string;
+  tone: Tone;
+  accessibilityLabel: string;
+  children: ReactNode;
+}) {
   return (
-    <View accessible accessibilityLabel={accessibilityLabel} style={styles.cell}>
-      <View style={styles.topRow}>
-        <AppText variant="caption" tone="muted">{label}</AppText>
-        <AppText variant="label" tone={tone}>{judgment}</AppText>
+    <View accessible accessibilityLabel={accessibilityLabel} style={styles.panel}>
+      <View style={styles.panelHeader}>
+        <AppText variant="caption" tone="muted" style={styles.panelTitle}>{title}</AppText>
+        <AppText variant="label" tone={tone} style={styles.judgment}>{judgment}</AppText>
       </View>
-      <AppText variant="subheading" selectable>
-        {unit ? `${value} ${unit}` : value}
-      </AppText>
-      {caption ? <AppText variant="caption" tone="muted">{caption}</AppText> : null}
+      {children}
     </View>
   );
 }
 
-function BgCell({ score }: { score: CompletedBgScore }) {
-  const judgment = bgJudgment(score);
+function GlucoseMetric({ label, value }: { label: string; value: string }) {
   return (
-    <ReportCell
-      label="Blood Glucose"
-      accessibilityLabel={`Blood Glucose, ${judgment}, ${formatMmol(score.startBG)} to ${formatMmol(score.minBG)} mmol/L, worst rate ${formatRatePerMin(score.worstRate).replace('/min', ' per minute')}`}
+    <View style={styles.metric}>
+      <AppText variant="caption" tone="muted">{label}</AppText>
+      <AppText variant="subheading" selectable style={styles.value}>{value}</AppText>
+    </View>
+  );
+}
+
+function DuringRunPanel({ score }: { score: CompletedBgScore }) {
+  const judgment = bgJudgment(score);
+  const start = `${formatMmol(score.startBG)} mmol/L`;
+  const lowest = `${formatMmol(score.minBG)} mmol/L`;
+  const change = `${formatFiveMinuteChange(score.worstRate)} mmol/L`;
+
+  return (
+    <ReportPanel
+      title="During run"
       judgment={judgment}
       tone={ratingTone(score.rating)}
-      value={`${formatMmol(score.startBG)} → ${formatMmol(score.minBG)}`}
-      unit="mmol/L"
-      caption={formatRatePerMin(score.worstRate)}
-    />
+      accessibilityLabel={`During run, ${judgment}, start ${start}, lowest ${lowest}, steepest 5-minute change ${change}`}
+    >
+      <View style={styles.metricRow}>
+        <GlucoseMetric label="Start" value={start} />
+        <GlucoseMetric label="Lowest" value={lowest} />
+      </View>
+      <GlucoseMetric label="Steepest 5-min change" value={change} />
+    </ReportPanel>
   );
 }
 
-function EntryTrendCell({ score }: { score: CompletedEntryTrendScore }) {
-  const slope = formatSlopePerMin(score.slope30m);
+function BeforeRunPanel({ score }: { score: CompletedEntryTrendScore }) {
+  const change = `${formatFiveMinuteChange(score.slope30m)} mmol/L`;
   return (
-    <ReportCell
-      label="Pre-Run trend"
-      accessibilityLabel={`Pre-Run trend, ${score.label}, ${slope.replace('/min', ' mmol/L per minute')}`}
-      judgment={slope}
+    <ReportPanel
+      title="Before run"
+      judgment={score.label}
       tone={ratingTone(score.rating)}
-      value={score.label}
-    />
+      accessibilityLabel={`Before run, ${score.label}, 5-minute change ${change}`}
+    >
+      <GlucoseMetric label="5-min change" value={change} />
+    </ReportPanel>
   );
 }
 
-function RecoveryCell({ score }: { score: CompletedRecoveryScore }) {
-  const nadir = formatMmol(score.nadir);
-  const drop = score.drop30m.toFixed(1);
+function AfterRunPanel({ score }: { score: CompletedRecoveryScore }) {
+  const change = `${score.drop30m.toFixed(1)} mmol/L`;
+  const lowest = `${formatMmol(score.nadir)} mmol/L`;
   return (
-    <ReportCell
-      label="Recovery"
-      accessibilityLabel={`Recovery, ${score.label}, ${drop} mmol/L per 30 minutes, low ${nadir} mmol/L`}
-      judgment={`low ${nadir}`}
+    <ReportPanel
+      title="After run"
+      judgment={score.label}
       tone={ratingTone(score.rating)}
-      value={score.label}
-      caption={`${drop} mmol/L (30 min)`}
-    />
+      accessibilityLabel={`After run, ${score.label}, first 30-minute change ${change}, lowest after run ${lowest}`}
+    >
+      <View style={styles.metricRow}>
+        <GlucoseMetric label="First 30 min" value={change} />
+        <GlucoseMetric label="Lowest after run" value={lowest} />
+      </View>
+    </ReportPanel>
   );
 }
 
@@ -105,24 +127,55 @@ export function CompletedReportCard({
   if (bg == null && entryTrend == null && recovery == null) return null;
 
   return (
-    <Card accessibilityLabel="Run report">
-      <Grid>
-        {bg != null ? <BgCell score={bg} /> : null}
-        {entryTrend != null ? <EntryTrendCell score={entryTrend} /> : null}
-        {recovery != null ? <RecoveryCell score={recovery} /> : null}
-      </Grid>
-    </Card>
+    <Section title="Blood Glucose" icon={Droplets} iconColor={SpringaColors.chartSecondary}>
+      <Card accessibilityLabel="Run report" style={styles.report}>
+        {bg != null ? <DuringRunPanel score={bg} /> : null}
+        {entryTrend != null ? <BeforeRunPanel score={entryTrend} /> : null}
+        {recovery != null ? <AfterRunPanel score={recovery} /> : null}
+      </Card>
+    </Section>
   );
 }
 
 const styles = StyleSheet.create({
-  cell: {
-    gap: Spacing.xs,
+  report: {
+    gap: Spacing.sm,
   },
-  topRow: {
+  panel: {
+    minWidth: 0,
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: SpringaColors.surfaceAlt,
+    borderCurve: 'continuous',
+    borderRadius: Radius.md,
+  },
+  panelHeader: {
+    minWidth: 0,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.sm,
+  },
+  panelTitle: {
+    flexShrink: 1,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  judgment: {
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  metricRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+  },
+  metric: {
+    flex: 1,
+    minWidth: 0,
+    gap: Spacing.xs,
+  },
+  value: {
+    fontVariant: ['tabular-nums'],
   },
 });

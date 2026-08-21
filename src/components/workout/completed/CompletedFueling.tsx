@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { Pencil } from 'lucide-react-native';
+import { Pencil, Utensils } from 'lucide-react-native';
 import type { CalendarEvent, CompletedWorkoutOverview } from '@/api/types';
 import { AppText, Badge, Card, IconButton, Section, TextField } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -14,6 +14,7 @@ type CompletedFuelingProps = {
   savePreRunCarbs: (
     value: number | null,
   ) => Promise<{ cleanupWarning: string | null }>;
+  onInputFocus?: (input: TextInput) => void;
 };
 
 type EditorProps = {
@@ -39,6 +40,12 @@ function useEditor({ value, allowClear, onSave, saveErrorFallback }: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cleanupWarning, setCleanupWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editing) return;
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [editing]);
 
   const beginEditing = () => {
     const next = value == null ? '' : String(value);
@@ -114,9 +121,11 @@ function EditorRow({
   saveErrorFallback,
   onSave,
   badge,
+  onInputFocus,
 }: EditorProps & {
   editAccessibilityLabel: string;
   badge?: ReactElement | null;
+  onInputFocus?: (input: TextInput) => void;
 }) {
   const {
     inputRef,
@@ -139,26 +148,30 @@ function EditorRow({
         {badge}
       </View>
       {editing ? (
-        <View style={styles.editor}>
-          <TextField
-            ref={inputRef}
-            autoFocus
-            value={draft}
-            onChangeText={updateDraft}
-            onBlur={() => void commit()}
-            onSubmitEditing={() => {
-              void commit();
-              inputRef.current?.blur();
-            }}
-            accessibilityLabel={accessibilityLabel}
-            keyboardType="number-pad"
-            returnKeyType="done"
-            submitBehavior="submit"
-            placeholder="0"
-            style={styles.input}
-            editable={!saving}
-            error={error ?? undefined}
-          />
+        <View accessibilityLabel={`${label} editor`} style={styles.editor}>
+          <View style={styles.inputWrap}>
+            <TextField
+              ref={inputRef}
+              value={draft}
+              onChangeText={updateDraft}
+              onBlur={() => void commit()}
+              onFocus={() => {
+                if (inputRef.current != null) onInputFocus?.(inputRef.current);
+              }}
+              onSubmitEditing={() => {
+                void commit();
+                inputRef.current?.blur();
+              }}
+              accessibilityLabel={accessibilityLabel}
+              keyboardType="number-pad"
+              returnKeyType="done"
+              submitBehavior="submit"
+              placeholder="0"
+              style={styles.input}
+              editable={!saving}
+              error={error ?? undefined}
+            />
+          </View>
           <AppText tone="muted">g</AppText>
         </View>
       ) : (
@@ -204,9 +217,10 @@ export function CompletedFueling({
   preRunCarbs,
   saveCarbs,
   savePreRunCarbs,
+  onInputFocus,
 }: CompletedFuelingProps): ReactElement {
   return (
-    <Section title="Fueling">
+    <Section title="Fueling" icon={Utensils} iconColor={SpringaColors.warning}>
       <EditorRow
         label="Carbs ingested"
         accessibilityLabel="Carbs ingested grams"
@@ -217,6 +231,7 @@ export function CompletedFueling({
         onSave={async (carbsG) => {
           await saveCarbs(carbsG as number);
         }}
+        onInputFocus={onInputFocus}
       />
       {event.prescribedCarbsG != null ? (
         <Card tone="subtle" accessibilityLabel="Planned carbs" style={styles.row}>
@@ -237,6 +252,7 @@ export function CompletedFueling({
         saveErrorFallback="Failed to save pre-run carbs."
         badge={preRunBadge(preRunCarbs?.source ?? null)}
         onSave={savePreRunCarbs}
+        onInputFocus={onInputFocus}
       />
     </Section>
   );
@@ -252,17 +268,18 @@ const styles = StyleSheet.create({
   },
   labelWrap: {
     flex: 1,
-    minWidth: 128,
+    minWidth: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.sm,
   },
   label: {
-    minWidth: 96,
+    flexShrink: 1,
   },
   valueAction: {
     minHeight: 44,
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
@@ -271,13 +288,18 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   editor: {
-    minWidth: 128,
+    width: '100%',
+    flexBasis: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  inputWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
   input: {
-    minWidth: 88,
+    minWidth: 0,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },

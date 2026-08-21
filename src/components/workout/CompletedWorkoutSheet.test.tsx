@@ -47,9 +47,20 @@ describe('CompletedWorkoutSheet', () => {
     expect(screen.getByLabelText('Workout stats')).toBeOnTheScreen();
     expect(screen.getByText('8.2 km')).toBeOnTheScreen();
     expect(screen.getByLabelText('Pace splits')).toBeOnTheScreen();
-    expect(screen.getByText('Km 1')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Km 1, pace 5:25 per km, avg HR 142 bpm, elevation +4 m')).toBeOnTheScreen();
     expect(screen.getByText('Fueling')).toBeOnTheScreen();
     expect(screen.getByText('Feedback')).toBeOnTheScreen();
+  });
+
+  it('keeps focused editors inside the keyboard-resized viewport', async () => {
+    await renderWithApp(<CompletedWorkoutSheet event={completedEvent} />);
+    await screen.findByText('Fueling');
+
+    expect(screen.getByTestId('completed-workout-keyboard')).toBeOnTheScreen();
+    const scroll = screen.getByLabelText('Completed workout details');
+    expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+    expect(scroll.props.keyboardDismissMode).toBe('on-drag');
+    expect(scroll.props.scrollsChildToFocus).toBe(false);
   });
 
   it('shows a visible loading state while derived details load', async () => {

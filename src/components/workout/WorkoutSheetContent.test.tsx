@@ -103,7 +103,7 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByText('Completed')).toBeOnTheScreen();
     expect(await screen.findByText('Fueling')).toBeOnTheScreen();
     expect(screen.getByLabelText('Run report')).toBeOnTheScreen();
-    expect(screen.getByText('Km 1')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Km 1, pace 5:25 per km, avg HR 142 bpm, elevation +4 m')).toBeOnTheScreen();
     expect(screen.queryByText('Completed workout')).toBeNull();
     expect(screen.queryByText('Workout structure')).toBeNull();
   });

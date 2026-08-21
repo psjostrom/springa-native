@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { MessageSquare, ThumbsDown, ThumbsUp } from 'lucide-react-native';
 import type { CalendarEvent } from '@/api/types';
 import { AppText, Button, Card, Section, TextField } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -11,6 +12,7 @@ type CompletedFeedbackProps = {
   saveFeedback: (input: { rating: 'good' | 'bad'; comment: string }) => void;
   pending: boolean;
   error: string | null;
+  onInputFocus?: (input: TextInput) => void;
 };
 
 function RatingButton({
@@ -24,6 +26,7 @@ function RatingButton({
   disabled: boolean;
   onPress: () => void;
 }) {
+  const Icon = label === 'Good' ? ThumbsUp : ThumbsDown;
   return (
     <Pressable
       accessibilityRole="button"
@@ -33,7 +36,11 @@ function RatingButton({
       onPress={onPress}
       style={[styles.rating, selected && styles.ratingSelected, disabled && styles.ratingDisabled]}
     >
-      <AppText variant="label" tone={selected ? 'brand' : 'primary'}>{label}</AppText>
+      <Icon
+        color={selected ? SpringaColors.brandText : SpringaColors.muted}
+        size={20}
+        accessible={false}
+      />
     </Pressable>
   );
 }
@@ -43,14 +50,21 @@ export function CompletedFeedback({
   saveFeedback,
   pending,
   error,
+  onInputFocus,
 }: CompletedFeedbackProps): ReactElement | null {
+  const commentRef = useRef<TextInput>(null);
   const [rating, setRating] = useState<'good' | 'bad' | null>(null);
   const [comment, setComment] = useState('');
 
   if (event.rating != null) {
     return (
-      <Section title="Feedback">
+      <Section title="Feedback" icon={MessageSquare} iconColor={SpringaColors.muted}>
         <Card accessibilityLabel="Run feedback" style={styles.savedRow}>
+          {event.rating === 'good' ? (
+            <ThumbsUp color={SpringaColors.success} size={20} accessible={false} />
+          ) : (
+            <ThumbsDown color={SpringaColors.error} size={20} accessible={false} />
+          )}
           <AppText
             variant="subheading"
             tone={event.rating === 'good' ? 'success' : 'error'}
@@ -72,7 +86,7 @@ export function CompletedFeedback({
   };
 
   return (
-    <Section title="Feedback">
+    <Section title="Feedback" icon={MessageSquare} iconColor={SpringaColors.muted}>
       <Card accessibilityLabel="Run feedback form" style={styles.form}>
         <View style={styles.ratingRow}>
           <RatingButton
@@ -89,11 +103,15 @@ export function CompletedFeedback({
           />
         </View>
         <TextField
+          ref={commentRef}
           accessibilityLabel="Feedback comment"
-          placeholder="Optional comment"
+          placeholder="Optional comment..."
           multiline
           value={comment}
           onChangeText={setComment}
+          onFocus={() => {
+            if (commentRef.current != null) onInputFocus?.(commentRef.current);
+          }}
           editable={!pending}
         />
         <Button
@@ -101,6 +119,7 @@ export function CompletedFeedback({
           onPress={save}
           disabled={rating == null}
           loading={pending}
+          style={styles.saveButton}
         />
         {error ? (
           <AppText accessibilityRole="alert" tone="error">{error}</AppText>
@@ -113,6 +132,10 @@ export function CompletedFeedback({
 const styles = StyleSheet.create({
   form: {
     gap: Spacing.md,
+  },
+  saveButton: {
+    alignSelf: 'flex-start',
+    minWidth: MinTouchTarget,
   },
   savedRow: {
     flexDirection: 'row',
@@ -134,7 +157,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderColor: SpringaColors.border,
     borderWidth: 1,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.xs,
   },
   ratingSelected: {
     borderColor: SpringaColors.brand,

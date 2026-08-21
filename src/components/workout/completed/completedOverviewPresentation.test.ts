@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { HrZoneColors, SpringaColors } from '@/theme/colors';
 import {
   bgJudgment,
   complianceJudgment,
   formatDistanceKm,
   formatElevationM,
+  formatFiveMinuteChange,
   formatMmol,
   formatPaceMinPerKm,
-  formatRatePerMin,
-  formatSlopePerMin,
+  cadenceJudgment,
+  getPaceSplitZone,
+  intensityJudgment,
+  loadJudgment,
+  paceSplitBarWidth,
 } from './completedOverviewPresentation';
 
 describe('completedOverviewPresentation', () => {
@@ -33,18 +38,27 @@ describe('completedOverviewPresentation', () => {
   });
 
   it('maps server compliance ratings to readable judgments', () => {
-    expect(complianceJudgment('good')).toBe('Good');
-    expect(complianceJudgment('ok')).toBe('OK');
-    expect(complianceJudgment('bad')).toBe('Poor');
+    expect(complianceJudgment('good')).toEqual({
+      label: 'Good',
+      color: SpringaColors.success,
+      fraction: 0.9,
+    });
+    expect(complianceJudgment('ok')).toEqual({
+      label: 'OK',
+      color: SpringaColors.warning,
+      fraction: 0.6,
+    });
+    expect(complianceJudgment('bad')).toEqual({
+      label: 'Poor',
+      color: SpringaColors.error,
+      fraction: 0.3,
+    });
   });
 
-  it('formats slope rates with a sign and per-minute unit', () => {
-    expect(formatSlopePerMin(0.9)).toBe('+0.90/min');
-    expect(formatSlopePerMin(-2.4)).toBe('-2.40/min');
-  });
-
-  it('formats worst rates with three decimals and per-minute unit', () => {
-    expect(formatRatePerMin(-0.6)).toBe('-0.600/min');
+  it('converts stored per-minute rates to signed five-minute glucose changes', () => {
+    expect(formatFiveMinuteChange(0.12)).toBe('+0.6');
+    expect(formatFiveMinuteChange(-0.336)).toBe('-1.7');
+    expect(formatFiveMinuteChange(0)).toBe('0.0');
   });
 
   it('formats elevation changes with sign and meters', () => {
@@ -56,5 +70,26 @@ describe('completedOverviewPresentation', () => {
   it('converts meter distances with one decimal and km unit', () => {
     expect(formatDistanceKm(9240)).toBe('9.2 km');
     expect(formatDistanceKm(9000)).toBe('9 km');
+  });
+
+  it('uses PWA pace thresholds for split colors', () => {
+    expect(getPaceSplitZone(5.082)).toMatchObject({ label: 'Hard', color: HrZoneColors[5] });
+    expect(getPaceSplitZone(5.083).label).toBe('Interval');
+    expect(getPaceSplitZone(5.583).label).toBe('Race');
+    expect(getPaceSplitZone(7).label).toBe('Easy');
+  });
+
+  it('scales split bars by squared speed against fastest split', () => {
+    expect(paceSplitBarWidth(5.42, 5.42)).toBe(100);
+    expect(paceSplitBarWidth(6.42, 5.42)).toBe(
+      Math.round(Math.pow((60 / 6.42) / (60 / 5.42), 2) * 100),
+    );
+  });
+
+  it('uses existing PWA performance judgments', () => {
+    expect(cadenceJudgment(156).label).toBe('Low');
+    expect(cadenceJudgment(172).label).toBe('Good');
+    expect(loadJudgment(56).label).toBe('Moderate');
+    expect(intensityJudgment(77).label).toBe('Moderate');
   });
 });
