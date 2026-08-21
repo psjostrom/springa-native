@@ -1,10 +1,15 @@
 import { type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, userEvent } from '@testing-library/react-native';
 import type { CalendarEvent } from '@/api/types';
+import { ApiClientProvider } from '@/api/ApiClientProvider';
+import { AuthProviderForTests } from '@/auth/AuthContext';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
 import { getWorkoutStatusBadge } from '@/components/workout/workoutStatusBadge';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
+import { queryKeys } from '@/query/keys';
+import { defaultCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
 import {
   makeTestAuthValue,
   makeTestSession,
@@ -70,7 +75,7 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByLabelText('Workout Threshold intervals')).toHaveStyle({ flex: 1 });
   });
 
-  it('shows planned chrome and placeholder for upcoming planned', async () => {
+  it('shows planned chrome and detail for upcoming planned', async () => {
     await renderWithApp(
       <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} now={NOW} />,
     );
@@ -81,20 +86,76 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByText('65m')).toBeOnTheScreen();
   });
 
-  it('shows completed placeholder for completed events', async () => {
+  it('shows the Calendar summary and Overview content for completed events', async () => {
     await renderWithApp(
       <WorkoutSheetContent
-        event={sampleEvent({ type: 'completed', name: 'Easy Run' })}
+        event={sampleEvent({
+          id: 'easy-past',
+          type: 'completed',
+          name: 'Easy Run',
+          activityId: 'activity-123',
+        })}
         onClose={() => {}}
         now={NOW}
       />,
     );
     expect(screen.getByText('Easy Run')).toBeOnTheScreen();
     expect(screen.getByText('Completed')).toBeOnTheScreen();
-    expect(screen.getByText('Completed workout')).toBeOnTheScreen();
+    expect(await screen.findByText('Fueling')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Run report')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Km 1, pace 5:25 per km, avg HR 142 bpm, elevation +4 m')).toBeOnTheScreen();
+    expect(screen.queryByText('Completed workout')).toBeNull();
+    expect(screen.queryByText('Workout structure')).toBeNull();
   });
 
-  it('keeps race events on the non-planned detail path', async () => {
+  it('clears completed editor drafts when the selected event changes', async () => {
+    const auth = makeTestAuthValue(makeTestSession());
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60_000 } },
+    });
+    queryClient.setQueryData(
+      queryKeys.completedWorkoutOverview('runner@example.com', 'activity-123'),
+      defaultCompletedOverview('activity-123'),
+    );
+    queryClient.setQueryData(
+      queryKeys.completedWorkoutOverview('runner@example.com', 'activity-456'),
+      defaultCompletedOverview('activity-456'),
+    );
+    const renderTree = (event: CalendarEvent) => (
+      <AuthProviderForTests value={auth}>
+        <ApiClientProvider>
+          <QueryClientProvider client={queryClient}>
+            <WorkoutSheetContent event={event} onClose={() => {}} now={NOW} />
+          </QueryClientProvider>
+        </ApiClientProvider>
+      </AuthProviderForTests>
+    );
+    const first = sampleEvent({
+      id: 'first-run',
+      type: 'completed',
+      name: 'First run',
+      activityId: 'activity-123',
+    });
+    const second = sampleEvent({
+      id: 'second-run',
+      type: 'completed',
+      name: 'Second run',
+      activityId: 'activity-456',
+    });
+    const view = await render(renderTree(first));
+    const user = userEvent.setup();
+
+    await user.press(await screen.findByRole('button', { name: 'Good' }));
+    await user.type(screen.getByLabelText('Feedback comment'), 'First draft');
+
+    view.rerender(renderTree(second));
+
+    expect(await screen.findByText('Second run')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Feedback comment')).toHaveProp('value', '');
+    expect(screen.getByRole('button', { name: 'Good', selected: false })).toBeOnTheScreen();
+  });
+
+  it('keeps race events on the planned detail path', async () => {
     await renderWithApp(
       <WorkoutSheetContent
         event={sampleEvent({
@@ -107,10 +168,11 @@ describe('WorkoutSheetContent', () => {
         now={NOW}
       />,
     );
-    expect(screen.getByText('Half marathon')).toBeOnTheScreen();
     expect(screen.getByText('Race')).toBeOnTheScreen();
-    expect(screen.getByText('Completed workout')).toBeOnTheScreen();
-    expect(screen.queryByText('Workout structure')).toBeNull();
+    expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
+    expect(screen.getByText('T-shirt')).toBeOnTheScreen();
+    expect(screen.getByText('65m')).toBeOnTheScreen();
+    expect(screen.queryByText('Completed workout')).toBeNull();
   });
 
   it('shows Missed badge and planned detail for missed events', async () => {

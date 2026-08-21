@@ -1,5 +1,5 @@
 import { ApiError } from './errors';
-import type { CalendarEvent } from './types';
+import type { CalendarEvent, HeartRateZoneTimes } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -12,6 +12,41 @@ function parseDate(value: unknown): Date | null {
     if (!Number.isNaN(d.getTime())) return d;
   }
   return null;
+}
+
+function numberField(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function nullableNumberField(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  return numberField(value);
+}
+
+function stringField(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function nullableStringField(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return stringField(value);
+}
+
+function integerIdField(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
+}
+
+function parseZoneTimes(value: unknown): HeartRateZoneTimes | undefined {
+  if (!isRecord(value)) return undefined;
+  const z1 = numberField(value.z1);
+  const z2 = numberField(value.z2);
+  const z3 = numberField(value.z3);
+  const z4 = numberField(value.z4);
+  const z5 = numberField(value.z5);
+  if (z1 === undefined || z2 === undefined || z3 === undefined || z4 === undefined || z5 === undefined) {
+    return undefined;
+  }
+  return { z1, z2, z3, z4, z5 };
 }
 
 function parseEvent(raw: unknown): CalendarEvent | null {
@@ -41,19 +76,24 @@ function parseEvent(raw: unknown): CalendarEvent | null {
     description: typeof raw.description === 'string' ? raw.description : '',
     type,
     category: safeCategory,
-    distance: typeof raw.distance === 'number' ? raw.distance : undefined,
-    duration: typeof raw.duration === 'number' ? raw.duration : undefined,
-    avgHr: typeof raw.avgHr === 'number' ? raw.avgHr : undefined,
-    maxHr: typeof raw.maxHr === 'number' ? raw.maxHr : undefined,
-    pace: typeof raw.pace === 'number' ? raw.pace : undefined,
-    fuelRate: typeof raw.fuelRate === 'number' ? raw.fuelRate : raw.fuelRate === null ? null : undefined,
-    prescribedCarbsG:
-      typeof raw.prescribedCarbsG === 'number'
-        ? raw.prescribedCarbsG
-        : raw.prescribedCarbsG === null
-          ? null
-          : undefined,
-    activityId: typeof raw.activityId === 'string' ? raw.activityId : undefined,
+    distance: numberField(raw.distance),
+    duration: numberField(raw.duration),
+    avgHr: numberField(raw.avgHr),
+    maxHr: numberField(raw.maxHr),
+    load: numberField(raw.load),
+    intensity: numberField(raw.intensity),
+    pace: numberField(raw.pace),
+    calories: numberField(raw.calories),
+    cadence: numberField(raw.cadence),
+    zoneTimes: parseZoneTimes(raw.zoneTimes),
+    fuelRate: nullableNumberField(raw.fuelRate),
+    prescribedCarbsG: nullableNumberField(raw.prescribedCarbsG),
+    carbsIngested: nullableNumberField(raw.carbsIngested),
+    preRunCarbsG: nullableNumberField(raw.preRunCarbsG),
+    rating: nullableStringField(raw.rating),
+    feedbackComment: nullableStringField(raw.feedbackComment),
+    activityId: stringField(raw.activityId),
+    pairedEventId: integerIdField(raw.pairedEventId),
   };
 }
 

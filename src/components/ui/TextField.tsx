@@ -19,6 +19,10 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
       <TextInput
         {...props}
         ref={ref}
+        accessibilityState={{
+          ...props.accessibilityState,
+          disabled: !editable || props.accessibilityState?.disabled === true,
+        }}
         editable={editable}
         onBlur={(event) => {
           setFocused(false);

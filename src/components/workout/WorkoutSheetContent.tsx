@@ -1,7 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import type { CalendarEvent } from '@/api/types';
 import { AppText, Badge, StateView } from '@/components/ui';
-import { getCardStatus } from '@/domain/eventStatus';
 import { SpringaColors } from '@/theme/colors';
 import { Spacing } from '@/theme/tokens';
 import { CompletedWorkoutSheet } from './CompletedWorkoutSheet';
@@ -10,7 +9,6 @@ import {
   type PlannedWorkoutActions,
 } from './PlannedWorkoutSheet';
 import { formatWorkoutDate } from './plannedWorkoutPresentation';
-import { getWorkoutStatusBadge } from './workoutStatusBadge';
 
 type WorkoutSheetContentProps = {
   event: CalendarEvent | null;
@@ -36,36 +34,30 @@ export function WorkoutSheetContent({
     );
   }
 
-  const badge = getWorkoutStatusBadge(event, now);
-  const completed = getCardStatus(event, now) === 'completed';
-
-  if (!completed && event.type === 'planned') {
+  if (event.type === 'completed') {
     return (
       <View style={styles.root} accessibilityLabel={`Workout ${event.name}`}>
-        <PlannedWorkoutSheet
-          event={event}
-          onClose={onClose}
-          onActionsReady={onActionsReady}
-          now={now}
-        />
+        <View style={styles.header}>
+          <View style={styles.headerText}>
+            <AppText variant="caption" tone="muted">{formatWorkoutDate(event.date)}</AppText>
+            <AppText variant="heading">{event.name}</AppText>
+            <Badge label="Completed" tone="success" />
+          </View>
+        </View>
+
+        <CompletedWorkoutSheet key={event.id} event={event} />
       </View>
     );
   }
 
   return (
     <View style={styles.root} accessibilityLabel={`Workout ${event.name}`}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <AppText variant="caption" tone="muted">{formatWorkoutDate(event.date)}</AppText>
-          <AppText variant="heading">{event.name}</AppText>
-          <Badge
-            label={badge.label}
-            tone={badge.label === 'Missed' ? 'error' : badge.label === 'Completed' ? 'success' : badge.label === 'Race' ? 'warning' : 'brand'}
-          />
-        </View>
-      </View>
-
-      <CompletedWorkoutSheet />
+      <PlannedWorkoutSheet
+        event={event}
+        onClose={onClose}
+        onActionsReady={onActionsReady}
+        now={now}
+      />
     </View>
   );
 }

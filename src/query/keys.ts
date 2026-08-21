@@ -4,4 +4,6 @@ export const queryKeys = {
   bg: (identity: string) => ['bg', identity] as const,
   plannedWorkout: (identity: string, eventId: string) =>
     ['planned-workout', identity, eventId] as const,
+  completedWorkoutOverview: (identity: string, activityId: string) =>
+    ['completed-overview', identity, activityId] as const,
 };
