@@ -7,7 +7,7 @@ import { Button } from './Button';
 export type StateViewProps = {
   loading?: boolean;
   title: string;
-  message: string;
+  message?: string;
   retryLabel?: string;
   retryAccessibilityLabel?: string;
   onRetry?: () => void;
@@ -25,7 +25,7 @@ export function StateView({
     <View style={styles.state}>
       {loading ? <ActivityIndicator color={SpringaColors.brandText} /> : null}
       <AppText variant="subheading">{title}</AppText>
-      <AppText tone="muted" style={styles.message}>{message}</AppText>
+      {message ? <AppText tone="muted" style={styles.message}>{message}</AppText> : null}
       {onRetry ? (
         <Button
           label={retryLabel}

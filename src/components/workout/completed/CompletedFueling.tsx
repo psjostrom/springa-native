@@ -222,6 +222,17 @@ export function CompletedFueling({
   return (
     <Section title="Fueling" icon={Utensils} iconColor={SpringaColors.warning}>
       <EditorRow
+        label="Pre-run carbs"
+        accessibilityLabel="Pre-run carbs grams"
+        editAccessibilityLabel="Edit pre-run carbs"
+        value={preRunCarbs?.grams ?? event.preRunCarbsG ?? null}
+        allowClear
+        saveErrorFallback="Failed to save pre-run carbs."
+        badge={preRunBadge(preRunCarbs?.source ?? null)}
+        onSave={savePreRunCarbs}
+        onInputFocus={onInputFocus}
+      />
+      <EditorRow
         label="Carbs ingested"
         accessibilityLabel="Carbs ingested grams"
         editAccessibilityLabel="Edit carbs ingested"
@@ -243,17 +254,6 @@ export function CompletedFueling({
           </AppText>
         </Card>
       ) : null}
-      <EditorRow
-        label="Pre-run carbs"
-        accessibilityLabel="Pre-run carbs grams"
-        editAccessibilityLabel="Edit pre-run carbs"
-        value={preRunCarbs?.grams ?? event.preRunCarbsG ?? null}
-        allowClear
-        saveErrorFallback="Failed to save pre-run carbs."
-        badge={preRunBadge(preRunCarbs?.source ?? null)}
-        onSave={savePreRunCarbs}
-        onInputFocus={onInputFocus}
-      />
     </Section>
   );
 }

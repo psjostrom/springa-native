@@ -111,13 +111,6 @@ export function CompletedWorkoutSheet({
                     ? 'Loading workout details…'
                     : 'Couldn’t load workout details'
                 }
-                message={
-                  !isEnabled
-                    ? 'Workout details aren’t available in this state.'
-                    : isLoading
-                    ? 'Workout details will appear when ready.'
-                    : (error ?? 'Something went wrong.')
-                }
                 retryAccessibilityLabel="Retry loading workout details"
                 onRetry={isError ? reload : undefined}
               />

@@ -99,7 +99,6 @@ describe('CompletedWorkoutSheet', () => {
     await renderWithApp(<CompletedWorkoutSheet event={completedEvent} />);
 
     expect(await screen.findByText('Couldn’t load workout details')).toBeOnTheScreen();
-    expect(screen.getByText('overview unavailable')).toBeOnTheScreen();
     expect(screen.getByLabelText('Workout stats')).toBeOnTheScreen();
     expect(screen.getByText('8.2 km')).toBeOnTheScreen();
     expect(screen.queryByText('Fueling')).toBeNull();

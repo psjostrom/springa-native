@@ -73,7 +73,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   if (isLoading) {
     return (
       <View accessibilityLabel="Loading calendar">
-        <StateView loading title="Loading workouts…" message="Loading calendar" />
+        <StateView loading title="Loading workouts…" />
       </View>
     );
   }

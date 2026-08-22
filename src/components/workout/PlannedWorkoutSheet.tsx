@@ -517,7 +517,6 @@ export function PlannedWorkoutSheet({
         <StateView
           loading
           title="Loading workout details…"
-          message="Workout details will appear when ready."
         />
       </View>
     );
