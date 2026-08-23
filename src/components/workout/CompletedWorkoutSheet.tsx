@@ -26,7 +26,7 @@ export function CompletedWorkoutSheet({
 }: {
   event: CalendarEvent;
 }): ReactElement {
-  const { data, isEnabled, isLoading, isError, error, reload } =
+  const { data, isEnabled, isLoading, isError, reload } =
     useCompletedWorkoutOverview(event.activityId ?? '');
   const mutations = useCompletedWorkoutMutations(event);
   const scrollRef = useRef<ScrollView>(null);

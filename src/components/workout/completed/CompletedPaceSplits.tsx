@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { BarChart3 } from 'lucide-react-native';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { CompletedSplit } from '@/api/types';
 import { AppText, Card, Section } from '@/components/ui';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
@@ -27,82 +27,83 @@ const legend = [
 export function CompletedPaceSplits({
   splits,
 }: CompletedPaceSplitsProps): ReactElement | null {
-  const { fontScale } = useWindowDimensions();
+  const { fontScale: rawFontScale } = useWindowDimensions();
 
   if (splits == null || splits.length === 0) return null;
 
+  const fontScale = Math.max(1, rawFontScale);
+  const cellWidths = {
+    km: Math.ceil(28 * fontScale),
+    pace: Math.ceil(48 * fontScale),
+    elevation: Math.ceil(40 * fontScale),
+    heartRate: Math.ceil(40 * fontScale),
+  };
+  const tableMinWidth = Object.values(cellWidths).reduce((total, width) => total + width, 0)
+    + Spacing.sm * 4
+    + 48;
   const fastestPace = Math.min(...splits.map((split) => split.paceMinPerKm));
-  const usesAccessibleLayout = fontScale >= 1.3;
+  const table = (
+    <View style={[styles.table, { minWidth: tableMinWidth }]}>
+      <View style={styles.headerRow}>
+        <AppText variant="caption" tone="muted" style={[styles.km, { width: cellWidths.km }]}>KM</AppText>
+        <AppText variant="caption" tone="muted" style={[styles.pace, { width: cellWidths.pace }]}>PACE</AppText>
+        <View style={styles.barColumn} />
+        <AppText variant="caption" tone="muted" style={[styles.elevation, { width: cellWidths.elevation }]}>ELEV</AppText>
+        <AppText variant="caption" tone="muted" style={[styles.heartRate, { width: cellWidths.heartRate }]}>HR</AppText>
+      </View>
+      {splits.map((split, index) => {
+        const zone = getPaceSplitZone(split.paceMinPerKm);
+        const barWidth = paceSplitBarWidth(split.paceMinPerKm, fastestPace);
+        const pace = formatPaceMinPerKm(split.paceMinPerKm);
+        const elevation = split.elevationChangeM == null
+          ? '—'
+          : formatElevationM(split.elevationChangeM);
+        const heartRate = split.avgHr == null ? '—' : split.avgHr;
+
+        return (
+          <View
+            key={split.km}
+            accessible
+            accessibilityLabel={splitAccessibilityLabel(split)}
+            style={[styles.row, index < splits.length - 1 && styles.rowDivider]}
+          >
+            <AppText tone="muted" selectable style={[styles.km, { width: cellWidths.km }]}>{split.km}</AppText>
+            <AppText variant="label" selectable style={[styles.pace, { width: cellWidths.pace }]}>{pace}</AppText>
+            <View style={styles.barColumn}>
+              <View style={styles.barTrack}>
+                <View style={[styles.bar, { width: `${barWidth}%`, backgroundColor: zone.color }]} />
+              </View>
+            </View>
+            <AppText tone="muted" selectable style={[styles.elevation, { width: cellWidths.elevation }]}>{elevation}</AppText>
+            <AppText tone="muted" selectable style={[styles.heartRate, { width: cellWidths.heartRate }]}>{heartRate}</AppText>
+          </View>
+        );
+      })}
+      <View style={styles.legend}>
+        {legend.map((item) => (
+          <View key={item.label} style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+            <AppText variant="caption" tone="muted">{item.label}</AppText>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
 
   return (
     <Section title="Pace Splits" icon={BarChart3} iconColor={SpringaColors.chartSecondary}>
       <Card accessibilityLabel="Pace splits">
         <AppText variant="label" tone="muted" style={styles.title}>Splits</AppText>
-        {!usesAccessibleLayout ? (
-          <View style={styles.headerRow}>
-            <AppText variant="caption" tone="muted" style={styles.km}>KM</AppText>
-            <AppText variant="caption" tone="muted" style={styles.pace}>PACE</AppText>
-            <View style={styles.barColumn} />
-            <AppText variant="caption" tone="muted" style={styles.elevation}>ELEV</AppText>
-            <AppText variant="caption" tone="muted" style={styles.heartRate}>HR</AppText>
-          </View>
-        ) : null}
-        <View testID={usesAccessibleLayout ? 'accessible-split-layout' : undefined}>
-          {splits.map((split) => {
-            const zone = getPaceSplitZone(split.paceMinPerKm);
-            const barWidth = paceSplitBarWidth(split.paceMinPerKm, fastestPace);
-            const pace = `${formatPaceMinPerKm(split.paceMinPerKm)} /km`;
-            const elevation = split.elevationChangeM == null
-              ? '—'
-              : `${formatElevationM(split.elevationChangeM)} m`;
-            const heartRate = split.avgHr == null ? '—' : split.avgHr;
-
-            return (
-              <View
-                key={split.km}
-                accessible
-                accessibilityLabel={splitAccessibilityLabel(split)}
-                style={usesAccessibleLayout ? styles.accessibleRow : styles.row}
-              >
-                {usesAccessibleLayout ? (
-                  <>
-                    <View style={styles.accessibleLine}>
-                      <AppText tone="muted" selectable>{`Km ${split.km}`}</AppText>
-                      <AppText variant="label" selectable>{pace}</AppText>
-                    </View>
-                    <View style={styles.accessibleLine}>
-                      <AppText tone="muted" selectable>{`Elevation ${elevation}`}</AppText>
-                      <AppText tone="muted" selectable>{`Avg HR ${heartRate}`}</AppText>
-                    </View>
-                    <View style={styles.barTrack}>
-                      <View style={[styles.bar, { width: `${barWidth}%`, backgroundColor: zone.color }]} />
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <AppText tone="muted" selectable style={styles.km}>{split.km}</AppText>
-                    <AppText variant="label" selectable style={styles.pace}>{pace}</AppText>
-                    <View style={styles.barColumn}>
-                      <View style={styles.barTrack}>
-                        <View style={[styles.bar, { width: `${barWidth}%`, backgroundColor: zone.color }]} />
-                      </View>
-                    </View>
-                    <AppText tone="muted" selectable style={styles.elevation}>{elevation}</AppText>
-                    <AppText tone="muted" selectable style={styles.heartRate}>{heartRate}</AppText>
-                  </>
-                )}
-              </View>
-            );
-          })}
-        </View>
-        <View style={styles.legend}>
-          {legend.map((item) => (
-            <View key={item.label} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-              <AppText variant="caption" tone="muted">{item.label}</AppText>
-            </View>
-          ))}
-        </View>
+        {fontScale >= 1.3 ? (
+          <ScrollView
+            testID="large-text-split-table"
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tableScrollContent}
+          >
+            {table}
+          </ScrollView>
+        ) : table}
       </Card>
     </Section>
   );
@@ -112,41 +113,35 @@ const styles = StyleSheet.create({
   title: {
     marginBottom: Spacing.sm,
   },
+  table: {
+    flexGrow: 1,
+  },
+  tableScrollContent: {
+    flexGrow: 1,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    paddingBottom: Spacing.xs,
+    gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
     borderBottomColor: SpringaColors.border,
     borderBottomWidth: 1,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     minHeight: 32,
     paddingVertical: Spacing.xs,
-    borderBottomColor: `${SpringaColors.border}55`,
-    borderBottomWidth: 1,
   },
-  accessibleRow: {
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    borderBottomColor: `${SpringaColors.border}55`,
+  rowDivider: {
+    borderBottomColor: `${SpringaColors.border}1A`,
     borderBottomWidth: 1,
-  },
-  accessibleLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
   },
   km: {
-    width: 24,
     fontVariant: ['tabular-nums'],
   },
   pace: {
-    width: 80,
     fontVariant: ['tabular-nums'],
   },
   barColumn: {
@@ -156,20 +151,16 @@ const styles = StyleSheet.create({
   barTrack: {
     height: 8,
     overflow: 'hidden',
-    backgroundColor: SpringaColors.surfaceAlt,
-    borderRadius: Radius.pill,
   },
   bar: {
     height: '100%',
-    borderRadius: Radius.pill,
+    borderRadius: Radius.sm,
   },
   elevation: {
-    width: 44,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
   heartRate: {
-    width: 36,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
   },
@@ -178,6 +169,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.md,
     paddingTop: Spacing.md,
+    borderTopColor: `${SpringaColors.border}55`,
+    borderTopWidth: 1,
   },
   legendItem: {
     flexDirection: 'row',

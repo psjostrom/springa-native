@@ -29,26 +29,28 @@ describe('CompletedPaceSplits', () => {
     await render(<CompletedPaceSplits splits={splits} />);
 
     expect(screen.getByText('1')).toBeOnTheScreen();
-    expect(screen.getByText('5:25 /km')).toBeOnTheScreen();
+    expect(screen.getByText('5:25')).toBeOnTheScreen();
     expect(screen.getByText('2')).toBeOnTheScreen();
-    expect(screen.getByText('5:23 /km')).toBeOnTheScreen();
+    expect(screen.getByText('5:23')).toBeOnTheScreen();
+    expect(screen.queryByText('5:25 /km')).toBeNull();
   });
 
   it('shows HR and elevation only when present', async () => {
     await render(<CompletedPaceSplits splits={splits} />);
 
     expect(screen.getByText('142')).toBeOnTheScreen();
-    expect(screen.getByText('+4 m')).toBeOnTheScreen();
+    expect(screen.getByText('+4')).toBeOnTheScreen();
 
     expect(screen.getAllByText('142')).toHaveLength(1);
-    expect(screen.getAllByText('+4 m')).toHaveLength(1);
+    expect(screen.getAllByText('+4')).toHaveLength(1);
+    expect(screen.queryByText('+4 m')).toBeNull();
   });
 
   it('omits missing HR and elevation cells', async () => {
     await render(<CompletedPaceSplits splits={splits} />);
 
     expect(screen.queryByText(/bpm/)).toBeNull();
-    expect(screen.getAllByText(/ m$/)).toHaveLength(1);
+    expect(screen.getAllByText('—')).toHaveLength(2);
   });
 
   it('exposes each row as one coherent reading unit', async () => {
@@ -60,7 +62,7 @@ describe('CompletedPaceSplits', () => {
     expect(screen.getByLabelText('Km 2, pace 5:23 per km')).toBeOnTheScreen();
   });
 
-  it('stacks split values when large text would wrap table columns', async () => {
+  it('keeps the PWA table layout at large text sizes', async () => {
     Dimensions.set({
       window: { ...defaultWindow, fontScale: 1.5 },
       screen: { ...defaultScreen, fontScale: 1.5 },
@@ -68,8 +70,10 @@ describe('CompletedPaceSplits', () => {
 
     await render(<CompletedPaceSplits splits={splits} />);
 
-    expect(screen.getByTestId('accessible-split-layout')).toBeOnTheScreen();
-    expect(screen.getByText('Elevation +4 m')).toBeOnTheScreen();
-    expect(screen.getByText('Avg HR 142')).toBeOnTheScreen();
+    expect(screen.getByText('KM')).toBeOnTheScreen();
+    expect(screen.getByText('PACE')).toBeOnTheScreen();
+    expect(screen.getByTestId('large-text-split-table')).toBeOnTheScreen();
+    expect(screen.queryByTestId('accessible-split-layout')).toBeNull();
+    expect(screen.getByText('5:25')).toBeOnTheScreen();
   });
 });
