@@ -5,11 +5,13 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { Host, Picker } from '@expo/ui';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   CalendarEvent,
   ClothingRecommendation,
+  EffortMetric,
   PlannedWorkoutClothing,
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
@@ -18,11 +20,13 @@ import type {
 import {
   AppText,
   Badge,
+  Button,
   Card,
   Grid,
   Section,
   StateView,
 } from '@/components/ui';
+import { startOfLocalDay } from '@/domain/eventStatus';
 import {
   usePlannedWorkoutDetail,
   usePlannedWorkoutMutations,
@@ -253,13 +257,25 @@ function PlannedWorkoutHeader({
   name,
   date,
   now,
+  detail,
+  effortMetricEditable = false,
+  effortMetricPending = false,
+  onEffortMetricChange,
 }: {
   event: CalendarEvent;
   name?: string;
   date?: Date;
   now: Date;
+  detail?: PlannedWorkoutDetail;
+  effortMetricEditable?: boolean;
+  effortMetricPending?: boolean;
+  onEffortMetricChange?: (metric: EffortMetric) => void;
 }) {
   const badge = getWorkoutStatusBadge(event, now);
+  const showEffortMetricPicker =
+    detail != null &&
+    effortMetricEditable &&
+    onEffortMetricChange != null;
 
   return (
     <View style={styles.plannedHeader}>
@@ -275,7 +291,65 @@ function PlannedWorkoutHeader({
           tone={badge.label === 'Missed' ? 'error' : badge.label === 'Completed' ? 'success' : 'brand'}
         />
       </View>
+      {showEffortMetricPicker ? (
+        <View style={styles.effortMetricRow}>
+          <AppText
+            variant="label"
+            tone="muted"
+            accessible
+            accessibilityLabel="Effort metric"
+            selectable
+          >
+            Effort metric
+          </AppText>
+          <Host
+            testID="effort-metric-host"
+            matchContents={{ vertical: true }}
+            style={styles.effortMetricHost}
+          >
+            <Picker
+              appearance="menu"
+              selectedValue={detail.effortMetric}
+              enabled={!effortMetricPending}
+              onValueChange={onEffortMetricChange}
+              testID="effort-metric-picker"
+            >
+              <Picker.Item label="By Pace" value="pace" />
+              {(detail.heartRateMetricAvailable || detail.effortMetric === 'hr') ? (
+                <Picker.Item label="By Heart Rate" value="hr" />
+              ) : null}
+              <Picker.Item label="By Feel" value="feel" />
+            </Picker>
+          </Host>
+          {!detail.heartRateMetricAvailable ? (
+            <AppText variant="caption" tone="muted" selectable>
+              Heart-rate effort requires LTHR and five heart-rate zones.
+            </AppText>
+          ) : null}
+        </View>
+      ) : null}
     </View>
+  );
+}
+
+function isEffortMetricEditable(
+  event: CalendarEvent,
+  detail: PlannedWorkoutDetail,
+  now: Date,
+): boolean {
+  if (
+    event.type !== 'planned' ||
+    event.category === 'race' ||
+    detail.event.category === 'race' ||
+    event.pairedEventId != null
+  ) {
+    return false;
+  }
+
+  const detailDay = parseLocalDateTime(detail.event.startDateLocal);
+  return (
+    !Number.isNaN(detailDay.getTime()) &&
+    startOfLocalDay(detailDay) >= startOfLocalDay(now)
   );
 }
 
@@ -343,6 +417,7 @@ function DetailBody({
   const [movePickerValue, setMovePickerValue] = useState(detailDate);
   const [replacementPending, setReplacementPending] =
     useState<PlannedWorkoutReplacementCategory | null>(null);
+  const [failedEffortMetric, setFailedEffortMetric] = useState<EffortMetric | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const saveMove = async (moveDate: Date) => {
@@ -381,11 +456,29 @@ function DetailBody({
     }
   }, [mutations.deleteWorkout, onClose]);
 
+  const changeEffortMetric = useCallback(async (effortMetric: EffortMetric) => {
+    if (effortMetric === detail.effortMetric) return;
+    setActionMessage(null);
+    setFailedEffortMetric(effortMetric);
+    try {
+      await mutations.changeEffortMetric.mutateAsync(effortMetric);
+      setFailedEffortMetric(null);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Failed to update effort metric.');
+    }
+  }, [detail.effortMetric, mutations.changeEffortMetric]);
+
+  const retryEffortMetric = useCallback(() => {
+    if (failedEffortMetric == null) return;
+    void changeEffortMetric(failedEffortMetric);
+  }, [changeEffortMetric, failedEffortMetric]);
+
   const actionPending =
     mutations.move.isPending ||
     mutations.replace.isPending ||
     mutations.deleteWorkout.isPending ||
-    mutations.savePreRunCarbs.isPending;
+    mutations.savePreRunCarbs.isPending ||
+    mutations.changeEffortMetric.isPending;
 
   const openMove = useCallback(() => {
     setMovePickerValue(detailDate);
@@ -469,11 +562,30 @@ function DetailBody({
             name={detail.event.name}
             date={detailDate}
             now={now}
+            detail={detail}
+            effortMetricEditable={isEffortMetricEditable(event, detail, now)}
+            effortMetricPending={mutations.changeEffortMetric.isPending}
+            onEffortMetricChange={changeEffortMetric}
           />
+          {mutations.changeEffortMetric.isPending ? (
+            <View style={styles.effortMetricPending} accessibilityLiveRegion="polite">
+              <ActivityIndicator color={SpringaColors.brandText} />
+              <AppText variant="caption" tone="muted" selectable>
+                Updating effort metric…
+              </AppText>
+            </View>
+          ) : null}
           {actionMessage ? (
             <AppText variant="caption" tone="muted" accessibilityRole="alert" selectable>
               {actionMessage}
             </AppText>
+          ) : null}
+          {failedEffortMetric != null && !mutations.changeEffortMetric.isPending ? (
+            <Button
+              label="Retry effort metric"
+              variant="secondary"
+              onPress={retryEffortMetric}
+            />
           ) : null}
           <NativePresentation
             detail={detail}
@@ -566,6 +678,18 @@ const styles = StyleSheet.create({
   },
   headerDate: {
     flexShrink: 1,
+  },
+  effortMetricRow: {
+    width: '100%',
+    gap: Spacing.xs,
+  },
+  effortMetricHost: {
+    width: '100%',
+  },
+  effortMetricPending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   content: {
     gap: Spacing.lg,

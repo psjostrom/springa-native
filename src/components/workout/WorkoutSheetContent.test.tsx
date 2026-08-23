@@ -82,6 +82,8 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
     expect(screen.getByText('Planned')).toBeOnTheScreen();
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
+    expect(screen.getByTestId('effort-metric-picker')).toBeOnTheScreen();
+    expect(screen.getByText('By Pace')).toBeOnTheScreen();
     expect(screen.getByText('T-shirt')).toBeOnTheScreen();
     expect(screen.getByText('65m')).toBeOnTheScreen();
   });
@@ -106,6 +108,7 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByLabelText('Km 1, pace 5:25 per km, avg HR 142 bpm, elevation +4 m')).toBeOnTheScreen();
     expect(screen.queryByText('Completed workout')).toBeNull();
     expect(screen.queryByText('Workout structure')).toBeNull();
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
   });
 
   it('clears completed editor drafts when the selected event changes', async () => {
@@ -172,6 +175,7 @@ describe('WorkoutSheetContent', () => {
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
     expect(screen.getByText('T-shirt')).toBeOnTheScreen();
     expect(screen.getByText('65m')).toBeOnTheScreen();
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
     expect(screen.queryByText('Completed workout')).toBeNull();
   });
 
@@ -185,12 +189,13 @@ describe('WorkoutSheetContent', () => {
           date: new Date('2026-08-01T12:00:00'),
         })}
         onClose={() => {}}
-        now={NOW}
+        now={new Date('2026-08-14T12:00:00')}
       />,
     );
     expect(screen.getByText('Skipped tempo')).toBeOnTheScreen();
     expect(screen.getByText('Missed')).toBeOnTheScreen();
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
   });
 
   it('shows not-found copy when event is missing', async () => {

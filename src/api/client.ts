@@ -8,6 +8,7 @@ import type {
   BgPayload,
   CalendarEvent,
   CompletedWorkoutOverview,
+  EffortMetric,
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
   UserSettings,
@@ -30,6 +31,10 @@ export type ApiClient = {
   getCalendar: (oldest: string, newest: string) => Promise<CalendarEvent[]>;
   getBg: () => Promise<BgPayload>;
   getPlannedWorkoutDetail: (eventId: string) => Promise<PlannedWorkoutDetail>;
+  changeWorkoutEffortMetric: (
+    eventId: string,
+    effortMetric: EffortMetric,
+  ) => Promise<PlannedWorkoutDetail>;
   moveWorkout: (eventId: string, startDateLocal: string) => Promise<{ ok: true }>;
   replaceWorkout: (
     eventId: string,
@@ -155,6 +160,24 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
           `/api/intervals/events/${encodeURIComponent(eventId)}`,
         ),
       ),
+    changeWorkoutEffortMetric: async (eventId: string, effortMetric: EffortMetric) => {
+      const detail = parsePlannedWorkoutDetail(
+        await apiFetch<unknown>(
+          `/api/intervals/events/${encodeURIComponent(eventId)}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify({ effortMetric }),
+          },
+        ),
+      );
+      if (detail.event.id !== eventId) {
+        throw new ApiError(
+          200,
+          'Effort metric response did not match requested workout',
+        );
+      }
+      return detail;
+    },
     moveWorkout: (eventId: string, startDateLocal: string) =>
       apiFetch<{ ok: true }>(
         `/api/intervals/events/${encodeURIComponent(eventId)}`,

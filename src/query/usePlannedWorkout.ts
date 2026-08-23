@@ -10,6 +10,7 @@ import { useAuth } from '@/auth/AuthContext';
 import type { ApiClient } from '@/api/client';
 import type {
   CalendarEvent,
+  EffortMetric,
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
 } from '@/api/types';
@@ -144,6 +145,29 @@ export function usePlannedWorkoutMutations(eventId: string) {
         const { newId } = await client.replaceWorkout(eventId, category);
         return client.getPlannedWorkoutDetail(String(newId));
       },
+      onSuccess: (detail) => {
+        queryClient.setQueryData(plannedWorkoutKey, detail);
+        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
+          { queryKey: calendarKey },
+          (current) => current == null
+            ? current
+            : {
+                ...current,
+                pages: current.pages.map((page) =>
+                  page.map((event) => replaceCalendarEvent(event, detail))),
+              },
+        );
+      },
+    }),
+    changeEffortMetric: useMutation({
+      onMutate: async () => {
+        await Promise.all([
+          queryClient.cancelQueries({ queryKey: plannedWorkoutKey }),
+          queryClient.cancelQueries({ queryKey: calendarKey }),
+        ]);
+      },
+      mutationFn: (effortMetric: EffortMetric) =>
+        client.changeWorkoutEffortMetric(eventId, effortMetric),
       onSuccess: (detail) => {
         queryClient.setQueryData(plannedWorkoutKey, detail);
         queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(

@@ -1,9 +1,12 @@
 import { Pressable, Text } from 'react-native';
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import { usePlannedWorkoutDetail, usePlannedWorkoutMutations } from './usePlannedWorkout';
 import { useCalendarEvents } from './useCalendarEvents';
+import { queryKeys } from './keys';
+import type { CalendarEvent, PlannedWorkoutDetail } from '@/api/types';
 import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
 import {
@@ -12,8 +15,10 @@ import {
   TestAppProviders,
 } from '@/test/TestAppProviders';
 
-function detail(name: string, eventId = 'event-123') {
+function detail(name: string, eventId = 'event-123'): PlannedWorkoutDetail {
   return {
+    effortMetric: 'pace' as const,
+    heartRateMetricAvailable: false,
     event: {
       id: eventId,
       intervalsEventId: Number(eventId.replace('event-', '')),
@@ -99,6 +104,77 @@ function CalendarProbe() {
   return <Text>Calendar: {events[0]?.name ?? 'loading'}</Text>;
 }
 
+function EffortMetricProbe() {
+  const { data } = usePlannedWorkoutDetail('event-123');
+  useCalendarEvents();
+  const { changeEffortMetric } = usePlannedWorkoutMutations('event-123');
+  const queryClient = useQueryClient();
+  const detailCache = queryClient.getQueryData<PlannedWorkoutDetail>(
+    queryKeys.plannedWorkout('runner@example.com', 'event-123'),
+  );
+  const calendarCache = queryClient.getQueryData<InfiniteData<CalendarEvent[]>>(
+    queryKeys.calendar('runner@example.com'),
+  );
+
+  return (
+    <>
+      <Text>Workout name: {data?.event.name ?? 'loading'}</Text>
+      <Text>Workout description: {data?.event.description ?? 'loading'}</Text>
+      <Text>Workout metric: {data?.effortMetric ?? 'loading'}</Text>
+      <Text>Effort error: {changeEffortMetric?.isError ? 'yes' : 'no'}</Text>
+      <Text testID="detail-cache">{JSON.stringify(detailCache)}</Text>
+      <Text testID="calendar-cache">{JSON.stringify(calendarCache)}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Change effort to heart rate"
+        onPress={() => {
+          const mutation = changeEffortMetric?.mutateAsync('hr');
+          if (mutation) void mutation.catch(() => {});
+        }}
+      >
+        <Text>Change effort</Text>
+      </Pressable>
+    </>
+  );
+}
+
+function staleCalendarEvent(): CalendarEvent {
+  return {
+    id: 'event-123',
+    date: new Date('2026-08-13T12:00:00.000Z'),
+    name: 'Pace calendar name',
+    description: 'Pace calendar description',
+    type: 'planned',
+    category: 'easy',
+    duration: 3000,
+    distance: 8000,
+    fuelRate: 40,
+    prescribedCarbsG: 40,
+  };
+}
+
+function returnedHeartRateDetail(): PlannedWorkoutDetail {
+  return {
+    ...detail('HR workout name'),
+    effortMetric: 'hr',
+    heartRateMetricAvailable: true,
+    event: {
+      ...detail('HR workout name').event,
+      description: 'HR workout description',
+    },
+    metrics: {
+      duration: { minutes: 75, estimated: false },
+      distance: { km: 12.4, estimated: true },
+      fuelRateGPerHour: 72,
+      prescribedCarbsG: 90,
+    },
+  };
+}
+
+function readCache(testID: string): string {
+  return String(screen.getByTestId(testID).props.children ?? '');
+}
+
 describe('planned workout query hooks', () => {
   it('reports disabled detail queries separately from errors', async () => {
     await render(
@@ -124,6 +200,137 @@ describe('planned workout query hooks', () => {
     );
 
     expect(await screen.findByText('W05 Easy')).toBeOnTheScreen();
+  });
+
+  it('atomically publishes returned effort detail to every cached Calendar page', async () => {
+    let detailGets = 0;
+    let calendarGets = 0;
+    const paceDetail = detail('Pace workout name');
+    const heartRateDetail = returnedHeartRateDetail();
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () => {
+        detailGets += 1;
+        return HttpResponse.json(paceDetail);
+      }),
+      http.get(apiUrl('/api/intervals/calendar'), () => {
+        calendarGets += 1;
+        return HttpResponse.json([staleCalendarEvent()]);
+      }),
+      http.put(apiUrl('/api/intervals/events/event-123'), async ({ request }) => {
+        expect(await request.json()).toEqual({ effortMetric: 'hr' });
+        return HttpResponse.json(heartRateDetail);
+      }),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <EffortMetricProbe />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Workout metric: pace')).toBeOnTheScreen();
+    await waitFor(() => {
+      const cache = JSON.parse(readCache('calendar-cache')) as InfiniteData<CalendarEvent[]>;
+      expect(cache.pages).toHaveLength(3);
+    });
+    const calendarBaseline = calendarGets;
+
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Change effort to heart rate'));
+
+    expect(await screen.findByText('Workout metric: hr')).toBeOnTheScreen();
+    expect(screen.getByText('Workout name: HR workout name')).toBeOnTheScreen();
+    expect(screen.getByText('Workout description: HR workout description')).toBeOnTheScreen();
+    expect(detailGets).toBe(1);
+    expect(calendarGets).toBe(calendarBaseline);
+
+    const updatedDetail = JSON.parse(readCache('detail-cache')) as PlannedWorkoutDetail;
+    expect(updatedDetail).toMatchObject({
+      effortMetric: 'hr',
+      event: {
+        name: 'HR workout name',
+        description: 'HR workout description',
+      },
+      metrics: {
+        duration: { minutes: 75, estimated: false },
+        distance: { km: 12.4, estimated: true },
+        fuelRateGPerHour: 72,
+        prescribedCarbsG: 90,
+      },
+    });
+
+    const updatedCalendar = JSON.parse(readCache('calendar-cache')) as InfiniteData<CalendarEvent[]>;
+    const events = updatedCalendar.pages.flat();
+    expect(events).toHaveLength(3);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'HR workout name',
+          description: 'HR workout description',
+          duration: 4500,
+          distance: 12400,
+          fuelRate: 72,
+          prescribedCarbsG: 90,
+        }),
+      ]),
+    );
+    for (const event of events) {
+      expect(event).toMatchObject({
+        name: 'HR workout name',
+        description: 'HR workout description',
+        duration: 4500,
+        distance: 12400,
+        fuelRate: 72,
+        prescribedCarbsG: 90,
+      });
+    }
+  });
+
+  it('leaves detail and every cached Calendar page unchanged when effort update fails', async () => {
+    let detailGets = 0;
+    let calendarGets = 0;
+    const paceDetail = detail('Pace workout name');
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () => {
+        detailGets += 1;
+        return HttpResponse.json(paceDetail);
+      }),
+      http.get(apiUrl('/api/intervals/calendar'), () => {
+        calendarGets += 1;
+        return HttpResponse.json([staleCalendarEvent()]);
+      }),
+      http.put(apiUrl('/api/intervals/events/event-123'), () =>
+        HttpResponse.json(
+          { error: 'Plan settings required', code: 'PLAN_SETTINGS_REQUIRED' },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <EffortMetricProbe />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Workout metric: pace')).toBeOnTheScreen();
+    await waitFor(() => {
+      const cache = JSON.parse(readCache('calendar-cache')) as InfiniteData<CalendarEvent[]>;
+      expect(cache.pages).toHaveLength(3);
+    });
+    const detailBefore = readCache('detail-cache');
+    const calendarBefore = readCache('calendar-cache');
+    const detailGetsBefore = detailGets;
+    const calendarGetsBefore = calendarGets;
+
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Change effort to heart rate'));
+
+    expect(await screen.findByText('Effort error: yes')).toBeOnTheScreen();
+    expect(readCache('detail-cache')).toBe(detailBefore);
+    expect(readCache('calendar-cache')).toBe(calendarBefore);
+    expect(detailGets).toBe(detailGetsBefore);
+    expect(calendarGets).toBe(calendarGetsBefore);
   });
 
   it('publishes fresh replacement detail into Calendar', async () => {

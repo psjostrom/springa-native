@@ -1,3 +1,5 @@
+export type EffortMetric = 'pace' | 'hr' | 'feel';
+
 /**
  * Public settings JSON from Springa GET /api/settings.
  * Secrets (Intervals key, Nightscout secret) are never returned.
@@ -15,7 +17,7 @@ export type UserSettings = {
   bgChartWindow?: number;
   includeBasePhase?: boolean;
   warmthPreference?: number;
-  effortMetric?: 'pace' | 'hr' | 'feel';
+  effortMetric?: EffortMetric;
   diabetesMode?: boolean;
   displayName?: string;
   timezone?: string;
@@ -107,6 +109,8 @@ export type PlannedWorkoutClothing =
     };
 
 export type PlannedWorkoutDetail = {
+  effortMetric: EffortMetric;
+  heartRateMetricAvailable: boolean;
   event: {
     id: string;
     intervalsEventId: number;

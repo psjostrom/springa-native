@@ -1,6 +1,7 @@
 import { ApiError } from './errors';
 import type {
   ClothingRecommendation,
+  EffortMetric,
   PlannedWorkoutCategory,
   PlannedWorkoutClothing,
   PlannedWorkoutDetail,
@@ -70,6 +71,12 @@ function replacementCategory(
     value === 'quality' ||
     value === 'long' ||
     value === 'club'
+    ? value
+    : invalid();
+}
+
+function effortMetric(value: unknown): EffortMetric {
+  return value === 'pace' || value === 'hr' || value === 'feel'
     ? value
     : invalid();
 }
@@ -200,6 +207,8 @@ function parseClothing(value: unknown): PlannedWorkoutClothing {
 export function parsePlannedWorkoutDetail(data: unknown): PlannedWorkoutDetail {
   if (
     !isRecord(data) ||
+    !Object.hasOwn(data, 'effortMetric') ||
+    !Object.hasOwn(data, 'heartRateMetricAvailable') ||
     !isRecord(data.event) ||
     !isRecord(data.structure) ||
     !Array.isArray(data.structure.sections) ||
@@ -211,6 +220,8 @@ export function parsePlannedWorkoutDetail(data: unknown): PlannedWorkoutDetail {
     return invalid();
   }
   return {
+    effortMetric: effortMetric(data.effortMetric),
+    heartRateMetricAvailable: booleanField(data, 'heartRateMetricAvailable'),
     event: parseEvent(data.event),
     replacementCategory: Object.hasOwn(data, 'replacementCategory')
       ? replacementCategory(data.replacementCategory)
