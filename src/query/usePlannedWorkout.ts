@@ -21,10 +21,12 @@ const PLANNED_WORKOUT_STALE_TIME = 60_000;
 function replaceCalendarEvent(
   event: CalendarEvent,
   detail: PlannedWorkoutDetail,
+  originalEventId = detail.event.id,
 ): CalendarEvent {
-  if (event.id !== detail.event.id) return event;
+  if (event.id !== originalEventId) return event;
   return {
     ...event,
+    id: detail.event.id,
     date: new Date(detail.event.startDateLocal),
     name: detail.event.name,
     description: detail.event.description,
@@ -91,8 +93,14 @@ export function usePlannedWorkoutMutations(eventId: string) {
 
   const plannedWorkoutKey = queryKeys.plannedWorkout(identity, eventId);
   const calendarKey = queryKeys.calendar(identity);
-  const publishDetail = (detail: PlannedWorkoutDetail) => {
-    queryClient.setQueryData(plannedWorkoutKey, detail);
+  const publishDetail = (
+    detail: PlannedWorkoutDetail,
+    originalEventId = detail.event.id,
+  ) => {
+    queryClient.setQueryData(
+      queryKeys.plannedWorkout(identity, detail.event.id),
+      detail,
+    );
     queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
       { queryKey: calendarKey },
       (current) => current == null
@@ -100,9 +108,15 @@ export function usePlannedWorkoutMutations(eventId: string) {
         : {
             ...current,
             pages: current.pages.map((page) =>
-              page.map((event) => replaceCalendarEvent(event, detail))),
+              page.map((event) => replaceCalendarEvent(event, detail, originalEventId))),
           },
     );
+    if (originalEventId !== detail.event.id) {
+      queryClient.removeQueries({
+        queryKey: queryKeys.plannedWorkout(identity, originalEventId),
+        exact: true,
+      });
+    }
   };
 
   return {
@@ -156,9 +170,12 @@ export function usePlannedWorkoutMutations(eventId: string) {
       onMutate: () => queryClient.cancelQueries({ queryKey: calendarKey }),
       mutationFn: async (category: PlannedWorkoutReplacementCategory) => {
         const { newId } = await client.replaceWorkout(eventId, category);
-        return client.getPlannedWorkoutDetail(String(newId));
+        const detail = await client.getPlannedWorkoutDetail(String(newId));
+        return { detail, originalEventId: eventId };
       },
-      onSuccess: publishDetail,
+      onSuccess: ({ detail, originalEventId }) => {
+        publishDetail(detail, originalEventId);
+      },
     }),
     changeEffortMetric: useMutation({
       onMutate: async () => {
@@ -169,7 +186,9 @@ export function usePlannedWorkoutMutations(eventId: string) {
       },
       mutationFn: (effortMetric: EffortMetric) =>
         client.changeWorkoutEffortMetric(eventId, effortMetric),
-      onSuccess: publishDetail,
+      onSuccess: (detail) => {
+        publishDetail(detail);
+      },
     }),
     deleteWorkout: useMutation({
       mutationFn: () => client.deleteWorkout(eventId),

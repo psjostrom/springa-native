@@ -104,6 +104,25 @@ function CalendarProbe() {
   return <Text>Calendar: {events[0]?.name ?? 'loading'}</Text>;
 }
 
+function ReplacementCacheProbe() {
+  const { events } = useCalendarEvents();
+  const queryClient = useQueryClient();
+  const originalDetail = queryClient.getQueryData<PlannedWorkoutDetail>(
+    queryKeys.plannedWorkout('runner@example.com', 'event-123'),
+  );
+  const replacementDetail = queryClient.getQueryData<PlannedWorkoutDetail>(
+    queryKeys.plannedWorkout('runner@example.com', '456'),
+  );
+
+  return (
+    <>
+      <Text testID="replacement-calendar-cache">{JSON.stringify(events)}</Text>
+      <Text testID="original-detail-cache">{JSON.stringify(originalDetail)}</Text>
+      <Text testID="replacement-detail-cache">{JSON.stringify(replacementDetail)}</Text>
+    </>
+  );
+}
+
 function EffortMetricProbe() {
   const { data } = usePlannedWorkoutDetail('event-123');
   useCalendarEvents();
@@ -333,21 +352,26 @@ describe('planned workout query hooks', () => {
     expect(calendarGets).toBe(calendarGetsBefore);
   });
 
-  it('publishes fresh replacement detail into Calendar', async () => {
+  it('moves replacement detail and Calendar identity to the returned event ID', async () => {
     let currentName = 'Before replacement';
     const detailRequestIds: string[] = [];
     const order: string[] = [];
     server.use(
       http.get(apiUrl('/api/intervals/events/:id'), ({ params }) => {
-        detailRequestIds.push(String(params.id));
-        if (currentName === 'After replacement') {
+        const requestedId = String(params.id);
+        detailRequestIds.push(requestedId);
+        if (requestedId === '456') {
           order.push('detail');
+          return HttpResponse.json(detail('After replacement', '456'));
         }
-        return HttpResponse.json(detail(currentName));
+        if (currentName === 'After replacement') {
+          return HttpResponse.json({ error: 'Workout not found' }, { status: 404 });
+        }
+        return HttpResponse.json(detail(currentName, requestedId));
       }),
       http.post(apiUrl('/api/intervals/events/replace'), () => {
         currentName = 'After replacement';
-        return HttpResponse.json({ newId: 123 });
+        return HttpResponse.json({ newId: 456 });
       }),
       http.get(apiUrl('/api/intervals/calendar'), () => {
         if (currentName === 'After replacement') order.push('calendar');
@@ -367,20 +391,23 @@ describe('planned workout query hooks', () => {
     await render(
       <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
         <MutationProbe />
-        <CalendarProbe />
+        <ReplacementCacheProbe />
       </TestAppProviders>,
     );
 
     expect(await screen.findByText('Workout: Before replacement')).toBeOnTheScreen();
-    expect(await screen.findByText('Calendar: Before replacement')).toBeOnTheScreen();
     const user = userEvent.setup();
     await user.press(screen.getByLabelText('Replace workout'));
     await waitFor(() => {
-      expect(screen.getByText('Workout: After replacement')).toBeOnTheScreen();
-      expect(screen.getByText('Calendar: After replacement')).toBeOnTheScreen();
+      const events = JSON.parse(readCache('replacement-calendar-cache')) as CalendarEvent[];
+      expect(events[0]).toMatchObject({ id: '456', name: 'After replacement' });
+      expect(readCache('original-detail-cache')).toBe('');
+      expect(JSON.parse(readCache('replacement-detail-cache'))).toMatchObject({
+        event: { id: '456', name: 'After replacement' },
+      });
     });
     expect(order[0]).toBe('detail');
-    expect(detailRequestIds).toContain('123');
+    expect(detailRequestIds).toContain('456');
   });
 
   it('optimistically moves detail and rolls back when server rejects it', async () => {
