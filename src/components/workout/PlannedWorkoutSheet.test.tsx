@@ -265,6 +265,38 @@ describe('PlannedWorkoutSheet', () => {
     expect(screen.queryByText('Retry effort metric')).toBeNull();
   });
 
+  it('clears failed effort retry when selecting the current metric', async () => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(futureDetail()),
+      ),
+      http.put(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(
+          { error: 'Temporary effort metric failure', code: 'UPSTREAM_ERROR' },
+          { status: 502 },
+        ),
+      ),
+    );
+
+    await renderSheet(
+      () => {},
+      { date: new Date('2026-08-24T12:00:00') },
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
+    await screen.findByText('Workout structure');
+    await act(async () => actionsRef.current?.effortMetric?.change('feel'));
+
+    expect(await screen.findByText('Temporary effort metric failure')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Retry effort metric' })).toBeOnTheScreen();
+
+    await act(async () => actionsRef.current?.effortMetric?.change('pace'));
+
+    expect(screen.queryByText('Temporary effort metric failure')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry effort metric' })).toBeNull();
+  });
+
   it('renders the compact workout summary from general primitives', async () => {
     await renderSheet();
 

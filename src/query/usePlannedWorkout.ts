@@ -91,6 +91,19 @@ export function usePlannedWorkoutMutations(eventId: string) {
 
   const plannedWorkoutKey = queryKeys.plannedWorkout(identity, eventId);
   const calendarKey = queryKeys.calendar(identity);
+  const publishDetail = (detail: PlannedWorkoutDetail) => {
+    queryClient.setQueryData(plannedWorkoutKey, detail);
+    queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
+      { queryKey: calendarKey },
+      (current) => current == null
+        ? current
+        : {
+            ...current,
+            pages: current.pages.map((page) =>
+              page.map((event) => replaceCalendarEvent(event, detail))),
+          },
+    );
+  };
 
   return {
     move: useMutation({
@@ -145,19 +158,7 @@ export function usePlannedWorkoutMutations(eventId: string) {
         const { newId } = await client.replaceWorkout(eventId, category);
         return client.getPlannedWorkoutDetail(String(newId));
       },
-      onSuccess: (detail) => {
-        queryClient.setQueryData(plannedWorkoutKey, detail);
-        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
-          { queryKey: calendarKey },
-          (current) => current == null
-            ? current
-            : {
-                ...current,
-                pages: current.pages.map((page) =>
-                  page.map((event) => replaceCalendarEvent(event, detail))),
-              },
-        );
-      },
+      onSuccess: publishDetail,
     }),
     changeEffortMetric: useMutation({
       onMutate: async () => {
@@ -168,19 +169,7 @@ export function usePlannedWorkoutMutations(eventId: string) {
       },
       mutationFn: (effortMetric: EffortMetric) =>
         client.changeWorkoutEffortMetric(eventId, effortMetric),
-      onSuccess: (detail) => {
-        queryClient.setQueryData(plannedWorkoutKey, detail);
-        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
-          { queryKey: calendarKey },
-          (current) => current == null
-            ? current
-            : {
-                ...current,
-                pages: current.pages.map((page) =>
-                  page.map((event) => replaceCalendarEvent(event, detail))),
-              },
-        );
-      },
+      onSuccess: publishDetail,
     }),
     deleteWorkout: useMutation({
       mutationFn: () => client.deleteWorkout(eventId),

@@ -412,7 +412,11 @@ function DetailBody({
   }, [mutations.deleteWorkout, onClose]);
 
   const changeEffortMetric = useCallback(async (effortMetric: EffortMetric) => {
-    if (effortMetric === detail.effortMetric) return;
+    if (effortMetric === detail.effortMetric) {
+      setActionMessage(null);
+      setFailedEffortMetric(null);
+      return;
+    }
     setActionMessage(null);
     setFailedEffortMetric(effortMetric);
     try {
