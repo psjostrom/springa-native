@@ -73,7 +73,8 @@ function detailWithCarbs(carbsG: number | null) {
 }
 
 describe('PlannedWorkoutSheet', () => {
-  it('shows eligible effort options and explains unavailable heart-rate metrics', async () => {
+  it('registers eligible run-by choices without rendering an inline picker', async () => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.get(apiUrl('/api/intervals/events/:id'), () =>
         HttpResponse.json(futureDetail()),
@@ -83,24 +84,22 @@ describe('PlannedWorkoutSheet', () => {
     await renderSheet(
       () => {},
       { date: new Date('2026-08-24T12:00:00') },
-      undefined,
+      (actions) => { actionsRef.current = actions; },
       FUTURE_NOW,
     );
 
-    const picker = await screen.findByTestId('effort-metric-picker');
-    expect(await screen.findByTestId('effort-metric-host')).toHaveProp(
-      'matchContents',
-      { vertical: true },
-    );
-    expect(screen.getByLabelText('Effort metric')).toBeOnTheScreen();
-    expect(picker).toHaveProp('selectedValue', 'pace');
-    expect(screen.getByText('By Pace')).toBeOnTheScreen();
-    expect(screen.getByText('By Feel')).toBeOnTheScreen();
-    expect(screen.queryByText('By Heart Rate')).toBeNull();
-    expect(screen.getByText('Heart-rate effort requires LTHR and five heart-rate zones.')).toBeOnTheScreen();
+    await screen.findByText('Workout structure');
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
+    expect(screen.queryByText('Effort metric')).toBeNull();
+    expect(actionsRef.current?.effortMetric).toMatchObject({
+      value: 'pace',
+      heartRateAvailable: false,
+      change: expect.any(Function),
+    });
   });
 
-  it('retains current heart-rate option when heart-rate settings are unavailable', async () => {
+  it('registers the current heart-rate choice when settings became unavailable', async () => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.get(apiUrl('/api/intervals/events/:id'), () =>
         HttpResponse.json(futureDetail({ effortMetric: 'hr' })),
@@ -110,22 +109,24 @@ describe('PlannedWorkoutSheet', () => {
     await renderSheet(
       () => {},
       { date: new Date('2026-08-24T12:00:00') },
-      undefined,
+      (actions) => { actionsRef.current = actions; },
       FUTURE_NOW,
     );
 
-    const picker = await screen.findByTestId('effort-metric-picker');
-    expect(picker).toHaveProp('selectedValue', 'hr');
-    expect(screen.getByText('By Heart Rate')).toBeOnTheScreen();
-    expect(screen.getByText('Heart-rate effort requires LTHR and five heart-rate zones.')).toBeOnTheScreen();
+    await screen.findByText('Workout structure');
+    expect(actionsRef.current?.effortMetric).toMatchObject({
+      value: 'hr',
+      heartRateAvailable: false,
+    });
   });
 
   it.each([
     ['pace', 'By Pace', false],
     ['feel', 'By Feel', false],
     ['hr', 'By Heart Rate', true],
-  ] as const)('does not request an update when %s is already active', async (metric, label, heartRateMetricAvailable) => {
+  ] as const)('does not request an update when %s is already active', async (metric, _label, heartRateMetricAvailable) => {
     let requests = 0;
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.get(apiUrl('/api/intervals/events/:id'), () =>
         HttpResponse.json(futureDetail({ effortMetric: metric, heartRateMetricAvailable })),
@@ -139,12 +140,12 @@ describe('PlannedWorkoutSheet', () => {
     await renderSheet(
       () => {},
       { date: new Date('2026-08-24T12:00:00') },
-      undefined,
+      (actions) => { actionsRef.current = actions; },
       FUTURE_NOW,
     );
     await screen.findByText('Workout structure');
 
-    await userEvent.setup().press(screen.getByText(label));
+    await act(async () => actionsRef.current?.effortMetric?.change(metric));
 
     expect(requests).toBe(0);
     expect(screen.queryByText('Updating effort metric…')).toBeNull();
@@ -155,17 +156,23 @@ describe('PlannedWorkoutSheet', () => {
     ['race', { date: new Date('2026-08-24T12:00:00'), type: 'race' as const, category: 'race' as const }, { category: 'race' as const }],
     ['completed', { date: new Date('2026-08-24T12:00:00'), type: 'completed' as const }, {}],
     ['paired', { date: new Date('2026-08-24T12:00:00'), pairedEventId: 456 }, {}],
-  ])('hides effort picker for %s events', async (_label, eventOverrides, detailOverrides) => {
+  ])('omits the run-by action for %s events', async (_label, eventOverrides, detailOverrides) => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.get(apiUrl('/api/intervals/events/:id'), () =>
         HttpResponse.json(futureDetail({ event: detailOverrides })),
       ),
     );
 
-    await renderSheet(() => {}, eventOverrides, undefined, FUTURE_NOW);
+    await renderSheet(
+      () => {},
+      eventOverrides,
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
 
     await screen.findByText('Workout structure');
-    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
+    expect(actionsRef.current?.effortMetric).toBeNull();
   });
 
   it('keeps old detail visible and locks actions while effort metric updates', async () => {
@@ -197,12 +204,11 @@ describe('PlannedWorkoutSheet', () => {
     );
     await screen.findByText('Workout structure');
 
-    await userEvent.setup().press(screen.getByText('By Feel'));
+    await act(async () => actionsRef.current?.effortMetric?.change('feel'));
 
     expect(await screen.findByText('Updating effort metric…')).toBeOnTheScreen();
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
-    expect(screen.getByTestId('effort-metric-picker')).toHaveProp('enabled', false);
-    await userEvent.setup().press(screen.getByText('By Pace'));
+    await act(async () => actionsRef.current?.effortMetric?.change('pace'));
     expect(requestCount).toBe(1);
     await waitFor(() => expect(actionsRef.current?.pending).toBe(true));
     expect(requestBody).toEqual({ effortMetric: 'feel' });
@@ -214,6 +220,7 @@ describe('PlannedWorkoutSheet', () => {
   it('keeps failed metric for one retry and commits returned detail', async () => {
     let attempts = 0;
     const requestBodies: unknown[] = [];
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     const updated = futureDetail({
       effortMetric: 'feel',
       event: { name: 'Retried feel workout' },
@@ -237,11 +244,11 @@ describe('PlannedWorkoutSheet', () => {
     await renderSheet(
       () => {},
       { date: new Date('2026-08-24T12:00:00') },
-      undefined,
+      (actions) => { actionsRef.current = actions; },
       FUTURE_NOW,
     );
     await screen.findByText('Workout structure');
-    await userEvent.setup().press(screen.getByText('By Feel'));
+    await act(async () => actionsRef.current?.effortMetric?.change('feel'));
 
     expect(await screen.findByText('Temporary effort metric failure')).toBeOnTheScreen();
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();

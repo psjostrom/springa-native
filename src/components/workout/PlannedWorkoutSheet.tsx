@@ -5,7 +5,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Host, Picker } from '@expo/ui';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
@@ -55,6 +54,11 @@ type PlannedWorkoutSheetProps = {
 
 export type PlannedWorkoutActions = {
   pending: boolean;
+  effortMetric: {
+    value: EffortMetric;
+    heartRateAvailable: boolean;
+    change: (metric: EffortMetric) => void;
+  } | null;
   move: () => void;
   replace: (category: PlannedWorkoutReplacementCategory) => void;
   deleteWorkout: () => void;
@@ -257,25 +261,13 @@ function PlannedWorkoutHeader({
   name,
   date,
   now,
-  detail,
-  effortMetricEditable = false,
-  effortMetricPending = false,
-  onEffortMetricChange,
 }: {
   event: CalendarEvent;
   name?: string;
   date?: Date;
   now: Date;
-  detail?: PlannedWorkoutDetail;
-  effortMetricEditable?: boolean;
-  effortMetricPending?: boolean;
-  onEffortMetricChange?: (metric: EffortMetric) => void;
 }) {
   const badge = getWorkoutStatusBadge(event, now);
-  const showEffortMetricPicker =
-    detail != null &&
-    effortMetricEditable &&
-    onEffortMetricChange != null;
 
   return (
     <View style={styles.plannedHeader}>
@@ -291,43 +283,6 @@ function PlannedWorkoutHeader({
           tone={badge.label === 'Missed' ? 'error' : badge.label === 'Completed' ? 'success' : 'brand'}
         />
       </View>
-      {showEffortMetricPicker ? (
-        <View style={styles.effortMetricRow}>
-          <AppText
-            variant="label"
-            tone="muted"
-            accessible
-            accessibilityLabel="Effort metric"
-            selectable
-          >
-            Effort metric
-          </AppText>
-          <Host
-            testID="effort-metric-host"
-            matchContents={{ vertical: true }}
-            style={styles.effortMetricHost}
-          >
-            <Picker
-              appearance="menu"
-              selectedValue={detail.effortMetric}
-              enabled={!effortMetricPending}
-              onValueChange={onEffortMetricChange}
-              testID="effort-metric-picker"
-            >
-              <Picker.Item label="By Pace" value="pace" />
-              {(detail.heartRateMetricAvailable || detail.effortMetric === 'hr') ? (
-                <Picker.Item label="By Heart Rate" value="hr" />
-              ) : null}
-              <Picker.Item label="By Feel" value="feel" />
-            </Picker>
-          </Host>
-          {!detail.heartRateMetricAvailable ? (
-            <AppText variant="caption" tone="muted" selectable>
-              Heart-rate effort requires LTHR and five heart-rate zones.
-            </AppText>
-          ) : null}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -506,10 +461,26 @@ function DetailBody({
 
   const actions = useMemo<PlannedWorkoutActions>(() => ({
     pending: actionPending,
+    effortMetric: isEffortMetricEditable(event, detail, now)
+      ? {
+          value: detail.effortMetric,
+          heartRateAvailable: detail.heartRateMetricAvailable,
+          change: (metric) => void changeEffortMetric(metric),
+        }
+      : null,
     move: openMove,
     replace: (category) => void replaceWorkout(category),
     deleteWorkout: () => void deleteWorkout(),
-  }), [actionPending, deleteWorkout, openMove, replaceWorkout]);
+  }), [
+    actionPending,
+    changeEffortMetric,
+    deleteWorkout,
+    detail,
+    event,
+    now,
+    openMove,
+    replaceWorkout,
+  ]);
 
   const scrollCarbsAboveKeyboard = useCallback((target: number) => {
     if (Platform.OS !== 'android') return;
@@ -562,10 +533,6 @@ function DetailBody({
             name={detail.event.name}
             date={detailDate}
             now={now}
-            detail={detail}
-            effortMetricEditable={isEffortMetricEditable(event, detail, now)}
-            effortMetricPending={mutations.changeEffortMetric.isPending}
-            onEffortMetricChange={changeEffortMetric}
           />
           {mutations.changeEffortMetric.isPending ? (
             <View style={styles.effortMetricPending} accessibilityLiveRegion="polite">
@@ -678,13 +645,6 @@ const styles = StyleSheet.create({
   },
   headerDate: {
     flexShrink: 1,
-  },
-  effortMetricRow: {
-    width: '100%',
-    gap: Spacing.xs,
-  },
-  effortMetricHost: {
-    width: '100%',
   },
   effortMetricPending: {
     flexDirection: 'row',

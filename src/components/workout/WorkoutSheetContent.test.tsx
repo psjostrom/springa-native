@@ -6,6 +6,7 @@ import type { CalendarEvent } from '@/api/types';
 import { ApiClientProvider } from '@/api/ApiClientProvider';
 import { AuthProviderForTests } from '@/auth/AuthContext';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
+import type { PlannedWorkoutActions } from '@/components/workout/PlannedWorkoutSheet';
 import { getWorkoutStatusBadge } from '@/components/workout/workoutStatusBadge';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
 import { queryKeys } from '@/query/keys';
@@ -76,14 +77,23 @@ describe('WorkoutSheetContent', () => {
   });
 
   it('shows planned chrome and detail for upcoming planned', async () => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     await renderWithApp(
-      <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} now={NOW} />,
+      <WorkoutSheetContent
+        event={sampleEvent()}
+        onClose={() => {}}
+        onActionsReady={(value) => { actionsRef.current = value; }}
+        now={NOW}
+      />,
     );
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
     expect(screen.getByText('Planned')).toBeOnTheScreen();
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
-    expect(screen.getByTestId('effort-metric-picker')).toBeOnTheScreen();
-    expect(screen.getByText('By Pace')).toBeOnTheScreen();
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
+    expect(actionsRef.current?.effortMetric).toMatchObject({
+      value: 'pace',
+      change: expect.any(Function),
+    });
     expect(screen.getByText('T-shirt')).toBeOnTheScreen();
     expect(screen.getByText('65m')).toBeOnTheScreen();
   });
