@@ -291,7 +291,8 @@ export function PlannerContent() {
         onKeep={() => setUpdateChoicePresented(false)}
         onPreview={() => {
           setUpdateChoicePresented(false);
-          if (savedConfig != null) void requestPreview('update', savedConfig);
+          const configToUse = effectiveConfig ?? state.newProgramDraft;
+          void requestPreview('update', configToUse);
         }}
       />
     </>

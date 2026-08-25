@@ -122,7 +122,8 @@ function parsePlannerConfig(value: unknown): PlannerConfig {
   if (
     (clubDay === null) !== (clubType === null) ||
     !runDays.includes(longRunDay) ||
-    (clubDay !== null && !runDays.includes(clubDay))
+    (clubDay !== null && !runDays.includes(clubDay)) ||
+    (clubType !== 'long' && clubDay === longRunDay)
   ) return invalid();
   return {
     raceName: stringField(value, 'raceName'),
