@@ -60,6 +60,11 @@ function MutationProbe() {
       <Text>Carbs: {data?.preRunCarbsG ?? 'none'}</Text>
       <Text>Starts: {data?.event.startDateLocal ?? 'loading'}</Text>
       <Text>Move pending: {move.isPending ? 'yes' : 'no'}</Text>
+      <Text>Replacement error: {replace.isError ? 'yes' : 'no'}</Text>
+      <Text>
+        Replacement error message: {replace.error instanceof Error ? replace.error.message : 'none'}
+      </Text>
+      <Text>Replacement result: {replace.data?.detail.event.name ?? 'none'}</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Move workout"
@@ -362,7 +367,10 @@ describe('planned workout query hooks', () => {
         detailRequestIds.push(requestedId);
         if (requestedId === '456') {
           order.push('detail');
-          return HttpResponse.json(detail('After replacement', '456'));
+          return HttpResponse.json({
+            ...detail('After replacement', '456'),
+            preRunCarbsG: null,
+          });
         }
         if (currentName === 'After replacement') {
           return HttpResponse.json({ error: 'Workout not found' }, { status: 404 });
@@ -383,6 +391,7 @@ describe('planned workout query hooks', () => {
             description: '',
             type: 'planned',
             category: 'easy',
+            preRunCarbsG: 30,
           },
         ]);
       }),
@@ -400,7 +409,11 @@ describe('planned workout query hooks', () => {
     await user.press(screen.getByLabelText('Replace workout'));
     await waitFor(() => {
       const events = JSON.parse(readCache('replacement-calendar-cache')) as CalendarEvent[];
-      expect(events[0]).toMatchObject({ id: '456', name: 'After replacement' });
+      expect(events[0]).toMatchObject({
+        id: '456',
+        name: 'After replacement',
+        preRunCarbsG: null,
+      });
       expect(readCache('original-detail-cache')).toBe('');
       expect(JSON.parse(readCache('replacement-detail-cache'))).toMatchObject({
         event: { id: '456', name: 'After replacement' },
@@ -408,6 +421,85 @@ describe('planned workout query hooks', () => {
     });
     expect(order[0]).toBe('detail');
     expect(detailRequestIds).toContain('456');
+  });
+
+  it('retries only detail retrieval and reconciles caches after replacement detail fails', async () => {
+    let replaced = false;
+    let replacements = 0;
+    let replacementDetailGets = 0;
+    let calendarGets = 0;
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), ({ params }) => {
+        const requestedId = String(params.id);
+        if (requestedId === '456') {
+          replacementDetailGets += 1;
+          if (replacementDetailGets > 2) {
+            return HttpResponse.json(detail('After replacement', '456'));
+          }
+          return HttpResponse.json({ error: 'detail unavailable' }, { status: 503 });
+        }
+        if (replaced) {
+          return HttpResponse.json({ error: 'Workout not found' }, { status: 404 });
+        }
+        return HttpResponse.json(detail('Before replacement', requestedId));
+      }),
+      http.post(apiUrl('/api/intervals/events/replace'), () => {
+        replacements += 1;
+        replaced = true;
+        return HttpResponse.json({ newId: 456 });
+      }),
+      http.get(apiUrl('/api/intervals/calendar'), () => {
+        calendarGets += 1;
+        return HttpResponse.json([{
+          id: replaced ? '456' : 'event-123',
+          date: new Date().toISOString(),
+          name: replaced ? 'After replacement' : 'Before replacement',
+          description: '',
+          type: 'planned',
+          category: 'easy',
+        }]);
+      }),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <MutationProbe />
+        <ReplacementCacheProbe />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Workout: Before replacement')).toBeOnTheScreen();
+    await waitFor(() => expect(calendarGets).toBeGreaterThan(0));
+    const calendarBaseline = calendarGets;
+
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Replace workout'));
+
+    await waitFor(() => {
+      expect(replacements).toBe(1);
+      expect(replacementDetailGets).toBe(2);
+      expect(calendarGets).toBeGreaterThan(calendarBaseline);
+      expect(readCache('original-detail-cache')).toBe('');
+      expect(screen.getByText('Replacement error: yes')).toBeOnTheScreen();
+      const events = JSON.parse(readCache('replacement-calendar-cache')) as CalendarEvent[];
+      expect(events[0]).toMatchObject({ id: '456', name: 'After replacement' });
+    }, { timeout: 3_000 });
+
+    await user.press(screen.getByLabelText('Replace with long'));
+
+    expect(await screen.findByText(
+      'Replacement error message: Finish loading the current replacement before choosing another workout.',
+    )).toBeOnTheScreen();
+    expect(replacements).toBe(1);
+    expect(replacementDetailGets).toBe(2);
+
+    await user.press(screen.getByLabelText('Replace workout'));
+
+    await waitFor(() => {
+      expect(replacements).toBe(1);
+      expect(replacementDetailGets).toBe(3);
+      expect(screen.getByText('Replacement result: After replacement')).toBeOnTheScreen();
+    });
   });
 
   it('optimistically moves detail and rolls back when server rejects it', async () => {

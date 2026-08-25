@@ -5,6 +5,7 @@ import {
   type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import type { ApiClient } from '@/api/client';
@@ -39,6 +40,7 @@ function replaceCalendarEvent(
       : detail.metrics.distance.km * 1000,
     fuelRate: detail.metrics.fuelRateGPerHour,
     prescribedCarbsG: detail.metrics.prescribedCarbsG,
+    preRunCarbsG: detail.preRunCarbsG,
   };
 }
 
@@ -93,6 +95,12 @@ export function usePlannedWorkoutMutations(eventId: string) {
 
   const plannedWorkoutKey = queryKeys.plannedWorkout(identity, eventId);
   const calendarKey = queryKeys.calendar(identity);
+  const pendingReplacementRef = useRef<{
+    originalEventId: string;
+    identity: string;
+    category: PlannedWorkoutReplacementCategory;
+    replacementEventId: string;
+  } | null>(null);
   const publishDetail = (
     detail: PlannedWorkoutDetail,
     originalEventId = detail.event.id,
@@ -169,11 +177,47 @@ export function usePlannedWorkoutMutations(eventId: string) {
     replace: useMutation({
       onMutate: () => queryClient.cancelQueries({ queryKey: calendarKey }),
       mutationFn: async (category: PlannedWorkoutReplacementCategory) => {
-        const { newId } = await client.replaceWorkout(eventId, category);
-        const detail = await client.getPlannedWorkoutDetail(String(newId));
-        return { detail, originalEventId: eventId };
+        let pendingReplacement = pendingReplacementRef.current;
+        if (
+          pendingReplacement != null &&
+          (pendingReplacement.originalEventId !== eventId || pendingReplacement.identity !== identity)
+        ) {
+          pendingReplacementRef.current = null;
+          pendingReplacement = null;
+        }
+        if (pendingReplacement != null && pendingReplacement.category !== category) {
+          throw new Error(
+            'Finish loading the current replacement before choosing another workout.',
+          );
+        }
+        if (pendingReplacement == null) {
+          const { newId } = await client.replaceWorkout(eventId, category);
+          pendingReplacement = {
+            originalEventId: eventId,
+            identity,
+            category,
+            replacementEventId: String(newId),
+          };
+          pendingReplacementRef.current = pendingReplacement;
+        }
+        try {
+          const detail = await queryClient.fetchQuery({
+            ...plannedWorkoutQueryOptions(
+              client,
+              identity,
+              pendingReplacement.replacementEventId,
+            ),
+            retry: 1,
+          });
+          return { detail, originalEventId: eventId };
+        } catch (error) {
+          queryClient.removeQueries({ queryKey: plannedWorkoutKey, exact: true });
+          await queryClient.invalidateQueries({ queryKey: calendarKey });
+          throw error;
+        }
       },
       onSuccess: ({ detail, originalEventId }) => {
+        pendingReplacementRef.current = null;
         publishDetail(detail, originalEventId);
       },
     }),
