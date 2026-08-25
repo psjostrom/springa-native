@@ -488,7 +488,7 @@ describe('planned workout query hooks', () => {
     await user.press(screen.getByLabelText('Replace with long'));
 
     expect(await screen.findByText(
-      'Replacement error message: Finish loading the current replacement before choosing another workout.',
+      'Replacement error message: This workout was already replaced. Reload the workout before choosing another replacement.',
     )).toBeOnTheScreen();
     expect(replacements).toBe(1);
     expect(replacementDetailGets).toBe(2);
