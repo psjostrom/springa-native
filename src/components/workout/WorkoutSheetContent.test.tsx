@@ -194,7 +194,6 @@ describe('WorkoutSheetContent', () => {
       <WorkoutSheetContent
         event={sampleEvent({
           id: 'missed-1',
-          name: 'Skipped tempo',
           type: 'planned',
           date: new Date('2026-08-01T12:00:00'),
         })}
@@ -202,9 +201,9 @@ describe('WorkoutSheetContent', () => {
         now={new Date('2026-08-14T12:00:00')}
       />,
     );
-    expect(screen.getByText('Skipped tempo')).toBeOnTheScreen();
-    expect(screen.getByText('Missed')).toBeOnTheScreen();
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
+    expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
+    expect(screen.getByText('Missed')).toBeOnTheScreen();
     expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
   });
 
