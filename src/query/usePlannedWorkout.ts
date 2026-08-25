@@ -187,7 +187,7 @@ export function usePlannedWorkoutMutations(eventId: string) {
         }
         if (pendingReplacement != null && pendingReplacement.category !== category) {
           throw new Error(
-            'Finish loading the current replacement before choosing another workout.',
+            'This workout was already replaced. Reload the workout before choosing another replacement.',
           );
         }
         if (pendingReplacement == null) {
