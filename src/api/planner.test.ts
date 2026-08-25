@@ -104,6 +104,10 @@ const apply = {
 describe('Planner response parsers', () => {
   it('parses nullable state, preview, and apply values', () => {
     expect(parsePlannerState({ ...state, currentConfig: null, fuelRates: null }).plan.status).toBe('active');
+    expect(parsePlannerState({
+      ...state,
+      plan: { ...state.plan, status: 'complete', weeksToGo: null, futureWorkoutCount: 0 },
+    }).plan).toMatchObject({ status: 'complete', weeksToGo: null });
     expect(parsePlannerPreview({ ...preview, warning: {
       kind: 'compressed',
       title: 'Short plan',

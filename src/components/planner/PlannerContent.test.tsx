@@ -103,4 +103,21 @@ describe('Planner content', () => {
     await userEvent.setup().press(screen.getByRole('button', { name: 'Retry loading planner' }));
     expect(await screen.findByText('3 days/wk')).toBeOnTheScreen();
   });
+
+  it('renders completed plans without a countdown', async () => {
+    const completed = activePlannerState();
+    completed.plan = {
+      ...completed.plan,
+      status: 'complete',
+      weeksToGo: null,
+      futureWorkoutCount: 0,
+    };
+    server.use(http.get(apiUrl('/api/planner'), () => HttpResponse.json(completed)));
+
+    await renderPlanner();
+
+    expect(await screen.findByText('Stockholm Half is complete.')).toBeOnTheScreen();
+    expect(screen.getByText('Start a fresh plan for the next race without repeating account setup.')).toBeOnTheScreen();
+    expect(screen.queryByText(/wks to go/)).toBeNull();
+  });
 });
