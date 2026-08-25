@@ -140,4 +140,16 @@ describe('Planner response parsers', () => {
       config: { ...config, runDays: [0, 0] },
     })).toThrowError(ApiError);
   });
+
+  it.each([
+    { clubDay: null, clubType: 'speed' },
+    { clubDay: 2, clubType: null },
+    { longRunDay: 1 },
+    { clubDay: 1, clubType: 'varies' },
+  ])('rejects inconsistent schedule config %j', (schedule) => {
+    expect(() => parsePlannerState({
+      ...state,
+      currentConfig: { ...config, ...schedule },
+    })).toThrowError(ApiError);
+  });
 });

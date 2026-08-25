@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { ApiError } from '@/api/client';
 import type { ApiErrorDetails } from '@/api/errors';
@@ -35,6 +35,9 @@ export function PlannerContent() {
   const [savedConfig, setSavedConfig] = useState<PlannerConfig | null>(null);
   const [updateChoicePresented, setUpdateChoicePresented] = useState(false);
   const [result, setResult] = useState<PlannerApplyResponse | null>(null);
+  const currentConfig = planner.state?.currentConfig ?? null;
+
+  useEffect(() => setSavedConfig(null), [currentConfig]);
 
   if (planner.status === 'idle') return null;
   if (planner.status === 'loading') {
@@ -59,11 +62,11 @@ export function PlannerContent() {
 
   const state = planner.state;
   const settingsReady = settings.status !== 'ready' || settings.settings?.diabetesMode !== false;
-  const currentConfig = state.currentConfig;
+  const effectiveConfig = savedConfig ?? currentConfig;
 
   const beginEdit = () => {
-    if (currentConfig == null) return;
-    setDraft({ ...currentConfig, runDays: [...currentConfig.runDays] });
+    if (effectiveConfig == null) return;
+    setDraft({ ...effectiveConfig, runDays: [...effectiveConfig.runDays] });
     setDraftErrors({});
     setConfigError(null);
     setPreviewError(null);
@@ -92,7 +95,7 @@ export function PlannerContent() {
     if (draft == null) return;
     const errors = validateDraft(draft);
     if (Object.keys(errors).length > 0) return;
-    const planChanged = currentConfig != null && plannerConfigAffectsPlan(currentConfig, draft);
+    const planChanged = effectiveConfig != null && plannerConfigAffectsPlan(effectiveConfig, draft);
     try {
       await mutations.saveConfig.mutateAsync(draft);
       setSavedConfig(draft);
@@ -221,7 +224,7 @@ export function PlannerContent() {
     );
   }
 
-  const summaryConfig = currentConfig ?? state.newProgramDraft;
+  const summaryConfig = effectiveConfig ?? state.newProgramDraft;
   const active = state.plan.status === 'active';
   return (
     <>
@@ -252,7 +255,7 @@ export function PlannerContent() {
             config={summaryConfig}
             hasActivePlan={active}
             weeksToGo={state.plan.weeksToGo}
-            onEdit={currentConfig == null ? undefined : beginEdit}
+            onEdit={effectiveConfig == null ? undefined : beginEdit}
           />
         )}
         <Button
@@ -265,7 +268,7 @@ export function PlannerContent() {
             <AppText variant="label">
               {state.plan.sync.dirtyKind === 'target-only' ? 'Targets changed' : 'Schedule changed'}
             </AppText>
-            <Button label="Preview update" onPress={() => void requestPreview('update', currentConfig ?? state.newProgramDraft)} />
+            <Button label="Preview update" onPress={() => void requestPreview('update', effectiveConfig ?? state.newProgramDraft)} />
           </Card>
         ) : null}
         {previewError && !mutations.preview.isPending ? (
@@ -275,7 +278,7 @@ export function PlannerContent() {
               <Button
                 label="Preview update"
                 variant="secondary"
-                onPress={() => void requestPreview('update', currentConfig ?? state.newProgramDraft)}
+                onPress={() => void requestPreview('update', effectiveConfig ?? state.newProgramDraft)}
               />
             ) : null}
           </Card>

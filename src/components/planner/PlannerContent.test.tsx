@@ -1,4 +1,4 @@
-import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { PlannerContent } from './PlannerContent';
@@ -44,10 +44,30 @@ describe('Planner content', () => {
     await user.press(screen.getByRole('button', { name: 'Done editing planner' }));
     await waitFor(() => expect(settingsWrites).toBe(1));
     expect(settingsBody).toMatchObject({ runDays: [1, 2, 4, 0] });
+    expect(await screen.findByText('4 days/wk')).toBeOnTheScreen();
     expect(await screen.findByText('Update future workouts to match your new settings?')).toBeOnTheScreen();
     await user.press(screen.getByRole('button', { name: 'Keep workouts' }));
     await user.press(screen.getByLabelText('Complete bottom sheet dismissal'));
     await waitFor(() => expect(screen.queryByText('Update future workouts to match your new settings?')).toBeNull());
+    await user.press(screen.getByRole('button', { name: 'Edit planner settings' }));
+    expect(screen.getByRole('button', { name: 'Monday run day' })).toHaveProp(
+      'accessibilityState',
+      { selected: true },
+    );
+  });
+
+  it('exposes native controls through their accessibility host', async () => {
+    await renderPlanner();
+    const user = userEvent.setup();
+    await user.press(await screen.findByRole('button', { name: 'Edit planner settings' }));
+
+    const clubRun = screen.getByRole('switch', { name: 'Club run' });
+    expect(clubRun).toHaveProp('accessibilityState', { checked: false });
+    await fireEvent(clubRun, 'accessibilityTap');
+    expect(screen.getByRole('switch', { name: 'Club run' })).toHaveProp(
+      'accessibilityState',
+      { checked: true },
+    );
   });
 
   it('does not ask to update workouts for race-name-only edits', async () => {

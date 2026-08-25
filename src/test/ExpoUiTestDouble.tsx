@@ -108,7 +108,16 @@ export function Host({
 }: ViewProps & {
   matchContents?: boolean | { horizontal?: boolean; vertical?: boolean };
 }) {
-  if (testID == null) return <>{children}</>;
+  if (
+    testID == null &&
+    accessible === undefined &&
+    accessibilityRole === undefined &&
+    accessibilityLabel === undefined &&
+    accessibilityHint === undefined &&
+    accessibilityValue === undefined &&
+    accessibilityState === undefined &&
+    onAccessibilityTap === undefined
+  ) return <>{children}</>;
   return (
     <View
       testID={testID}

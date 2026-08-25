@@ -112,19 +112,26 @@ const CONFIG_KEYS = [
 function parsePlannerConfig(value: unknown): PlannerConfig {
   if (!isRecord(value)) return invalid();
   exact(value, CONFIG_KEYS);
+  const runDays = weekdays(value.runDays);
+  const longRunDay = weekday(value.longRunDay);
   const clubDay = value.clubDay === null ? null : weekday(value.clubDay);
   const clubType = value.clubType === null || value.clubType === 'long' ||
     value.clubType === 'speed' || value.clubType === 'varies'
     ? value.clubType
     : invalid();
+  if (
+    (clubDay === null) !== (clubType === null) ||
+    !runDays.includes(longRunDay) ||
+    (clubDay !== null && !runDays.includes(clubDay))
+  ) return invalid();
   return {
     raceName: stringField(value, 'raceName'),
     raceDist: finiteNumber(value.raceDist),
     raceDate: dateOnly(value.raceDate),
     currentAbilityDist: finiteNumber(value.currentAbilityDist),
     currentAbilitySecs: finiteNumber(value.currentAbilitySecs),
-    runDays: weekdays(value.runDays),
-    longRunDay: weekday(value.longRunDay),
+    runDays,
+    longRunDay,
     clubDay,
     clubType,
     totalWeeks: integerField(value, 'totalWeeks', 8),
