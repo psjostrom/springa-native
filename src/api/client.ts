@@ -4,6 +4,12 @@ import { parseCalendarEvents } from './calendar';
 import { parseCompletedWorkoutOverview } from './completedWorkoutOverview';
 import { ApiError } from './errors';
 import { parsePlannedWorkoutDetail } from './plannedWorkout';
+import {
+  parsePlannerApplyResponse,
+  parsePlannerPreview,
+  parsePlannerState,
+} from './planner';
+import type { ApiErrorDetails } from './errors';
 import type {
   BgPayload,
   CalendarEvent,
@@ -11,6 +17,12 @@ import type {
   EffortMetric,
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
+  PlannerApplyRequest,
+  PlannerApplyResponse,
+  PlannerConfig,
+  PlannerPreview,
+  PlannerPreviewRequest,
+  PlannerState,
   UserSettings,
 } from './types';
 
@@ -28,6 +40,10 @@ export type ApiClientOptions = {
 export type ApiClient = {
   apiFetch: <T>(path: string, init?: RequestInit) => Promise<T>;
   getSettings: () => Promise<UserSettings>;
+  getPlanner: () => Promise<PlannerState>;
+  savePlannerConfig: (config: PlannerConfig) => Promise<{ ok: true }>;
+  previewPlanner: (request: PlannerPreviewRequest) => Promise<PlannerPreview>;
+  applyPlanner: (request: PlannerApplyRequest) => Promise<PlannerApplyResponse>;
   getCalendar: (oldest: string, newest: string) => Promise<CalendarEvent[]>;
   getBg: () => Promise<BgPayload>;
   getPlannedWorkoutDetail: (eventId: string) => Promise<PlannedWorkoutDetail>;
@@ -70,6 +86,58 @@ export function parseUserSettings(data: unknown): UserSettings {
     throw new ApiError(200, 'Settings response had unexpected shape');
   }
   return data as UserSettings;
+}
+
+function parseOk(data: unknown): { ok: true } {
+  if (
+    data !== null &&
+    typeof data === 'object' &&
+    !Array.isArray(data) &&
+    Object.keys(data).length === 1 &&
+    (data as Record<string, unknown>).ok === true
+  ) {
+    return { ok: true };
+  }
+  throw new ApiError(200, 'Planner response had unexpected shape');
+}
+
+function parseApiErrorDetails(value: unknown): ApiErrorDetails | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const details: ApiErrorDetails = {};
+  if (
+    record.fields !== null &&
+    typeof record.fields === 'object' &&
+    !Array.isArray(record.fields)
+  ) {
+    const fields = Object.entries(record.fields as Record<string, unknown>)
+      .filter(([, field]) => typeof field === 'string')
+      .reduce<Record<string, string>>((result, [key, field]) => {
+        result[key] = field as string;
+        return result;
+      }, {});
+    if (Object.keys(fields).length > 0) details.fields = fields;
+  }
+  if (
+    typeof record.appliedWorkoutCount === 'number' &&
+    Number.isSafeInteger(record.appliedWorkoutCount) &&
+    record.appliedWorkoutCount >= 0
+  ) {
+    details.appliedWorkoutCount = record.appliedWorkoutCount;
+  }
+  if (Array.isArray(record.failures)) {
+    const failures = record.failures.filter(
+      (failure): failure is { id: string; name: string; error: string } =>
+        failure !== null &&
+        typeof failure === 'object' &&
+        !Array.isArray(failure) &&
+        typeof (failure as Record<string, unknown>).id === 'string' &&
+        typeof (failure as Record<string, unknown>).name === 'string' &&
+        typeof (failure as Record<string, unknown>).error === 'string',
+    );
+    if (failures.length > 0) details.failures = failures;
+  }
+  return Object.keys(details).length > 0 ? details : undefined;
 }
 
 export function createApiClient(options: ApiClientOptions): ApiClient {
@@ -120,17 +188,19 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     if (!res.ok) {
       let message = `Request failed (${res.status})`;
       let code: string | undefined;
+      let details: ApiErrorDetails | undefined;
       try {
         const body: unknown = await res.json();
         if (body !== null && typeof body === 'object' && !Array.isArray(body)) {
           const record = body as Record<string, unknown>;
           if (typeof record.error === 'string') message = record.error;
           if (typeof record.code === 'string') code = record.code;
+          details = parseApiErrorDetails(record);
         }
       } catch {
         // Preserve status fallback when an error response is not JSON.
       }
-      throw new ApiError(res.status, message, code);
+      throw new ApiError(res.status, message, code, details);
     }
 
     if (res.status === 204) {
@@ -147,6 +217,22 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   return {
     apiFetch,
     getSettings: async () => parseUserSettings(await apiFetch<unknown>('/api/settings')),
+    getPlanner: async () => parsePlannerState(await apiFetch<unknown>('/api/planner')),
+    savePlannerConfig: async (config: PlannerConfig) =>
+      parseOk(await apiFetch<unknown>('/api/settings', {
+        method: 'PUT',
+        body: JSON.stringify(config),
+      })),
+    previewPlanner: async (request: PlannerPreviewRequest) =>
+      parsePlannerPreview(await apiFetch<unknown>('/api/planner/preview', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      })),
+    applyPlanner: async (request: PlannerApplyRequest) =>
+      parsePlannerApplyResponse(await apiFetch<unknown>('/api/planner/apply', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      })),
     getCalendar: async (oldest: string, newest: string) => {
       const params = new URLSearchParams({ oldest, newest });
       return parseCalendarEvents(

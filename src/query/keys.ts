@@ -1,5 +1,6 @@
 export const queryKeys = {
   settings: (identity: string) => ['settings', identity] as const,
+  planner: (identity: string) => ['planner', identity] as const,
   calendar: (identity: string) => ['calendar', identity] as const,
   bg: (identity: string) => ['bg', identity] as const,
   plannedWorkout: (identity: string, eventId: string) =>
