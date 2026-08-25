@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
-import type { CalendarEvent } from '@/api/types';
+import type { CalendarEvent, EffortMetric, PlannedWorkoutDetail } from '@/api/types';
 import {
   PlannedWorkoutSheet,
   type PlannedWorkoutActions,
@@ -26,10 +26,35 @@ const event: CalendarEvent = {
   category: 'interval',
 };
 
+const FUTURE_NOW = new Date('2026-08-23T12:00:00');
+
+function futureDetail({
+  effortMetric = 'pace',
+  heartRateMetricAvailable = false,
+  event: eventOverrides = {},
+}: {
+  effortMetric?: EffortMetric;
+  heartRateMetricAvailable?: boolean;
+  event?: Partial<PlannedWorkoutDetail['event']>;
+} = {}): PlannedWorkoutDetail {
+  const detail = defaultPlannedWorkoutDetail();
+  return {
+    ...detail,
+    effortMetric,
+    heartRateMetricAvailable,
+    event: {
+      ...detail.event,
+      startDateLocal: '2026-08-24T12:00:00',
+      ...eventOverrides,
+    },
+  };
+}
+
 function renderSheet(
   onClose = () => {},
   eventOverrides: Partial<CalendarEvent> = {},
   onActionsReady?: (actions: PlannedWorkoutActions | null) => void,
+  now = new Date(),
 ) {
   return render(
     <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
@@ -37,6 +62,7 @@ function renderSheet(
         event={{ ...event, ...eventOverrides }}
         onClose={onClose}
         onActionsReady={onActionsReady}
+        now={now}
       />
     </TestAppProviders>,
   );
@@ -47,6 +73,230 @@ function detailWithCarbs(carbsG: number | null) {
 }
 
 describe('PlannedWorkoutSheet', () => {
+  it('registers eligible run-by choices without rendering an inline picker', async () => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(futureDetail()),
+      ),
+    );
+
+    await renderSheet(
+      () => {},
+      { date: new Date('2026-08-24T12:00:00') },
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
+
+    await screen.findByText('Workout structure');
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
+    expect(screen.queryByText('Effort metric')).toBeNull();
+    expect(actionsRef.current?.effortMetric).toMatchObject({
+      value: 'pace',
+      heartRateAvailable: false,
+      change: expect.any(Function),
+    });
+  });
+
+  it('registers the current heart-rate choice when settings became unavailable', async () => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(futureDetail({ effortMetric: 'hr' })),
+      ),
+    );
+
+    await renderSheet(
+      () => {},
+      { date: new Date('2026-08-24T12:00:00') },
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
+
+    await screen.findByText('Workout structure');
+    expect(actionsRef.current?.effortMetric).toMatchObject({
+      value: 'hr',
+      heartRateAvailable: false,
+    });
+  });
+
+  it.each([
+    ['pace', 'By Pace', false],
+    ['feel', 'By Feel', false],
+    ['hr', 'By Heart Rate', true],
+  ] as const)('does not request an update when %s is already active', async (metric, _label, heartRateMetricAvailable) => {
+    let requests = 0;
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(futureDetail({ effortMetric: metric, heartRateMetricAvailable })),
+      ),
+      http.put(apiUrl('/api/intervals/events/:id'), () => {
+        requests += 1;
+        return HttpResponse.json(futureDetail({ effortMetric: metric, heartRateMetricAvailable }));
+      }),
+    );
+
+    await renderSheet(
+      () => {},
+      { date: new Date('2026-08-24T12:00:00') },
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
+    await screen.findByText('Workout structure');
+
+    await act(async () => actionsRef.current?.effortMetric?.change(metric));
+
+    expect(requests).toBe(0);
+    expect(screen.queryByText('Updating effort metric…')).toBeNull();
+  });
+
+  it.each([
+    ['past', { date: new Date('2026-08-22T12:00:00') }, { startDateLocal: '2026-08-22T12:00:00' }],
+    ['race', { date: new Date('2026-08-24T12:00:00'), type: 'race' as const, category: 'race' as const }, { category: 'race' as const }],
+    ['completed', { date: new Date('2026-08-24T12:00:00'), type: 'completed' as const }, {}],
+    ['paired', { date: new Date('2026-08-24T12:00:00'), pairedEventId: 456 }, {}],
+  ])('omits the run-by action for %s events', async (_label, eventOverrides, detailOverrides) => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(futureDetail({ event: detailOverrides })),
+      ),
+    );
+
+    await renderSheet(
+      () => {},
+      eventOverrides,
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
+
+    await screen.findByText('Workout structure');
+    expect(actionsRef.current?.effortMetric).toBeNull();
+  });
+
+  it('keeps old detail visible and locks actions while effort metric updates', async () => {
+    let requestBody: unknown;
+    let requestCount = 0;
+    let releaseRequest: (() => void) | null = null;
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    const updated = futureDetail({
+      effortMetric: 'feel',
+      event: { name: 'Feel workout' },
+    });
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(futureDetail()),
+      ),
+      http.put(apiUrl('/api/intervals/events/:id'), async ({ request }) => {
+        requestCount += 1;
+        requestBody = await request.json();
+        await new Promise<void>((resolve) => { releaseRequest = resolve; });
+        return HttpResponse.json(updated);
+      }),
+    );
+
+    await renderSheet(
+      () => {},
+      { date: new Date('2026-08-24T12:00:00') },
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
+    await screen.findByText('Workout structure');
+
+    await act(async () => actionsRef.current?.effortMetric?.change('feel'));
+
+    expect(await screen.findByText('Updating effort metric…')).toBeOnTheScreen();
+    expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
+    await act(async () => actionsRef.current?.effortMetric?.change('pace'));
+    expect(requestCount).toBe(1);
+    await waitFor(() => expect(actionsRef.current?.pending).toBe(true));
+    expect(requestBody).toEqual({ effortMetric: 'feel' });
+
+    releaseRequest!();
+    expect(await screen.findByText('Feel workout')).toBeOnTheScreen();
+  });
+
+  it('keeps failed metric for one retry and commits returned detail', async () => {
+    let attempts = 0;
+    const requestBodies: unknown[] = [];
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    const updated = futureDetail({
+      effortMetric: 'feel',
+      event: { name: 'Retried feel workout' },
+    });
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(futureDetail()),
+      ),
+      http.put(apiUrl('/api/intervals/events/:id'), async ({ request }) => {
+        requestBodies.push(await request.json());
+        attempts += 1;
+        return attempts === 1
+          ? HttpResponse.json(
+              { error: 'Temporary effort metric failure', code: 'UPSTREAM_ERROR' },
+              { status: 502 },
+            )
+          : HttpResponse.json(updated);
+      }),
+    );
+
+    await renderSheet(
+      () => {},
+      { date: new Date('2026-08-24T12:00:00') },
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
+    await screen.findByText('Workout structure');
+    await act(async () => actionsRef.current?.effortMetric?.change('feel'));
+
+    expect(await screen.findByText('Temporary effort metric failure')).toBeOnTheScreen();
+    expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
+    const retry = screen.getByRole('button', { name: 'Retry effort metric' });
+    expect(retry).toBeOnTheScreen();
+
+    await userEvent.setup().press(retry);
+
+    expect(await screen.findByText('Retried feel workout')).toBeOnTheScreen();
+    expect(requestBodies).toEqual([
+      { effortMetric: 'feel' },
+      { effortMetric: 'feel' },
+    ]);
+    expect(screen.queryByText('Retry effort metric')).toBeNull();
+  });
+
+  it('clears failed effort retry when selecting the current metric', async () => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(futureDetail()),
+      ),
+      http.put(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(
+          { error: 'Temporary effort metric failure', code: 'UPSTREAM_ERROR' },
+          { status: 502 },
+        ),
+      ),
+    );
+
+    await renderSheet(
+      () => {},
+      { date: new Date('2026-08-24T12:00:00') },
+      (actions) => { actionsRef.current = actions; },
+      FUTURE_NOW,
+    );
+    await screen.findByText('Workout structure');
+    await act(async () => actionsRef.current?.effortMetric?.change('feel'));
+
+    expect(await screen.findByText('Temporary effort metric failure')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Retry effort metric' })).toBeOnTheScreen();
+
+    await act(async () => actionsRef.current?.effortMetric?.change('pace'));
+
+    expect(screen.queryByText('Temporary effort metric failure')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry effort metric' })).toBeNull();
+  });
+
   it('renders the compact workout summary from general primitives', async () => {
     await renderSheet();
 

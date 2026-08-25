@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   CalendarEvent,
   ClothingRecommendation,
+  EffortMetric,
   PlannedWorkoutClothing,
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
@@ -18,11 +19,13 @@ import type {
 import {
   AppText,
   Badge,
+  Button,
   Card,
   Grid,
   Section,
   StateView,
 } from '@/components/ui';
+import { startOfLocalDay } from '@/domain/eventStatus';
 import {
   usePlannedWorkoutDetail,
   usePlannedWorkoutMutations,
@@ -51,6 +54,11 @@ type PlannedWorkoutSheetProps = {
 
 export type PlannedWorkoutActions = {
   pending: boolean;
+  effortMetric: {
+    value: EffortMetric;
+    heartRateAvailable: boolean;
+    change: (metric: EffortMetric) => void;
+  } | null;
   move: () => void;
   replace: (category: PlannedWorkoutReplacementCategory) => void;
   deleteWorkout: () => void;
@@ -279,6 +287,27 @@ function PlannedWorkoutHeader({
   );
 }
 
+function isEffortMetricEditable(
+  event: CalendarEvent,
+  detail: PlannedWorkoutDetail,
+  now: Date,
+): boolean {
+  if (
+    event.type !== 'planned' ||
+    event.category === 'race' ||
+    detail.event.category === 'race' ||
+    event.pairedEventId != null
+  ) {
+    return false;
+  }
+
+  const detailDay = parseLocalDateTime(detail.event.startDateLocal);
+  return (
+    !Number.isNaN(detailDay.getTime()) &&
+    startOfLocalDay(detailDay) >= startOfLocalDay(now)
+  );
+}
+
 function WorkoutDescription({ description }: { description: string }) {
   const notes = extractWorkoutNotes(description);
   if (notes == null) return null;
@@ -343,6 +372,7 @@ function DetailBody({
   const [movePickerValue, setMovePickerValue] = useState(detailDate);
   const [replacementPending, setReplacementPending] =
     useState<PlannedWorkoutReplacementCategory | null>(null);
+  const [failedEffortMetric, setFailedEffortMetric] = useState<EffortMetric | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const saveMove = async (moveDate: Date) => {
@@ -381,11 +411,33 @@ function DetailBody({
     }
   }, [mutations.deleteWorkout, onClose]);
 
+  const changeEffortMetric = useCallback(async (effortMetric: EffortMetric) => {
+    if (effortMetric === detail.effortMetric) {
+      setActionMessage(null);
+      setFailedEffortMetric(null);
+      return;
+    }
+    setActionMessage(null);
+    setFailedEffortMetric(effortMetric);
+    try {
+      await mutations.changeEffortMetric.mutateAsync(effortMetric);
+      setFailedEffortMetric(null);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Failed to update effort metric.');
+    }
+  }, [detail.effortMetric, mutations.changeEffortMetric]);
+
+  const retryEffortMetric = useCallback(() => {
+    if (failedEffortMetric == null) return;
+    void changeEffortMetric(failedEffortMetric);
+  }, [changeEffortMetric, failedEffortMetric]);
+
   const actionPending =
     mutations.move.isPending ||
     mutations.replace.isPending ||
     mutations.deleteWorkout.isPending ||
-    mutations.savePreRunCarbs.isPending;
+    mutations.savePreRunCarbs.isPending ||
+    mutations.changeEffortMetric.isPending;
 
   const openMove = useCallback(() => {
     setMovePickerValue(detailDate);
@@ -413,10 +465,26 @@ function DetailBody({
 
   const actions = useMemo<PlannedWorkoutActions>(() => ({
     pending: actionPending,
+    effortMetric: isEffortMetricEditable(event, detail, now)
+      ? {
+          value: detail.effortMetric,
+          heartRateAvailable: detail.heartRateMetricAvailable,
+          change: (metric) => void changeEffortMetric(metric),
+        }
+      : null,
     move: openMove,
     replace: (category) => void replaceWorkout(category),
     deleteWorkout: () => void deleteWorkout(),
-  }), [actionPending, deleteWorkout, openMove, replaceWorkout]);
+  }), [
+    actionPending,
+    changeEffortMetric,
+    deleteWorkout,
+    detail,
+    event,
+    now,
+    openMove,
+    replaceWorkout,
+  ]);
 
   const scrollCarbsAboveKeyboard = useCallback((target: number) => {
     if (Platform.OS !== 'android') return;
@@ -470,10 +538,25 @@ function DetailBody({
             date={detailDate}
             now={now}
           />
+          {mutations.changeEffortMetric.isPending ? (
+            <View style={styles.effortMetricPending} accessibilityLiveRegion="polite">
+              <ActivityIndicator color={SpringaColors.brandText} />
+              <AppText variant="caption" tone="muted" selectable>
+                Updating effort metric…
+              </AppText>
+            </View>
+          ) : null}
           {actionMessage ? (
             <AppText variant="caption" tone="muted" accessibilityRole="alert" selectable>
               {actionMessage}
             </AppText>
+          ) : null}
+          {failedEffortMetric != null && !mutations.changeEffortMetric.isPending ? (
+            <Button
+              label="Retry effort metric"
+              variant="secondary"
+              onPress={retryEffortMetric}
+            />
           ) : null}
           <NativePresentation
             detail={detail}
@@ -566,6 +649,11 @@ const styles = StyleSheet.create({
   },
   headerDate: {
     flexShrink: 1,
+  },
+  effortMetricPending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   content: {
     gap: Spacing.lg,

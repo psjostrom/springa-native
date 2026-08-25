@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { ApiError, createApiClient, parseUserSettings } from './client';
 import { apiUrl } from '@/test/msw/helpers';
 import { degradedCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
+import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
 import { server } from '@/test/msw/server';
 
 const baseUrl = process.env.EXPO_PUBLIC_SPRINGA_API_URL ?? 'https://www.springa.run';
@@ -131,6 +132,8 @@ describe('createApiClient', () => {
     server.use(
       http.get(apiUrl('/api/intervals/events/event-123'), () =>
         HttpResponse.json({
+          effortMetric: 'pace',
+          heartRateMetricAvailable: false,
           event: {
             id: 'event-123',
             intervalsEventId: 123,
@@ -155,6 +158,42 @@ describe('createApiClient', () => {
     const detail = await makeClient().getPlannedWorkoutDetail('event-123');
 
     expect(detail.event.name).toBe('W05 Easy');
+  });
+
+  it('sends an exact effort metric body and parses the returned detail', async () => {
+    let body: unknown;
+    server.use(
+      http.put(apiUrl('/api/intervals/events/:id'), async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          ...defaultPlannedWorkoutDetail('event-123'),
+          effortMetric: 'hr',
+          heartRateMetricAvailable: true,
+        });
+      }),
+    );
+
+    const detail = await makeClient().changeWorkoutEffortMetric('event-123', 'hr');
+
+    expect(body).toEqual({ effortMetric: 'hr' });
+    expect(detail.effortMetric).toBe('hr');
+    expect(detail.heartRateMetricAvailable).toBe(true);
+  });
+
+  it('rejects an effort metric response for another workout', async () => {
+    server.use(
+      http.put(apiUrl('/api/intervals/events/:id'), () =>
+        HttpResponse.json(defaultPlannedWorkoutDetail('event-456')),
+      ),
+    );
+
+    await expect(
+      makeClient().changeWorkoutEffortMetric('event-123', 'feel'),
+    ).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      message: 'Effort metric response did not match requested workout',
+    });
   });
 
   it('sends M4 mutation payloads', async () => {

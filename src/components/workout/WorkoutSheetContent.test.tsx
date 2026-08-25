@@ -6,6 +6,7 @@ import type { CalendarEvent } from '@/api/types';
 import { ApiClientProvider } from '@/api/ApiClientProvider';
 import { AuthProviderForTests } from '@/auth/AuthContext';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
+import type { PlannedWorkoutActions } from '@/components/workout/PlannedWorkoutSheet';
 import { getWorkoutStatusBadge } from '@/components/workout/workoutStatusBadge';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
 import { queryKeys } from '@/query/keys';
@@ -76,12 +77,23 @@ describe('WorkoutSheetContent', () => {
   });
 
   it('shows planned chrome and detail for upcoming planned', async () => {
+    const actionsRef = { current: null as PlannedWorkoutActions | null };
     await renderWithApp(
-      <WorkoutSheetContent event={sampleEvent()} onClose={() => {}} now={NOW} />,
+      <WorkoutSheetContent
+        event={sampleEvent()}
+        onClose={() => {}}
+        onActionsReady={(value) => { actionsRef.current = value; }}
+        now={NOW}
+      />,
     );
     expect(screen.getByText('Threshold intervals')).toBeOnTheScreen();
     expect(screen.getByText('Planned')).toBeOnTheScreen();
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
+    expect(actionsRef.current?.effortMetric).toMatchObject({
+      value: 'pace',
+      change: expect.any(Function),
+    });
     expect(screen.getByText('T-shirt')).toBeOnTheScreen();
     expect(screen.getByText('65m')).toBeOnTheScreen();
   });
@@ -106,6 +118,7 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByLabelText('Km 1, pace 5:25 per km, avg HR 142 bpm, elevation +4 m')).toBeOnTheScreen();
     expect(screen.queryByText('Completed workout')).toBeNull();
     expect(screen.queryByText('Workout structure')).toBeNull();
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
   });
 
   it('clears completed editor drafts when the selected event changes', async () => {
@@ -172,6 +185,7 @@ describe('WorkoutSheetContent', () => {
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
     expect(screen.getByText('T-shirt')).toBeOnTheScreen();
     expect(screen.getByText('65m')).toBeOnTheScreen();
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
     expect(screen.queryByText('Completed workout')).toBeNull();
   });
 
@@ -185,12 +199,13 @@ describe('WorkoutSheetContent', () => {
           date: new Date('2026-08-01T12:00:00'),
         })}
         onClose={() => {}}
-        now={NOW}
+        now={new Date('2026-08-14T12:00:00')}
       />,
     );
     expect(screen.getByText('Skipped tempo')).toBeOnTheScreen();
     expect(screen.getByText('Missed')).toBeOnTheScreen();
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
+    expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
   });
 
   it('shows not-found copy when event is missing', async () => {

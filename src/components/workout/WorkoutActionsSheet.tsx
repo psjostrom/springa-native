@@ -1,7 +1,11 @@
 import {
+  Activity,
+  Check,
   ChevronLeft,
   ChevronRight,
   Footprints,
+  Gauge,
+  HeartPulse,
   Move,
   Repeat2,
   Route,
@@ -11,19 +15,25 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import type { PlannedWorkoutReplacementCategory } from '@/api/types';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  type AccessibilityValue,
+} from 'react-native';
+import type { EffortMetric, PlannedWorkoutReplacementCategory } from '@/api/types';
 import { AppText, Button, Card, IconButton } from '@/components/ui';
 import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
 import { IconSize, Radius, Spacing } from '@/theme/tokens';
 import type { PlannedWorkoutActions } from './PlannedWorkoutSheet';
 
-type SheetMode = 'actions' | 'replace' | 'delete';
+type SheetMode = 'actions' | 'replace' | 'runBy' | 'delete';
 
 type PendingAction =
   | { type: 'move' }
   | { type: 'replace'; category: PlannedWorkoutReplacementCategory }
+  | { type: 'effortMetric'; metric: EffortMetric }
   | { type: 'delete' };
 
 type Props = {
@@ -70,12 +80,39 @@ const replacementCategories: PlannedWorkoutReplacementCategory[] = [
   'club',
 ];
 
+const runByChoices: Record<
+  EffortMetric,
+  { label: string; description: string; icon: LucideIcon; color: string }
+> = {
+  pace: {
+    label: 'Pace',
+    description: 'Follow pace targets',
+    icon: Gauge,
+    color: HrZoneColors[2],
+  },
+  hr: {
+    label: 'Heart rate',
+    description: 'Stay in heart-rate zones',
+    icon: HeartPulse,
+    color: HrZoneColors[4],
+  },
+  feel: {
+    label: 'Feel',
+    description: 'Go by how it feels',
+    icon: Activity,
+    color: SpringaColors.brand,
+  },
+};
+
 function ActionRow({
   label,
   description,
   icon: Icon,
   color,
   destructive = false,
+  accessibilityLabel = `${label} workout`,
+  accessibilityHint,
+  accessibilityValue,
   onPress,
 }: {
   label: string;
@@ -83,13 +120,18 @@ function ActionRow({
   icon: LucideIcon;
   color: string;
   destructive?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityValue?: AccessibilityValue;
   onPress: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label} workout`}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityValue={accessibilityValue}
       style={({ pressed }) => pressed && styles.pressed}
     >
       <Card tone="subtle" style={styles.actionRow}>
@@ -103,6 +145,39 @@ function ActionRow({
           <AppText variant="caption" tone="muted">{description}</AppText>
         </View>
         <ChevronRight color={SpringaColors.muted} size={IconSize.sm} />
+      </Card>
+    </Pressable>
+  );
+}
+
+function RunByChoice({
+  metric,
+  selected,
+  onPress,
+}: {
+  metric: EffortMetric;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const choice = runByChoices[metric];
+  const Icon = choice.icon;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Run by ${choice.label}`}
+      accessibilityHint={choice.description}
+      accessibilityState={{ selected }}
+      style={({ pressed }) => [styles.runByChoice, pressed && styles.pressed]}
+    >
+      <Card tone={selected ? 'brand' : 'subtle'} style={styles.runByCard}>
+        <View style={styles.choiceIconRow}>
+          <Icon color={choice.color} size={IconSize.lg} />
+          {selected ? <Check color={SpringaColors.brandText} size={IconSize.sm} /> : null}
+        </View>
+        <AppText variant="subheading">{choice.label}</AppText>
+        <AppText variant="caption" tone="muted">{choice.description}</AppText>
       </Card>
     </Pressable>
   );
@@ -124,6 +199,9 @@ export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutNa
 
     if (pendingAction?.type === 'move') actions.move();
     else if (pendingAction?.type === 'replace') actions.replace(pendingAction.category);
+    else if (pendingAction?.type === 'effortMetric') {
+      actions.effortMetric?.change(pendingAction.metric);
+    }
     else if (pendingAction?.type === 'delete') actions.deleteWorkout();
   };
 
@@ -140,12 +218,28 @@ export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutNa
             <AppText variant="label" tone="muted" numberOfLines={2}>{workoutName}</AppText>
             <View style={styles.actionList}>
               <ActionRow
-                label="Replace"
+                label="Replace workout"
                 description="Choose another workout"
                 icon={Repeat2}
                 color={SpringaColors.brand}
+                accessibilityLabel="Replace workout"
+                accessibilityHint="Choose another workout"
                 onPress={() => setMode('replace')}
               />
+              {actions.effortMetric ? (
+                <ActionRow
+                  label="Run by"
+                  description={`Currently: ${runByChoices[actions.effortMetric.value].label}`}
+                  icon={Gauge}
+                  color={SpringaColors.brand}
+                  accessibilityLabel="Run by"
+                  accessibilityHint="Choose how to guide this workout"
+                  accessibilityValue={{
+                    text: `Currently: ${runByChoices[actions.effortMetric.value].label}`,
+                  }}
+                  onPress={() => setMode('runBy')}
+                />
+              ) : null}
               <ActionRow
                 label="Move"
                 description="Change date and time"
@@ -201,6 +295,39 @@ export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutNa
               })}
             </View>
           </>
+        ) : mode === 'runBy' && actions.effortMetric ? (
+          <>
+            <View style={styles.back}>
+              <IconButton
+                accessibilityLabel="Back to workout actions"
+                onPress={() => setMode('actions')}
+              >
+                <ChevronLeft color={SpringaColors.muted} size={IconSize.md} />
+              </IconButton>
+              <AppText variant="label" tone="muted">Workout actions</AppText>
+            </View>
+            <AppText variant="heading">Run by</AppText>
+            <AppText variant="label" tone="muted">Choose how to guide this workout</AppText>
+            <View style={styles.runByGrid}>
+              {(['pace', 'hr', 'feel'] as const).map((metric) =>
+                metric === 'hr' &&
+                !actions.effortMetric?.heartRateAvailable &&
+                actions.effortMetric?.value !== 'hr' ? null : (
+                  <RunByChoice
+                    key={metric}
+                    metric={metric}
+                    selected={actions.effortMetric?.value === metric}
+                    onPress={() => dismissFor({ type: 'effortMetric', metric })}
+                  />
+                ),
+              )}
+            </View>
+            {!actions.effortMetric.heartRateAvailable ? (
+              <AppText variant="caption" tone="muted" selectable>
+                Heart rate requires LTHR and five heart-rate zones.
+              </AppText>
+            ) : null}
+          </>
         ) : (
           <>
             <AppText variant="heading">Delete workout?</AppText>
@@ -255,6 +382,22 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 112,
     gap: Spacing.sm,
+  },
+  runByGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  runByChoice: {
+    minWidth: 132,
+    flexBasis: 140,
+    flexGrow: 1,
+  },
+  runByCard: {
+    flex: 1,
+    minHeight: 128,
+    gap: Spacing.sm,
+  },
+  choiceIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   pressed: { opacity: 0.72 },
 });

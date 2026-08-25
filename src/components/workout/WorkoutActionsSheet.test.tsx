@@ -2,11 +2,17 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { describe, expect, it } from 'vitest';
+import type { EffortMetric } from '@/api/types';
 import type { PlannedWorkoutActions } from './PlannedWorkoutSheet';
 import { WorkoutActionsSheet } from './WorkoutActionsSheet';
 
 const actions: PlannedWorkoutActions = {
   deleteWorkout: () => {},
+  effortMetric: {
+    change: () => {},
+    heartRateAvailable: true,
+    value: 'feel',
+  },
   move: () => {},
   pending: false,
   replace: () => {},
@@ -64,7 +70,97 @@ function ModeResetHarness() {
   );
 }
 
+function RunByHarness({ heartRateAvailable = true }: { heartRateAvailable?: boolean }) {
+  const [isPresented, setIsPresented] = useState(true);
+  const [metric, setMetric] = useState<EffortMetric>('feel');
+
+  return (
+    <>
+      <WorkoutActionsSheet
+        isPresented={isPresented}
+        onDismiss={() => setIsPresented(false)}
+        actions={{
+          ...actions,
+          effortMetric: {
+            change: setMetric,
+            heartRateAvailable,
+            value: metric,
+          },
+        }}
+        workoutName="Threshold intervals"
+      />
+      <Text>Current run by: {metric}</Text>
+    </>
+  );
+}
+
 describe('WorkoutActionsSheet', () => {
+  it('shows Run by with the current choice in workout actions', async () => {
+    const view = await render(
+      <WorkoutActionsSheet
+        isPresented
+        onDismiss={() => {}}
+        actions={actions}
+        workoutName="Threshold intervals"
+      />,
+    );
+
+    expect(view.getByLabelText('Run by')).toHaveProp(
+      'accessibilityValue',
+      { text: 'Currently: Feel' },
+    );
+    expect(view.getByText('Currently: Feel')).toBeOnTheScreen();
+    expect(view.getByLabelText('Replace workout')).toBeOnTheScreen();
+  });
+
+  it('shows matching Run by choices and marks the current choice', async () => {
+    const view = await render(
+      <WorkoutActionsSheet
+        isPresented
+        onDismiss={() => {}}
+        actions={actions}
+        workoutName="Threshold intervals"
+      />,
+    );
+
+    fireEvent.press(view.getByLabelText('Run by'));
+
+    expect(await view.findByText('Choose how to guide this workout')).toBeOnTheScreen();
+    expect(view.getByLabelText('Run by Pace')).toBeOnTheScreen();
+    expect(view.getByLabelText('Run by Heart rate')).toBeOnTheScreen();
+    expect(view.getByLabelText('Run by Feel')).toHaveProp(
+      'accessibilityState',
+      { selected: true },
+    );
+    expect(view.getByLabelText('Run by Feel')).toHaveProp(
+      'accessibilityHint',
+      'Go by how it feels',
+    );
+  });
+
+  it('changes Run by only after native dismissal completes', async () => {
+    const view = await render(<RunByHarness />);
+
+    fireEvent.press(await view.findByLabelText('Run by'));
+    fireEvent.press(await view.findByLabelText('Run by Pace'));
+
+    expect(view.getByText('Current run by: feel')).toBeOnTheScreen();
+    const completeDismissal = await view.findByLabelText('Complete bottom sheet dismissal');
+    await act(async () => fireEvent.press(completeDismissal));
+
+    expect(await view.findByText('Current run by: pace')).toBeOnTheScreen();
+  });
+
+  it('omits unavailable heart rate and explains why', async () => {
+    const view = await render(<RunByHarness heartRateAvailable={false} />);
+
+    fireEvent.press(await view.findByLabelText('Run by'));
+
+    expect(await view.findByText('Choose how to guide this workout')).toBeOnTheScreen();
+    expect(view.queryByLabelText('Run by Heart rate')).toBeNull();
+    expect(view.getByText('Heart rate requires LTHR and five heart-rate zones.')).toBeOnTheScreen();
+  });
+
   it('shows every replacement option including the current category', async () => {
     const view = await render(
       <WorkoutActionsSheet

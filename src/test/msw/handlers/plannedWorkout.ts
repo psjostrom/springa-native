@@ -6,6 +6,8 @@ export function defaultPlannedWorkoutDetail(
   id = 'event-123',
 ): PlannedWorkoutDetail {
   return {
+    effortMetric: 'pace',
+    heartRateMetricAvailable: false,
     event: {
       id,
       intervalsEventId: 123,

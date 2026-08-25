@@ -5,11 +5,13 @@ import {
   type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import type { ApiClient } from '@/api/client';
 import type {
   CalendarEvent,
+  EffortMetric,
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
 } from '@/api/types';
@@ -20,10 +22,12 @@ const PLANNED_WORKOUT_STALE_TIME = 60_000;
 function replaceCalendarEvent(
   event: CalendarEvent,
   detail: PlannedWorkoutDetail,
+  originalEventId = detail.event.id,
 ): CalendarEvent {
-  if (event.id !== detail.event.id) return event;
+  if (event.id !== originalEventId) return event;
   return {
     ...event,
+    id: detail.event.id,
     date: new Date(detail.event.startDateLocal),
     name: detail.event.name,
     description: detail.event.description,
@@ -36,6 +40,7 @@ function replaceCalendarEvent(
       : detail.metrics.distance.km * 1000,
     fuelRate: detail.metrics.fuelRateGPerHour,
     prescribedCarbsG: detail.metrics.prescribedCarbsG,
+    preRunCarbsG: detail.preRunCarbsG,
   };
 }
 
@@ -90,6 +95,37 @@ export function usePlannedWorkoutMutations(eventId: string) {
 
   const plannedWorkoutKey = queryKeys.plannedWorkout(identity, eventId);
   const calendarKey = queryKeys.calendar(identity);
+  const pendingReplacementRef = useRef<{
+    originalEventId: string;
+    identity: string;
+    category: PlannedWorkoutReplacementCategory;
+    replacementEventId: string;
+  } | null>(null);
+  const publishDetail = (
+    detail: PlannedWorkoutDetail,
+    originalEventId = detail.event.id,
+  ) => {
+    queryClient.setQueryData(
+      queryKeys.plannedWorkout(identity, detail.event.id),
+      detail,
+    );
+    queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
+      { queryKey: calendarKey },
+      (current) => current == null
+        ? current
+        : {
+            ...current,
+            pages: current.pages.map((page) =>
+              page.map((event) => replaceCalendarEvent(event, detail, originalEventId))),
+          },
+    );
+    if (originalEventId !== detail.event.id) {
+      queryClient.removeQueries({
+        queryKey: queryKeys.plannedWorkout(identity, originalEventId),
+        exact: true,
+      });
+    }
+  };
 
   return {
     move: useMutation({
@@ -141,21 +177,61 @@ export function usePlannedWorkoutMutations(eventId: string) {
     replace: useMutation({
       onMutate: () => queryClient.cancelQueries({ queryKey: calendarKey }),
       mutationFn: async (category: PlannedWorkoutReplacementCategory) => {
-        const { newId } = await client.replaceWorkout(eventId, category);
-        return client.getPlannedWorkoutDetail(String(newId));
+        let pendingReplacement = pendingReplacementRef.current;
+        if (
+          pendingReplacement != null &&
+          (pendingReplacement.originalEventId !== eventId || pendingReplacement.identity !== identity)
+        ) {
+          pendingReplacementRef.current = null;
+          pendingReplacement = null;
+        }
+        if (pendingReplacement != null && pendingReplacement.category !== category) {
+          throw new Error(
+            'This workout was already replaced. Reload the workout before choosing another replacement.',
+          );
+        }
+        if (pendingReplacement == null) {
+          const { newId } = await client.replaceWorkout(eventId, category);
+          pendingReplacement = {
+            originalEventId: eventId,
+            identity,
+            category,
+            replacementEventId: String(newId),
+          };
+          pendingReplacementRef.current = pendingReplacement;
+        }
+        try {
+          const detail = await queryClient.fetchQuery({
+            ...plannedWorkoutQueryOptions(
+              client,
+              identity,
+              pendingReplacement.replacementEventId,
+            ),
+            retry: 1,
+          });
+          return { detail, originalEventId: eventId };
+        } catch (error) {
+          queryClient.removeQueries({ queryKey: plannedWorkoutKey, exact: true });
+          await queryClient.invalidateQueries({ queryKey: calendarKey });
+          throw error;
+        }
       },
+      onSuccess: ({ detail, originalEventId }) => {
+        pendingReplacementRef.current = null;
+        publishDetail(detail, originalEventId);
+      },
+    }),
+    changeEffortMetric: useMutation({
+      onMutate: async () => {
+        await Promise.all([
+          queryClient.cancelQueries({ queryKey: plannedWorkoutKey }),
+          queryClient.cancelQueries({ queryKey: calendarKey }),
+        ]);
+      },
+      mutationFn: (effortMetric: EffortMetric) =>
+        client.changeWorkoutEffortMetric(eventId, effortMetric),
       onSuccess: (detail) => {
-        queryClient.setQueryData(plannedWorkoutKey, detail);
-        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
-          { queryKey: calendarKey },
-          (current) => current == null
-            ? current
-            : {
-                ...current,
-                pages: current.pages.map((page) =>
-                  page.map((event) => replaceCalendarEvent(event, detail))),
-              },
-        );
+        publishDetail(detail);
       },
     }),
     deleteWorkout: useMutation({

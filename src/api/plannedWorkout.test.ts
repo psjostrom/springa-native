@@ -3,6 +3,8 @@ import { ApiError } from './errors';
 import { parsePlannedWorkoutDetail } from './plannedWorkout';
 
 const fixture = {
+  effortMetric: 'pace',
+  heartRateMetricAvailable: false,
   event: {
     id: 'event-123',
     intervalsEventId: 123,
@@ -65,6 +67,8 @@ describe('parsePlannedWorkoutDetail', () => {
   it('parses the server planned-workout contract', () => {
     const detail = parsePlannedWorkoutDetail(fixture);
 
+    expect(detail.effortMetric).toBe('pace');
+    expect(detail.heartRateMetricAvailable).toBe(false);
     expect(detail.event.id).toBe('event-123');
     expect(detail.replacementCategory).toBe('quality');
     expect(detail.structure.sections[0]?.steps[0]?.zone).toBe('z2');
@@ -79,6 +83,35 @@ describe('parsePlannedWorkoutDetail', () => {
       ...fixture,
       replacementCategory: 'tempo',
     })).toThrow(ApiError);
+  });
+
+  it('rejects a missing effort metric', () => {
+    const { effortMetric: _effortMetric, ...missingEffortMetric } = fixture;
+
+    expect(() => parsePlannedWorkoutDetail(missingEffortMetric)).toThrow(ApiError);
+  });
+
+  it('rejects an unknown effort metric', () => {
+    expect(() => parsePlannedWorkoutDetail({
+      ...fixture,
+      effortMetric: 'power',
+    })).toThrow(ApiError);
+  });
+
+  it('rejects a non-boolean heart-rate availability field', () => {
+    expect(() => parsePlannedWorkoutDetail({
+      ...fixture,
+      heartRateMetricAvailable: 'false',
+    })).toThrow(ApiError);
+  });
+
+  it('rejects a missing heart-rate availability field', () => {
+    const {
+      heartRateMetricAvailable: _heartRateMetricAvailable,
+      ...missingHeartRateAvailability
+    } = fixture;
+
+    expect(() => parsePlannedWorkoutDetail(missingHeartRateAvailability)).toThrow(ApiError);
   });
 
   it('accepts responses from servers without replacement intent', () => {
