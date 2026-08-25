@@ -1,15 +1,15 @@
 # Native core parity roadmap
 
-Date: 2026-08-06  
+Date: 2026-08-23
 Status: approved for planning  
 Repo: `springa-native` (Expo SDK 57)  
 Companion: web Springa (`psjostrom/springa`) remains the API and domain brain
 
 ## Goal
 
-Ordered milestones from today’s Agenda shell mock to a **usable native core**: authenticated live Agenda, clickable planned + completed workouts (planned full detail; completed Overview only), and a live BG pill.
+Ordered milestones from the original Agenda shell mock to a **usable native core**: authenticated live Agenda, clickable planned + completed workouts (planned full detail; completed Overview only), Planner, and Settings.
 
-This is a **milestone roadmap**, not an implementation plan. Each milestone needs its own approved design spec before coding. Auth, networking, and stores remain blocked until those specs exist (see `AGENTS.md`).
+This is a **milestone roadmap**, not an implementation plan. Each new milestone needs its own approved design spec before coding. New networking and stores remain blocked until those specs exist (see `AGENTS.md`).
 
 ## Scope
 
@@ -21,14 +21,14 @@ This is a **milestone roadmap**, not an implementation plan. Each milestone need
 - Tap → workout detail navigation
 - Planned detail at web EventModal planned parity (structure, fuel, clothing, pre-run carbs, move / replace / delete)
 - Completed / missed → Overview only
-- Live BG pill via Springa `/api/bg` (Scout/Nightscout server-side)
+- Planner
+- Native Settings
 
 ### Explicitly deferred
 
 - Month / Week calendar bodies (leave switcher inert or hide)
 - Completed Deep Dive and Analysis
-- Intel, Coach, Planner, Simulate (tabs stay shell placeholders)
-- Native onboarding / full settings (assume Intervals + NS already connected on web)
+- Intel, Coach, Simulate (tabs stay shell placeholders)
 - Google Calendar sync, push notifications, working theme toggle
 - Direct Intervals or Scout access from the device
 
@@ -48,8 +48,8 @@ Rationale: Springa already owns training + BG product logic. Native replaces the
 
 ## Ordered milestones
 
-Suggested execution: **0 → 1 → 2 → 3 → 4 → 5 → 6**.  
-Milestones 4 and 5 both depend on 3; prefer **4 before 5**. Milestone 6 can overlap once 1 exists, but Agenda is not blocked on BG.
+Milestones 0–5 are delivered. Continue with **6 → 7**.
+Milestones 4 and 5 both depend on 3; prefer **4 before 5**. Planner and Settings both build on the authenticated API client, but Planner comes first.
 
 | # | Milestone | Delivers | Depends on |
 |---|-----------|----------|------------|
@@ -59,7 +59,8 @@ Milestones 4 and 5 both depend on 3; prefer **4 before 5**. Milestone 6 can over
 | **3** | Workout navigation shell | Tap card → detail route; branch planned vs completed/missed | 2 |
 | **4** | Planned detail (full) | Structure, fuel, clothing, pre-run carbs, move/replace/delete via existing Springa APIs | 3 |
 | **5** | Completed Overview | Overview widgets only (report card, stats, splits, carbs, feedback as data allows); missed state; no Deep Dive/Analysis | 3 |
-| **6** | Live BG pill | Poll `/api/bg`; hide when diabetes off / stale / missing — same rules as web | 1 |
+| **6** | Planner | Replace the placeholder with a usable native Planner; exact scope belongs in its design spec | 1 |
+| **7** | Settings | Replace the no-op gear with native Settings; exact scope belongs in its design spec | 1 |
 
 ### Milestone notes
 
@@ -67,7 +68,7 @@ Milestones 4 and 5 both depend on 3; prefer **4 before 5**. Milestone 6 can over
 Hard gate for all real data. Design must cover Google OAuth on device, token/session storage, refresh, logout, and how `requireAuth()`-backed routes accept the native session. Web cookie JWT alone is not enough.
 
 **1 — API client**  
-Single authenticated client to Springa production (and local/dev URLs as needed). Settings read is enough to know whether calendar/BG can work. Full native Settings UI is out of scope; fail clearly if the web account is not connected.
+Single authenticated client to Springa production (and local/dev URLs as needed). Settings read is enough to know whether calendar/BG can work. Write support waits for the Settings milestone; fail clearly if the web account is not connected.
 
 **2 — Live Agenda**  
 Parity target: web `AgendaView` behavior on mobile (upcoming vs history), not Month/Week. Card visuals already exist; wire real `CalendarEvent` data. Remove fixture-driven Agenda once this lands.
@@ -81,8 +82,13 @@ Full planned actions, not read-only. Prefer reusing existing Springa mutation ro
 **5 — Completed Overview**  
 Match the web Overview tab widget set where APIs already support it (`report-card`, `stats`, `pace-splits`, carbs, feedback, etc.). Compose each widget from applicable general native design-system primitives such as `Section`, `Card`, `Grid`, `AppText`, `Badge`, `StateView`, `Button`, and `TextField`. Report-card judgments, meters, split tables, charts, and workout-specific behavior remain feature components; do not add global `MetricCard`, `OverviewCard`, or widget-named primitives. Streams/Deep Dive and AI Analysis wait for a later roadmap.
 
-**6 — Live BG**  
-Replace the static header pill. Same visibility rules as web `CurrentBGPill`. Keep `BgPill` as the domain component and compose its presentation from applicable general design-system primitives. A graph popover can use `AppBottomSheet` only if milestone 6's own design needs a transient sheet; chart and glucose behavior stay feature-local.
+**6 — Planner**
+
+Replace the placeholder with the first useful native Planner surface. Match product behavior from web Springa, keep training-domain logic on the Springa backend, and define the exact slice in this milestone's design spec.
+
+**7 — Settings**
+
+Replace the no-op Settings entry with a native settings surface. Its design spec must define the supported configuration slice and any required writable Springa API contracts without moving secrets or domain logic onto the device.
 
 ## Working rules
 
@@ -97,12 +103,13 @@ Replace the static header pill. Same visibility rules as web `CurrentBGPill`. Ke
 - Signed-in user sees real Intervals workouts on Calendar/Agenda
 - Planned run: open and perform move/replace/delete and pre-run carbs against Springa
 - Completed run: open Overview (not Deep Dive/Analysis)
-- Header BG pill reflects live CGM when diabetes mode and NS are configured
-- Intel / Coach / Planner / Simulate still placeholders; Month/Week still not built
+- Planner is usable for the slice approved in its milestone design
+- Settings is usable for the slice approved in its milestone design
+- Intel / Coach / Simulate still placeholders; Month/Week still not built
 
 ## After this roadmap (not ordered here)
 
-Completed Deep Dive / Analysis → Month/Week → Intel → Coach / Planner / Simulate (order TBD when that work starts).
+Completed Deep Dive / Analysis → Month/Week → Intel → Coach / Simulate (order TBD when that work starts).
 
 ## References
 
