@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react-native';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { describe, expect, it, vi } from 'vitest';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
 import { SpringaColors } from '@/theme/colors';
 import { NewProgramEditor } from './NewProgramEditor';
@@ -77,7 +77,7 @@ describe('Planner native control labels', () => {
       />,
     );
 
-    const slider = screen.getByTestId('planner-fitness-slider-host');
+    const slider = screen.getByTestId('planner-fitness-slider-accessibility');
     expect(slider).toHaveProp('accessibilityRole', 'adjustable');
     expect(slider).toHaveProp('accessibilityLabel', 'Current fitness time, 1-minute increments');
     expect(slider.props.accessibilityValue).toEqual({
@@ -102,9 +102,31 @@ describe('Planner native control labels', () => {
       />,
     );
 
-    expect(screen.getByTestId('planner-fitness-slider-host')).toHaveProp(
+    expect(screen.getByTestId('planner-fitness-slider-accessibility')).toHaveProp(
       'accessibilityLabel',
       'Current fitness time, 30-second increments',
     );
+  });
+
+  it('adjusts fitness time through accessibility actions', async () => {
+    const onChange = vi.fn();
+    await render(
+      <NewProgramEditor
+        value={config}
+        errors={{}}
+        fitnessOptions={fitnessOptions}
+        constraints={constraints}
+        previewing={false}
+        onChange={onChange}
+        onCancel={() => {}}
+        onPreview={() => {}}
+      />,
+    );
+
+    fireEvent(screen.getByTestId('planner-fitness-slider-accessibility'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'increment' },
+    });
+
+    expect(onChange).toHaveBeenCalledWith({ ...config, currentAbilitySecs: 3660 });
   });
 });

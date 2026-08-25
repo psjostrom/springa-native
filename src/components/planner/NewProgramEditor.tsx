@@ -1,4 +1,5 @@
-import { Checkbox, Host, Picker, Slider } from '@expo/ui';
+import { Checkbox, Host, Picker } from '@expo/ui';
+import { useRef } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
 import { AppText, Button, Card, TextField } from '@/components/ui';
@@ -39,6 +40,35 @@ export function NewProgramEditor({
   const fitnessStepDescription = fitnessStep % 60 === 0
     ? `${fitnessStep / 60}-minute`
     : `${fitnessStep}-second`;
+  const fitnessSliderWidth = useRef(0);
+  const fitnessRange = selectedFitness
+    ? selectedFitness.maxSeconds - selectedFitness.minSeconds
+    : 0;
+  const fitnessProgress = selectedFitness && fitnessRange > 0
+    ? Math.max(0, Math.min(1, (value.currentAbilitySecs - selectedFitness.minSeconds) / fitnessRange))
+    : 0;
+  const setFitnessSeconds = (currentAbilitySecs: number) => {
+    if (!selectedFitness) return;
+    onChange({
+      ...value,
+      currentAbilitySecs: Math.min(
+        selectedFitness.maxSeconds,
+        Math.max(selectedFitness.minSeconds, currentAbilitySecs),
+      ),
+    });
+  };
+  const adjustFitness = (delta: number) => {
+    setFitnessSeconds(value.currentAbilitySecs + delta);
+  };
+  const updateFitnessFromPosition = (locationX: number) => {
+    if (!selectedFitness || fitnessSliderWidth.current <= 0) return;
+    const progress = Math.max(0, Math.min(1, locationX / fitnessSliderWidth.current));
+    const rawSeconds = selectedFitness.minSeconds + progress * fitnessRange;
+    const steppedSeconds = selectedFitness.minSeconds
+      + Math.round((rawSeconds - selectedFitness.minSeconds) / selectedFitness.stepSeconds)
+        * selectedFitness.stepSeconds;
+    setFitnessSeconds(steppedSeconds);
+  };
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
       <ScrollView
@@ -88,11 +118,12 @@ export function NewProgramEditor({
             {selectedFitness ? (
               <>
                 <AppText variant="heading" style={styles.fitnessTime}>{fitnessTime}</AppText>
-                <Host
-                  testID="planner-fitness-slider-host"
-                  colorScheme="dark"
+                <View
+                  testID="planner-fitness-slider-accessibility"
+                  collapsable={false}
                   style={styles.sliderHost}
                   accessible
+                  importantForAccessibility="yes"
                   accessibilityRole="adjustable"
                   accessibilityLabel={`Current fitness time, ${fitnessStepDescription} increments`}
                   accessibilityValue={{
@@ -101,16 +132,30 @@ export function NewProgramEditor({
                     now: value.currentAbilitySecs,
                     text: fitnessTime,
                   }}
+                  accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+                  onAccessibilityAction={({ nativeEvent }) => {
+                    const delta = nativeEvent.actionName === 'increment'
+                      ? selectedFitness.stepSeconds
+                      : nativeEvent.actionName === 'decrement'
+                        ? -selectedFitness.stepSeconds
+                      : 0;
+                    if (delta !== 0) adjustFitness(delta);
+                  }}
+                  onLayout={({ nativeEvent }) => {
+                    fitnessSliderWidth.current = nativeEvent.layout.width;
+                  }}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={({ nativeEvent }) => updateFitnessFromPosition(nativeEvent.locationX)}
+                  onResponderMove={({ nativeEvent }) => updateFitnessFromPosition(nativeEvent.locationX)}
+                  onResponderTerminationRequest={() => false}
                 >
-                  <Slider
-                    value={value.currentAbilitySecs}
-                    min={selectedFitness.minSeconds}
-                    max={selectedFitness.maxSeconds}
-                    step={selectedFitness.stepSeconds}
-                    onValueChange={(currentAbilitySecs) => onChange({ ...value, currentAbilitySecs })}
-                    testID="planner-fitness-slider"
-                  />
-                </Host>
+                  <View pointerEvents="none" style={styles.sliderTrack}>
+                    <View style={styles.sliderTrackBackground} />
+                    <View style={[styles.sliderTrackFill, { width: `${fitnessProgress * 100}%` }]} />
+                    <View style={[styles.sliderThumb, { left: `${fitnessProgress * 100}%` }]} />
+                  </View>
+                </View>
               </>
             ) : null}
             {errors.currentAbilityDist ? <AppText tone="error" variant="caption">{errors.currentAbilityDist}</AppText> : null}
@@ -210,6 +255,32 @@ const styles = StyleSheet.create({
   selectedChip: { backgroundColor: SpringaColors.brandAction, borderColor: SpringaColors.brand },
   fitnessTime: { textAlign: 'center', marginTop: Spacing.sm },
   sliderHost: { minHeight: 52, width: '100%', alignSelf: 'stretch' },
+  sliderTrack: { flex: 1, justifyContent: 'center' },
+  sliderTrackBackground: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: SpringaColors.borderSubtle,
+  },
+  sliderTrackFill: {
+    position: 'absolute',
+    left: 0,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: SpringaColors.brand,
+  },
+  sliderThumb: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    marginLeft: -11,
+    borderRadius: 11,
+    backgroundColor: SpringaColors.brandAction,
+    borderColor: SpringaColors.brand,
+    borderWidth: 2,
+  },
   nativeHost: { minHeight: 52, minWidth: 180, alignSelf: 'stretch' },
   checkboxRow: { gap: Spacing.sm },
   checkboxControlRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
