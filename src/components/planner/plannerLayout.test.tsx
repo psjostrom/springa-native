@@ -87,4 +87,24 @@ describe('Planner native control labels', () => {
       text: '1:00:00',
     });
   });
+
+  it('describes sub-minute fitness steps accurately', async () => {
+    await render(
+      <NewProgramEditor
+        value={{ ...config, currentAbilityDist: 5, currentAbilitySecs: 1500 }}
+        errors={{}}
+        fitnessOptions={[{ label: '5K', distanceKm: 5, defaultSeconds: 1500, minSeconds: 1200, maxSeconds: 1800, stepSeconds: 30 }]}
+        constraints={constraints}
+        previewing={false}
+        onChange={() => {}}
+        onCancel={() => {}}
+        onPreview={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('planner-fitness-slider-host')).toHaveProp(
+      'accessibilityLabel',
+      'Current fitness time, 30-second increments',
+    );
+  });
 });

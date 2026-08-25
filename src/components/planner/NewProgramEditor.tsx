@@ -35,7 +35,10 @@ export function NewProgramEditor({
   const selectedFitness = fitnessOptions.find((option) => option.distanceKm === value.currentAbilityDist) ?? fitnessOptions[0];
   const basePhaseAllowed = value.totalWeeks >= constraints.basePhaseMinimumWeeks;
   const fitnessTime = formatFitnessTime(value.currentAbilitySecs);
-  const fitnessStepMinutes = selectedFitness == null ? 0 : Math.round(selectedFitness.stepSeconds / 60);
+  const fitnessStep = selectedFitness?.stepSeconds ?? 0;
+  const fitnessStepDescription = fitnessStep % 60 === 0
+    ? `${fitnessStep / 60}-minute`
+    : `${fitnessStep}-second`;
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
       <ScrollView
@@ -91,7 +94,7 @@ export function NewProgramEditor({
                   style={styles.sliderHost}
                   accessible
                   accessibilityRole="adjustable"
-                  accessibilityLabel={`Current fitness time, ${fitnessStepMinutes}-minute increments`}
+                  accessibilityLabel={`Current fitness time, ${fitnessStepDescription} increments`}
                   accessibilityValue={{
                     min: selectedFitness.minSeconds,
                     max: selectedFitness.maxSeconds,
