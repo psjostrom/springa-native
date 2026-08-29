@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
+import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import {
@@ -108,13 +113,28 @@ export function useCalendarEvents() {
     return fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const reload = useCallback(async () => {
+    queryClient.setQueryData<InfiniteData<CalendarEvent[], DateWindow>>(
+      queryKeys.calendar(identity),
+      (old) => {
+        if (!old || old.pages.length === 0) return old;
+        return {
+          pages: [old.pages[0]],
+          pageParams: [old.pageParams[0]],
+        };
+      },
+    );
+    prefetchedFor.current = null;
+    return query.refetch();
+  }, [identity, query, queryClient]);
+
   return {
     events,
     isLoading: calendarEnabled && query.isPending,
     isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () =>
-      queryClient.resetQueries({ queryKey: queryKeys.calendar(identity) }),
+    reload,
+
 
     fetchOlder,
     fetchNewer,
