@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { ApiClientProvider } from '@/api/ApiClientProvider';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { useAuth } from '@/auth/AuthContext';
+import { useQueryHydration } from '@/query/QueryHydrationContext';
 import { QueryProvider } from '@/query/QueryProvider';
 import { SpringaColors } from '@/theme/colors';
 
@@ -12,12 +13,13 @@ SplashScreen.preventAutoHideAsync();
 
 function SplashScreenController() {
   const { status } = useAuth();
+  const { isHydrated } = useQueryHydration();
 
   useEffect(() => {
-    if (status !== 'loading') {
+    if (status !== 'loading' && isHydrated) {
       void SplashScreen.hideAsync();
     }
-  }, [status]);
+  }, [status, isHydrated]);
 
   return null;
 }
