@@ -61,6 +61,7 @@ export default function WorkoutSheetScreen() {
           event={event ?? null}
           onClose={dismiss}
           onActionsReady={setActions}
+          onReplace={(newId) => router.setParams({ id: newId })}
         />
       </View>
       {actions ? (

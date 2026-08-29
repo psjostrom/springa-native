@@ -65,9 +65,9 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {} }: PlannerR
           value={dateFromValue(value.raceDate)}
           mode="date"
           display="default"
-          onValueChange={(_event, selectedDate) => {
-            if (selectedDate) onChange(setRaceDate(value, dateOnly(selectedDate), new Date()));
+          onChange={(_event, selectedDate) => {
             if (Platform.OS === 'android') setPickerVisible(false);
+            if (selectedDate) onChange(setRaceDate(value, dateOnly(selectedDate), new Date()));
           }}
           onDismiss={() => setPickerVisible(false)}
         />

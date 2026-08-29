@@ -15,13 +15,15 @@ type WorkoutSheetContentProps = {
   onClose: () => void;
   now?: Date;
   onActionsReady?: (actions: PlannedWorkoutActions | null) => void;
+  onReplace?: (newId: string) => void;
 };
 
 export function WorkoutSheetContent({
   event,
   onClose,
-  now = new Date(),
+  now,
   onActionsReady,
+  onReplace,
 }: WorkoutSheetContentProps) {
   if (event == null) {
     return (
@@ -57,6 +59,7 @@ export function WorkoutSheetContent({
         onClose={onClose}
         onActionsReady={onActionsReady}
         now={now}
+        onReplace={onReplace}
       />
     </View>
   );

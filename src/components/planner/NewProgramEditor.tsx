@@ -1,5 +1,5 @@
 import { Checkbox, Host, Picker } from '@expo/ui';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
 import { AppText, Button, Card, TextField } from '@/components/ui';
@@ -33,6 +33,7 @@ export function NewProgramEditor({
   onCancel,
   onPreview,
 }: NewProgramEditorProps) {
+  const [startKmText, setStartKmText] = useState(String(value.startKm));
   const selectedFitness = fitnessOptions.find((option) => option.distanceKm === value.currentAbilityDist) ?? fitnessOptions[0];
   const basePhaseAllowed = value.totalWeeks >= constraints.basePhaseMinimumWeeks;
   const fitnessTime = formatFitnessTime(value.currentAbilitySecs);
@@ -180,10 +181,13 @@ export function NewProgramEditor({
             <TextField
               accessibilityLabel="Starting distance"
               keyboardType="decimal-pad"
-              value={String(value.startKm)}
+              value={startKmText}
               onChangeText={(text) => {
+                setStartKmText(text);
                 const next = Number(text);
-                if (Number.isFinite(next)) onChange({ ...value, startKm: next });
+                if (Number.isFinite(next) && !text.endsWith('.')) {
+                  onChange({ ...value, startKm: next });
+                }
               }}
               error={errors.startKm}
             />

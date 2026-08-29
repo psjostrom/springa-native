@@ -60,7 +60,7 @@ export function useCalendarEvents() {
       olderPageParam(firstPageParam.oldest),
     enabled: calendarEnabled,
     staleTime: CALENDAR_STALE_TIME,
-    maxPages: 3,
+    maxPages: 8,
   });
 
   const pages = query.data?.pages;
@@ -108,12 +108,14 @@ export function useCalendarEvents() {
     return fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const reload = useCallback(() => query.refetch(), [query]);
+
   return {
     events,
     isLoading: calendarEnabled && query.isPending,
     isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () => query.refetch(),
+    reload,
 
 
 

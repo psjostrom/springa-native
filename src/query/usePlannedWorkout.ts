@@ -246,6 +246,19 @@ export function usePlannedWorkoutMutations(eventId: string) {
           plannedWorkoutKey,
           (detail) => detail == null ? detail : { ...detail, preRunCarbsG: carbsG },
         );
+        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
+          { queryKey: calendarKey },
+          (current) => current == null
+            ? current
+            : {
+                ...current,
+                pages: current.pages.map((page) => page.map((event) =>
+                  event.id === eventId
+                    ? { ...event, preRunCarbsG: carbsG }
+                    : event,
+                )),
+              },
+        );
       },
     }),
   };

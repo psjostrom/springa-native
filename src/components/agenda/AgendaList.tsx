@@ -69,32 +69,34 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
     let cancelled = false;
     const runPrefetch = async () => {
-      for (const eventId of plannedUpcomingIds) {
-        if (cancelled) return;
-        const cached = queryClient.getQueryState(
-          queryKeys.plannedWorkout(sessionEmail, eventId),
-        );
-        if (cached?.data != null) continue;
-        await prefetchPlannedWorkoutDetail(
-          queryClient,
-          apiClient,
-          sessionEmail,
-          eventId,
-        ).catch(() => {});
-      }
-      for (const activityId of completedEarlierActivityIds) {
-        if (cancelled) return;
-        const cached = queryClient.getQueryState(
-          queryKeys.completedWorkoutOverview(sessionEmail, activityId),
-        );
-        if (cached?.data != null) continue;
-        await prefetchCompletedWorkoutOverview(
-          queryClient,
-          apiClient,
-          sessionEmail,
-          activityId,
-        ).catch(() => {});
-      }
+      await Promise.all([
+        ...plannedUpcomingIds.map(async (eventId) => {
+          if (cancelled) return;
+          const cached = queryClient.getQueryState(
+            queryKeys.plannedWorkout(sessionEmail, eventId),
+          );
+          if (cached?.data != null) return;
+          await prefetchPlannedWorkoutDetail(
+            queryClient,
+            apiClient,
+            sessionEmail,
+            eventId,
+          ).catch(() => {});
+        }),
+        ...completedEarlierActivityIds.map(async (activityId) => {
+          if (cancelled) return;
+          const cached = queryClient.getQueryState(
+            queryKeys.completedWorkoutOverview(sessionEmail, activityId),
+          );
+          if (cached?.data != null) return;
+          await prefetchCompletedWorkoutOverview(
+            queryClient,
+            apiClient,
+            sessionEmail,
+            activityId,
+          ).catch(() => {});
+        }),
+      ]);
     };
 
     void runPrefetch();
@@ -112,9 +114,9 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   // Empty older windows are gaps — keep paging while history is open and still empty.
   useEffect(() => {
-    if (!historyMode || earlier.length > 0 || isFetchingOlder || !hasOlder) return;
+    if (!historyMode || earlier.length > 0 || isFetchingOlder || !hasOlder || olderError) return;
     void fetchOlder();
-  }, [historyMode, earlier.length, isFetchingOlder, hasOlder, fetchOlder]);
+  }, [historyMode, earlier.length, isFetchingOlder, hasOlder, olderError, fetchOlder]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
