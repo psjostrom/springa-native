@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import {
@@ -40,6 +40,7 @@ export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 export function useCalendarEvents() {
   const client = useApiClient();
+  const queryClient = useQueryClient();
   const { status: authStatus, session } = useAuth();
   const settings = useSettingsQuery();
   const identity = session?.email ?? '';
@@ -112,7 +113,8 @@ export function useCalendarEvents() {
     isLoading: calendarEnabled && query.isPending,
     isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () => query.refetch(),
+    reload: () =>
+      queryClient.resetQueries({ queryKey: queryKeys.calendar(identity) }),
 
     fetchOlder,
     fetchNewer,
