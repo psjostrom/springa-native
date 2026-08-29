@@ -17,7 +17,7 @@ import type {
 } from '@/api/types';
 import { queryKeys } from './keys';
 
-const PLANNED_WORKOUT_STALE_TIME = 60_000;
+export const PLANNED_WORKOUT_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 function replaceCalendarEvent(
   event: CalendarEvent,
