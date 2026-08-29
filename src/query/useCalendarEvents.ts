@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import {
-  useInfiniteQuery,
-  useQueryClient,
-  type InfiniteData,
-} from '@tanstack/react-query';
-import type { CalendarEvent } from '@/api/types';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import {
@@ -45,7 +40,6 @@ export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 export function useCalendarEvents() {
   const client = useApiClient();
-  const queryClient = useQueryClient();
   const { status: authStatus, session } = useAuth();
   const settings = useSettingsQuery();
   const identity = session?.email ?? '';
@@ -66,6 +60,7 @@ export function useCalendarEvents() {
       olderPageParam(firstPageParam.oldest),
     enabled: calendarEnabled,
     staleTime: CALENDAR_STALE_TIME,
+    maxPages: 3,
   });
 
   const pages = query.data?.pages;
@@ -113,27 +108,13 @@ export function useCalendarEvents() {
     return fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const reload = useCallback(async () => {
-    queryClient.setQueryData<InfiniteData<CalendarEvent[], DateWindow>>(
-      queryKeys.calendar(identity),
-      (old) => {
-        if (!old || old.pages.length === 0) return old;
-        return {
-          pages: [old.pages[0]],
-          pageParams: [old.pageParams[0]],
-        };
-      },
-    );
-    prefetchedFor.current = null;
-    return query.refetch();
-  }, [identity, query, queryClient]);
-
   return {
     events,
     isLoading: calendarEnabled && query.isPending,
     isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
-    reload,
+    reload: () => query.refetch(),
+
 
 
     fetchOlder,
