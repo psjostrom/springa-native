@@ -9,7 +9,6 @@ import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { AppText, Card, StateView } from '@/components/ui';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
-import { queryKeys } from '@/query/keys';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 
 import { prefetchCompletedWorkoutOverview } from '@/query/useCompletedWorkoutOverview';
@@ -67,23 +66,32 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   useEffect(() => {
     if (authStatus !== 'signedIn' || sessionEmail == null) return;
 
-    plannedUpcomingIds.forEach((eventId) => {
-      void prefetchPlannedWorkoutDetail(
-        queryClient,
-        apiClient,
-        sessionEmail,
-        eventId,
-      );
-    });
+    let cancelled = false;
+    const runPrefetch = async () => {
+      for (const eventId of plannedUpcomingIds) {
+        if (cancelled) return;
+        await prefetchPlannedWorkoutDetail(
+          queryClient,
+          apiClient,
+          sessionEmail,
+          eventId,
+        ).catch(() => {});
+      }
+      for (const activityId of completedEarlierActivityIds) {
+        if (cancelled) return;
+        await prefetchCompletedWorkoutOverview(
+          queryClient,
+          apiClient,
+          sessionEmail,
+          activityId,
+        ).catch(() => {});
+      }
+    };
 
-    completedEarlierActivityIds.forEach((activityId) => {
-      void prefetchCompletedWorkoutOverview(
-        queryClient,
-        apiClient,
-        sessionEmail,
-        activityId,
-      );
-    });
+    void runPrefetch();
+    return () => {
+      cancelled = true;
+    };
   }, [
     apiClient,
     authStatus,
@@ -104,15 +112,19 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
     setIsRefreshing(true);
     try {
       const identity = sessionEmail ?? '';
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.calendar(identity) }),
-        queryClient.invalidateQueries({ queryKey: ['planned-workout', identity] }),
-        queryClient.invalidateQueries({ queryKey: ['completed-overview', identity] }),
-      ]);
+      void queryClient.invalidateQueries({
+        queryKey: ['planned-workout', identity],
+        refetchType: 'none',
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['completed-overview', identity],
+        refetchType: 'none',
+      });
+      await reload();
     } finally {
       setIsRefreshing(false);
     }
-  }, [queryClient, sessionEmail]);
+  }, [queryClient, reload, sessionEmail]);
 
   if (isLoading) {
     return (
