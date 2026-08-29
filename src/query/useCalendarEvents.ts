@@ -36,6 +36,8 @@ function newerPageParam(currentNewest: string, now = new Date()): DateWindow | u
   return next;
 }
 
+export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
+
 export function useCalendarEvents() {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
@@ -57,6 +59,7 @@ export function useCalendarEvents() {
     getPreviousPageParam: (_firstPage, _pages, firstPageParam) =>
       olderPageParam(firstPageParam.oldest),
     enabled: calendarEnabled,
+    staleTime: CALENDAR_STALE_TIME,
   });
 
   const pages = query.data?.pages;

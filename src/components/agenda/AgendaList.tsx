@@ -9,6 +9,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { AppText, Card, StateView } from '@/components/ui';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
+import { prefetchCompletedWorkoutOverview } from '@/query/useCompletedWorkoutOverview';
 import { prefetchPlannedWorkoutDetail } from '@/query/usePlannedWorkout';
 import { SpringaColors } from '@/theme/colors';
 import { IconSize, Spacing } from '@/theme/tokens';
@@ -42,11 +43,20 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   const { earlier, upcoming } = useMemo(() => splitAgendaEvents(events), [events]);
   const plannedUpcomingIds = useMemo(
-    () => upcoming
-      .filter((event) => event.type === 'planned')
-      .slice(0, 8)
-      .map((event) => event.id),
+    () =>
+      upcoming
+        .filter((event) => event.type === 'planned')
+        .slice(0, 10)
+        .map((event) => event.id),
     [upcoming],
+  );
+  const completedEarlierActivityIds = useMemo(
+    () =>
+      earlier
+        .filter((event) => event.type === 'completed' && event.activityId != null)
+        .slice(-10)
+        .map((event) => event.activityId as string),
+    [earlier],
   );
   const sessionEmail = session?.email;
   const historyMode = view === 'history';
@@ -62,7 +72,23 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
         eventId,
       );
     });
-  }, [apiClient, authStatus, plannedUpcomingIds, queryClient, sessionEmail]);
+
+    completedEarlierActivityIds.forEach((activityId) => {
+      void prefetchCompletedWorkoutOverview(
+        queryClient,
+        apiClient,
+        sessionEmail,
+        activityId,
+      );
+    });
+  }, [
+    apiClient,
+    authStatus,
+    completedEarlierActivityIds,
+    plannedUpcomingIds,
+    queryClient,
+    sessionEmail,
+  ]);
 
   // Empty older windows are gaps — keep paging while history is open and still empty.
   useEffect(() => {
