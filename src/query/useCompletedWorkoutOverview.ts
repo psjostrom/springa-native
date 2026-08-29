@@ -4,14 +4,16 @@ import {
   useQuery,
   useQueryClient,
   type InfiniteData,
+  type QueryClient,
   type UseMutationResult,
 } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
+import type { ApiClient } from '@/api/client';
 import type { CalendarEvent, CompletedWorkoutOverview } from '@/api/types';
 import { queryKeys } from './keys';
 
-const OVERVIEW_STALE_TIME = 60_000;
+export const COMPLETED_OVERVIEW_STALE_TIME = 1000 * 60 * 60 * 24; // 24 hours
 
 const PRE_RUN_CLEANUP_WARNING =
   'Pre-run saved, but the old fallback value could not be cleared.';
@@ -40,15 +42,36 @@ function nextPreRunState(
   return { grams: null, source: 'none', fallbackEventId: null };
 }
 
+export function completedWorkoutOverviewQueryOptions(
+  client: ApiClient,
+  identity: string,
+  activityId: string,
+) {
+  return {
+    queryKey: queryKeys.completedWorkoutOverview(identity, activityId),
+    queryFn: () => client.getCompletedWorkoutOverview(activityId),
+    staleTime: COMPLETED_OVERVIEW_STALE_TIME,
+  };
+}
+
+export function prefetchCompletedWorkoutOverview(
+  queryClient: QueryClient,
+  client: ApiClient,
+  identity: string,
+  activityId: string,
+) {
+  return queryClient.prefetchQuery(
+    completedWorkoutOverviewQueryOptions(client, identity, activityId),
+  );
+}
+
 export function useCompletedWorkoutOverview(activityId: string) {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
   const identity = session?.email ?? '';
   const enabled = authStatus === 'signedIn' && session != null && activityId.length > 0;
   const query = useQuery({
-    queryKey: queryKeys.completedWorkoutOverview(identity, activityId),
-    queryFn: () => client.getCompletedWorkoutOverview(activityId),
-    staleTime: OVERVIEW_STALE_TIME,
+    ...completedWorkoutOverviewQueryOptions(client, identity, activityId),
     enabled,
   });
 
