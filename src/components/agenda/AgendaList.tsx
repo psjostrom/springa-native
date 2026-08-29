@@ -9,6 +9,7 @@ import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { AppText, Card, StateView } from '@/components/ui';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
+import { queryKeys } from '@/query/keys';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 
 import { prefetchCompletedWorkoutOverview } from '@/query/useCompletedWorkoutOverview';
@@ -70,6 +71,10 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
     const runPrefetch = async () => {
       for (const eventId of plannedUpcomingIds) {
         if (cancelled) return;
+        const cached = queryClient.getQueryState(
+          queryKeys.plannedWorkout(sessionEmail, eventId),
+        );
+        if (cached?.data != null) continue;
         await prefetchPlannedWorkoutDetail(
           queryClient,
           apiClient,
@@ -79,6 +84,10 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       }
       for (const activityId of completedEarlierActivityIds) {
         if (cancelled) return;
+        const cached = queryClient.getQueryState(
+          queryKeys.completedWorkoutOverview(sessionEmail, activityId),
+        );
+        if (cached?.data != null) continue;
         await prefetchCompletedWorkoutOverview(
           queryClient,
           apiClient,
@@ -109,22 +118,18 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
+    const refreshStart = Date.now();
+    console.log('[AGENDA] Pull-to-refresh triggered');
     setIsRefreshing(true);
     try {
-      const identity = sessionEmail ?? '';
-      void queryClient.invalidateQueries({
-        queryKey: ['planned-workout', identity],
-        refetchType: 'none',
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['completed-overview', identity],
-        refetchType: 'none',
-      });
       await reload();
+      console.log(
+        `[AGENDA] Pull-to-refresh finished in ${Date.now() - refreshStart}ms`,
+      );
     } finally {
       setIsRefreshing(false);
     }
-  }, [queryClient, reload, sessionEmail]);
+  }, [reload]);
 
   if (isLoading) {
     return (
