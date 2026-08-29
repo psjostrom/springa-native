@@ -3,7 +3,7 @@ import { createAppQueryClient } from './queryClient';
 import { asyncStoragePersister, PERSIST_MAX_AGE, QUERY_CACHE_KEY } from './persister';
 
 describe('persister and queryClient configuration', () => {
-  it('creates query client with 30-day gcTime and appropriate default options', () => {
+  it('creates query client with 14-day gcTime and appropriate default options', () => {
     const client = createAppQueryClient();
     const defaultOptions = client.getDefaultOptions();
     expect(defaultOptions.queries?.gcTime).toBe(PERSIST_MAX_AGE);
