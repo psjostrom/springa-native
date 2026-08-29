@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    // Gate on local session immediately — SecureStore clear must not block UI.
+    // Gate on local session immediately — SecureStore clear & cache eviction must not block UI.
     // clearSession is queued with saveSession so a late delete cannot wipe a newer sign-in.
     setSession(null);
     setStatus('signedOut');

@@ -1,5 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { describe, expect, it } from 'vitest';
+import { QUERY_CACHE_KEY } from '@/query/persister';
 import {
+  clearAuthSession,
+  clearSession,
   createSessionApi,
   isSessionValid,
   parseSessionJson,
@@ -129,4 +133,51 @@ describe('session persistence queue', () => {
 
     await expect(clearSession()).rejects.toBe(deleteError);
   });
+
+  it('evicts persisted query cache from AsyncStorage when clearing session', async () => {
+    const map = new Map<string, string>();
+    const store: SessionStore = {
+      async getItemAsync(key) {
+        return map.get(key) ?? null;
+      },
+      async setItemAsync(key, value) {
+        map.set(key, value);
+      },
+      async deleteItemAsync(key) {
+        map.delete(key);
+      },
+    };
+
+    const removedKeys: string[] = [];
+    const mockAsyncStorage = {
+      removeItem: async (key: string) => {
+        removedKeys.push(key);
+      },
+    };
+
+    const { clearSession } = createSessionApi(
+      async () => store,
+      mockAsyncStorage,
+    );
+
+    await clearSession();
+
+    expect(removedKeys).toContain('SPRINGA_REACT_QUERY_CACHE');
+  });
 });
+
+describe('default session api and clearAuthSession', () => {
+  it('evicts persisted query cache from default AsyncStorage on clearSession', async () => {
+    await AsyncStorage.setItem(QUERY_CACHE_KEY, 'cached-query-data');
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBe('cached-query-data');
+
+    await clearSession();
+
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+  });
+
+  it('exports clearAuthSession alias', () => {
+    expect(clearAuthSession).toBe(clearSession);
+  });
+});
+

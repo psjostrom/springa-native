@@ -1,3 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { QUERY_CACHE_KEY } from '@/query/persister';
+
 export type Session = {
   token: string;
   expiresAt: number;
@@ -8,6 +11,10 @@ export type SessionStore = {
   getItemAsync: (key: string) => Promise<string | null>;
   setItemAsync: (key: string, value: string) => Promise<void>;
   deleteItemAsync: (key: string) => Promise<void>;
+};
+
+export type AsyncStorageLike = {
+  removeItem: (key: string) => Promise<void>;
 };
 
 const SESSION_KEY = 'springa.session.v1';
@@ -56,8 +63,11 @@ function createPersistQueue() {
   };
 }
 
-/** Session load/save/clear with serialized SecureStore mutations. */
-export function createSessionApi(getStore: () => Promise<SessionStore>) {
+/** Session load/save/clear with serialized SecureStore mutations and cache eviction. */
+export function createSessionApi(
+  getStore: () => Promise<SessionStore>,
+  asyncStorage: AsyncStorageLike = AsyncStorage,
+) {
   const enqueue = createPersistQueue();
 
   async function loadSession(): Promise<Session | null> {
@@ -96,6 +106,7 @@ export function createSessionApi(getStore: () => Promise<SessionStore>) {
           throw err;
         }
       }
+      await asyncStorage.removeItem(QUERY_CACHE_KEY);
     });
   }
 
@@ -107,3 +118,4 @@ const defaultApi = createSessionApi(() => import('expo-secure-store'));
 export const loadSession = defaultApi.loadSession;
 export const saveSession = defaultApi.saveSession;
 export const clearSession = defaultApi.clearSession;
+export const clearAuthSession = defaultApi.clearSession;
