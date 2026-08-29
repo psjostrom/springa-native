@@ -1,14 +1,17 @@
 import { LegendList } from '@legendapp/list/react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, History } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+
 import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { AppText, Card, StateView } from '@/components/ui';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
+import { queryKeys } from '@/query/keys';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
+
 import { prefetchCompletedWorkoutOverview } from '@/query/useCompletedWorkoutOverview';
 import { prefetchPlannedWorkoutDetail } from '@/query/usePlannedWorkout';
 import { SpringaColors } from '@/theme/colors';
@@ -96,6 +99,21 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
     void fetchOlder();
   }, [historyMode, earlier.length, isFetchingOlder, hasOlder, fetchOlder]);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const identity = sessionEmail ?? '';
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.calendar(identity) }),
+        queryClient.invalidateQueries({ queryKey: ['planned-workout', identity] }),
+        queryClient.invalidateQueries({ queryKey: ['completed-overview', identity] }),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient, sessionEmail]);
+
   if (isLoading) {
     return (
       <View accessibilityLabel="Loading calendar">
@@ -132,6 +150,15 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       recycleItems
       estimatedItemSize={96}
       maintainVisibleContentPosition={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          tintColor={SpringaColors.brand}
+          colors={[SpringaColors.brand]}
+        />
+      }
+
       onStartReached={undefined}
       onEndReached={() => {
         if (historyMode) {

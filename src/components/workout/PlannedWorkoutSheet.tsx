@@ -1,10 +1,12 @@
 import {
   ActivityIndicator,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
@@ -357,6 +359,7 @@ function DetailBody({
   onClose,
   onActionsReady,
   now,
+  onRefresh,
 }: {
   detail: PlannedWorkoutDetail;
   event: CalendarEvent;
@@ -364,10 +367,22 @@ function DetailBody({
   onClose: () => void;
   onActionsReady?: (actions: PlannedWorkoutActions | null) => void;
   now: Date;
+  onRefresh?: () => Promise<unknown> | void;
 }) {
   const mutations = usePlannedWorkoutMutations(eventId);
   const detailDate = parseLocalDateTime(detail.event.startDateLocal);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    if (!onRefresh) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [onRefresh]);
+
   const [movePickerMode, setMovePickerMode] = useState<'date' | 'time' | 'datetime' | null>(null);
   const [movePickerValue, setMovePickerValue] = useState(detailDate);
   const [replacementPending, setReplacementPending] =
@@ -531,6 +546,16 @@ function DetailBody({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.content}
           accessibilityLabel="Planned workout details"
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={SpringaColors.brand}
+                colors={[SpringaColors.brand]}
+              />
+            ) : undefined
+          }
         >
           <PlannedWorkoutHeader
             event={event}
@@ -624,6 +649,7 @@ export function PlannedWorkoutSheet({
       onClose={onClose}
       onActionsReady={onActionsReady}
       now={now}
+      onRefresh={reload}
     />
   );
 }

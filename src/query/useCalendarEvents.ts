@@ -112,9 +112,8 @@ export function useCalendarEvents() {
     isLoading: calendarEnabled && query.isPending,
     isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () => {
-      void query.refetch();
-    },
+    reload: () => query.refetch(),
+
     fetchOlder,
     fetchNewer,
     hasOlder: Boolean(hasPreviousPage),

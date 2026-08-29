@@ -81,9 +81,8 @@ export function useCompletedWorkoutOverview(activityId: string) {
     isLoading: enabled && query.isPending,
     isError: enabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () => {
-      void query.refetch();
-    },
+    reload: () => query.refetch(),
+
   };
 }
 

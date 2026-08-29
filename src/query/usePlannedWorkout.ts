@@ -81,9 +81,8 @@ export function usePlannedWorkoutDetail(eventId: string) {
     isError: enabled && query.isError,
     isDisabled: !enabled,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () => {
-      void query.refetch();
-    },
+    reload: () => query.refetch(),
+
   };
 }
 
