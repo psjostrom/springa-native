@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
 import type { ApiErrorDetails } from '@/api/errors';
 import type {
@@ -16,7 +17,6 @@ import { PlannerConfigEditor } from './PlannerConfigEditor';
 import { PlannerFuelRatesCard } from './PlannerFuelRatesCard';
 import { PlannerPreviewView } from './PlannerPreview';
 import { PlannerSummaryCard } from './PlannerSummaryCard';
-import { PlannerUpdateChoiceSheet } from './PlannerUpdateChoiceSheet';
 import { plannerConfigAffectsPlan, validatePlannerDraft } from './plannerDraft';
 
 type PlannerMode = 'collapsed' | 'edit-config' | 'new-program' | 'preview';
@@ -32,12 +32,14 @@ export function PlannerContent() {
   const [preview, setPreview] = useState<PlannerPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewErrorDetails, setPreviewErrorDetails] = useState<ApiErrorDetails | null>(null);
-  const [savedConfig, setSavedConfig] = useState<PlannerConfig | null>(null);
-  const [updateChoicePresented, setUpdateChoicePresented] = useState(false);
-  const [result, setResult] = useState<PlannerApplyResponse | null>(null);
+  const previewRequestId = useRef(0);
+  const [result, setResult] = useState<{
+    response: PlannerApplyResponse;
+    intent: PlannerPreview['intent'];
+  } | null>(null);
   const currentConfig = planner.state?.currentConfig ?? null;
 
-  useEffect(() => setSavedConfig(null), [currentConfig]);
+  useFocusEffect(useCallback(() => () => setResult(null), []));
 
   if (planner.status === 'idle') return null;
   if (planner.status === 'loading') {
@@ -62,11 +64,10 @@ export function PlannerContent() {
 
   const state = planner.state;
   const settingsReady = settings.status !== 'ready' || settings.settings?.diabetesMode !== false;
-  const effectiveConfig = savedConfig ?? currentConfig;
 
   const beginEdit = () => {
-    if (effectiveConfig == null) return;
-    setDraft({ ...effectiveConfig, runDays: [...effectiveConfig.runDays] });
+    if (currentConfig == null) return;
+    setDraft({ ...currentConfig, runDays: [...currentConfig.runDays] });
     setDraftErrors({});
     setConfigError(null);
     setPreviewError(null);
@@ -85,24 +86,39 @@ export function PlannerContent() {
     setMode('new-program');
   };
 
-  const validateDraft = (next: PlannerConfig) => {
-    const errors = validatePlannerDraft(next, state.fitnessOptions, state.constraints, new Date());
+  const cancelDraft = () => {
+    previewRequestId.current += 1;
+    setDraft(null);
+    setDraftErrors({});
+    setConfigError(null);
+    setPreviewError(null);
+    setPreviewErrorDetails(null);
+    setPreview(null);
+    setMode('collapsed');
+  };
+
+  const validateDraft = (next: PlannerConfig, skipTimelineMatch = false) => {
+    const errors = validatePlannerDraft(next, state.fitnessOptions, state.constraints, new Date(), { skipTimelineMatch });
     setDraftErrors(errors);
     return errors;
   };
 
   const saveConfig = async () => {
     if (draft == null) return;
-    const errors = validateDraft(draft);
+    const errors = validateDraft(draft, state.plan.status === 'active');
     if (Object.keys(errors).length > 0) return;
-    const planChanged = effectiveConfig != null && plannerConfigAffectsPlan(effectiveConfig, draft);
+    if (state.plan.status === 'active') {
+      const unchanged = currentConfig != null && !plannerConfigAffectsPlan(currentConfig, draft);
+      if (unchanged && state.plan.sync?.status !== 'dirty') {
+        cancelDraft();
+        return;
+      }
+      await requestPreview('update', draft);
+      return;
+    }
     try {
       await mutations.saveConfig.mutateAsync(draft);
-      setSavedConfig(draft);
       setMode('collapsed');
-      if (planChanged && state.plan.status === 'active' && (state.plan.weeksToGo ?? 0) > 0) {
-        setUpdateChoicePresented(true);
-      }
     } catch (error) {
       setConfigError(error instanceof Error ? error.message : 'Couldn’t save planner settings.');
       if (error instanceof ApiError && error.details?.fields) {
@@ -112,16 +128,19 @@ export function PlannerContent() {
   };
 
   const requestPreview = async (intent: 'start' | 'update', next: PlannerConfig) => {
-    const errors = validateDraft(next);
+    const requestId = ++previewRequestId.current;
+    const errors = validateDraft(next, intent === 'update' && state.plan.status === 'active');
     if (Object.keys(errors).length > 0) return;
     setPreviewError(null);
     setPreviewErrorDetails(null);
     try {
       const nextPreview = await mutations.preview.mutateAsync({ intent, config: next });
+      if (requestId !== previewRequestId.current) return;
       setPreview(nextPreview);
       setDraft(nextPreview.config);
       setMode('preview');
     } catch (error) {
+      if (requestId !== previewRequestId.current) return;
       if (error instanceof ApiError && error.details?.fields) {
         setDraftErrors((previous) => ({ ...previous, ...error.details?.fields }));
       }
@@ -132,6 +151,8 @@ export function PlannerContent() {
 
   const applyPreview = async () => {
     if (preview == null) return;
+    previewRequestId.current += 1;
+    const intent = preview.intent;
     setPreviewError(null);
     setPreviewErrorDetails(null);
     try {
@@ -140,7 +161,7 @@ export function PlannerContent() {
         config: preview.config,
         previewHash: preview.previewHash,
       });
-      setResult(response);
+      setResult({ response, intent });
       setMode('collapsed');
     } catch (error) {
       setPreviewErrorDetails(error instanceof ApiError ? error.details ?? null : null);
@@ -157,15 +178,18 @@ export function PlannerContent() {
       <PlannerConfigEditor
         value={draft}
         errors={draftErrors}
-        requestError={configError}
+        requestError={configError ?? previewError}
         fitnessOptions={state.fitnessOptions}
         constraints={state.constraints}
-        saving={mutations.saveConfig.isPending}
+        saving={mutations.saveConfig.isPending || mutations.preview.isPending}
         onChange={(next) => {
           setDraft(next);
           setDraftErrors({});
           setConfigError(null);
+          setPreviewError(null);
+          setPreviewErrorDetails(null);
         }}
+        onCancel={cancelDraft}
         onDone={() => void saveConfig()}
       />
     );
@@ -186,14 +210,7 @@ export function PlannerContent() {
           setPreviewError(null);
           setPreviewErrorDetails(null);
         }}
-        onCancel={() => {
-          setDraft(null);
-          setDraftErrors({});
-          setConfigError(null);
-          setPreviewError(null);
-          setPreviewErrorDetails(null);
-          setMode('collapsed');
-        }}
+        onCancel={cancelDraft}
         onPreview={() => void requestPreview('start', draft)}
       />
     );
@@ -207,24 +224,20 @@ export function PlannerContent() {
         errorDetails={previewErrorDetails}
         applying={mutations.apply.isPending}
         onEdit={() => {
+          previewRequestId.current += 1;
           setDraft(preview.config);
           setDraftErrors({});
           setConfigError(null);
           setMode(preview.intent === 'start' ? 'new-program' : 'edit-config');
         }}
-        onCancel={() => {
-          setPreview(null);
-          setPreviewError(null);
-          setPreviewErrorDetails(null);
-          setMode('collapsed');
-        }}
+        onCancel={cancelDraft}
         onApply={() => void applyPreview()}
         onPreviewAgain={retryPreview}
       />
     );
   }
 
-  const summaryConfig = effectiveConfig ?? state.newProgramDraft;
+  const summaryConfig = currentConfig ?? state.newProgramDraft;
   const active = state.plan.status === 'active';
   return (
     <>
@@ -236,9 +249,9 @@ export function PlannerContent() {
         {result ? (
           <Card tone="brand" accessibilityLiveRegion="polite">
             <AppText tone="success" variant="label">
-              {result.action === 'replace-plan' ? 'Program started.' : 'Workouts updated.'}
+              {result.intent === 'start' ? 'Program started.' : 'Program updated.'}
             </AppText>
-            {result.warnings.map((warning) => (
+            {result.response.warnings.map((warning) => (
               <AppText key={warning.code} tone="warning">{warning.message}</AppText>
             ))}
           </Card>
@@ -255,7 +268,7 @@ export function PlannerContent() {
             config={summaryConfig}
             hasActivePlan={active}
             weeksToGo={state.plan.weeksToGo}
-            onEdit={effectiveConfig == null ? undefined : beginEdit}
+            onEdit={currentConfig == null ? undefined : beginEdit}
           />
         )}
         <Button
@@ -263,38 +276,8 @@ export function PlannerContent() {
           variant={state.plan.status === 'complete' ? 'primary' : 'secondary'}
           onPress={beginNewProgram}
         />
-        {active && state.plan.sync?.status === 'dirty' ? (
-          <Card tone="brand">
-            <AppText variant="label">
-              {state.plan.sync.dirtyKind === 'target-only' ? 'Targets changed' : 'Schedule changed'}
-            </AppText>
-            <Button label="Preview update" onPress={() => void requestPreview('update', effectiveConfig ?? state.newProgramDraft)} />
-          </Card>
-        ) : null}
-        {previewError && !mutations.preview.isPending ? (
-          <Card tone="subtle">
-            <AppText accessibilityRole="alert" tone="error">{previewError}</AppText>
-            {active ? (
-              <Button
-                label="Preview update"
-                variant="secondary"
-                onPress={() => void requestPreview('update', effectiveConfig ?? state.newProgramDraft)}
-              />
-            ) : null}
-          </Card>
-        ) : null}
         <PlannerFuelRatesCard fuelRates={state.fuelRates} enabled={settingsReady} />
       </ScrollView>
-      <PlannerUpdateChoiceSheet
-        isPresented={updateChoicePresented}
-        onDismiss={() => setUpdateChoicePresented(false)}
-        onKeep={() => setUpdateChoicePresented(false)}
-        onPreview={() => {
-          setUpdateChoicePresented(false);
-          const configToUse = effectiveConfig ?? state.newProgramDraft;
-          void requestPreview('update', configToUse);
-        }}
-      />
     </>
   );
 }

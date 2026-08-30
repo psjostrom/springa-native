@@ -1,4 +1,4 @@
-import { Checkbox, Host, Picker } from '@expo/ui';
+import { Checkbox, Host } from '@expo/ui';
 import { useRef } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
@@ -6,6 +6,7 @@ import { AppText, Button, Card, TextField } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
 import { Radius, Spacing } from '@/theme/tokens';
 import { PlannerRaceGoalFields } from './PlannerRaceGoalFields';
+import { PlannerEffortMetricChips } from './PlannerEffortMetricChips';
 import { PlannerScheduleEditor } from './PlannerScheduleEditor';
 import { PlannerSummaryCard } from './PlannerSummaryCard';
 import { formatFitnessTime } from './plannerDraft';
@@ -90,7 +91,7 @@ export function NewProgramEditor({
             </Pressable>
           </View>
 
-          <PlannerRaceGoalFields value={value} onChange={onChange} errors={errors} />
+          <PlannerRaceGoalFields value={value} onChange={onChange} errors={errors} deriveTimeline />
 
           <View style={styles.section}>
             <AppText variant="label">Current fitness</AppText>
@@ -165,20 +166,15 @@ export function NewProgramEditor({
           <PlannerScheduleEditor value={value} onChange={onChange} errors={errors} />
 
           <View style={styles.section}>
-            <AppText variant="label">Plan options</AppText>
-            <Host colorScheme="dark" matchContents style={styles.nativeHost}>
-              <Picker
-                selectedValue={value.effortMetric}
-                onValueChange={(effortMetric) => onChange({ ...value, effortMetric: effortMetric as PlannerConfig['effortMetric'] })}
-                testID="planner-new-effort-picker"
-              >
-                <Picker.Item label="Pace" value="pace" />
-                <Picker.Item label="Heart rate" value="hr" />
-                <Picker.Item label="Feel" value="feel" />
-              </Picker>
-            </Host>
+            <AppText variant="label">Effort metric</AppText>
+            <PlannerEffortMetricChips
+              value={value.effortMetric}
+              onChange={(effortMetric) => onChange({ ...value, effortMetric })}
+              testID="planner-new-effort-picker"
+            />
+            <AppText variant="label">Starting long-run distance (km)</AppText>
             <TextField
-              accessibilityLabel="Starting distance"
+              accessibilityLabel="Starting long-run distance (km)"
               keyboardType="decimal-pad"
               value={String(value.startKm)}
               onChangeText={(text) => {
@@ -192,6 +188,7 @@ export function NewProgramEditor({
                 <Host
                   colorScheme="dark"
                   style={styles.checkboxHost}
+                  seedColor={SpringaColors.brand}
                   accessible
                   accessibilityRole="checkbox"
                   accessibilityLabel="Include base phase"
@@ -281,7 +278,6 @@ const styles = StyleSheet.create({
     borderColor: SpringaColors.brand,
     borderWidth: 2,
   },
-  nativeHost: { minHeight: 52, minWidth: 180, alignSelf: 'stretch' },
   checkboxRow: { gap: Spacing.sm },
   checkboxControlRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   checkboxHost: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },

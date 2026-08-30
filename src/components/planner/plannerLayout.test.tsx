@@ -2,8 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { describe, expect, it, vi } from 'vitest';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
 import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
+import { PlannerConfigEditor } from './PlannerConfigEditor';
 import { NewProgramEditor } from './NewProgramEditor';
+import { PlannerPreviewView } from './PlannerPreview';
 import { PlannerScheduleEditor } from './PlannerScheduleEditor';
+import { replacePlanPreview } from '@/test/msw/handlers/planner';
 
 const config: PlannerConfig = {
   raceName: '',
@@ -40,10 +44,15 @@ function hasTextColor(node: { props: { style?: unknown } }, color: string): bool
 }
 
 describe('Planner native control labels', () => {
-  it('renders club switch label with app text styling', async () => {
+  it('renders one club heading beside switch', async () => {
     await render(<PlannerScheduleEditor value={config} onChange={() => {}} />);
 
-    expect(screen.getAllByText('Club run').some((node) => hasTextColor(node, SpringaColors.muted))).toBe(true);
+    const clubLabels = screen.getAllByText('Club run');
+    const clubSwitch = screen.getByRole('switch', { name: 'Club run' });
+    expect(clubLabels).toHaveLength(1);
+    const clubLabel = clubLabels[0]!;
+    expect(clubLabel.parent).toBe(clubSwitch.parent);
+    expect(clubLabel.parent).toHaveStyle({ flexDirection: 'row' });
   });
 
   it('renders base-phase checkbox label with app text styling', async () => {
@@ -61,6 +70,68 @@ describe('Planner native control labels', () => {
     );
 
     expect(screen.getAllByText('Include base phase').some((node) => hasTextColor(node, SpringaColors.muted))).toBe(true);
+  });
+
+  it('uses matching effort metric label for new programs', async () => {
+    await render(
+      <NewProgramEditor
+        value={config}
+        errors={{}}
+        fitnessOptions={fitnessOptions}
+        constraints={constraints}
+        previewing={false}
+        onChange={() => {}}
+        onCancel={() => {}}
+        onPreview={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Effort metric')).toBeTruthy();
+  });
+
+  it('gives race goal section same top spacing as other config sections', async () => {
+    await render(
+      <PlannerConfigEditor
+        value={config}
+        errors={{}}
+        fitnessOptions={fitnessOptions}
+        constraints={constraints}
+        saving={false}
+        onChange={() => {}}
+        onCancel={() => {}}
+        onDone={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Race goal').parent?.parent).toHaveStyle({ marginTop: Spacing.xl });
+  });
+
+  it('labels chart with returned preview week range', async () => {
+    const preview = replacePlanPreview();
+    preview.summary = { ...preview.summary, planWeeks: 14 };
+    preview.weeks = Array.from({ length: 8 }, (_, index) => ({
+      week: index + 7,
+      startsOn: '2026-09-01',
+      distanceKm: 20,
+      workoutCount: 1,
+    }));
+    preview.workouts = [];
+
+    await render(
+      <PlannerPreviewView
+        preview={preview}
+        error={null}
+        applying={false}
+        onEdit={() => {}}
+        onCancel={() => {}}
+        onApply={() => {}}
+        onPreviewAgain={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Week 7')).toBeOnTheScreen();
+    expect(screen.getByText('Week 14')).toBeOnTheScreen();
+    expect(screen.queryByText('Week 1')).toBeNull();
   });
 
   it('exposes fitness slider range and value semantics', async () => {

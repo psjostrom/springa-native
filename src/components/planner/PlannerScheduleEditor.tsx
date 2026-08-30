@@ -24,12 +24,14 @@ function DayChip({
   day,
   label,
   selected,
+  disabled,
   accessibilityLabel,
   onPress,
 }: {
   day: PlannerWeekday;
   label: string;
   selected: boolean;
+  disabled?: boolean;
   accessibilityLabel: string;
   onPress: () => void;
 }) {
@@ -37,9 +39,10 @@ function DayChip({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, ...(disabled ? { disabled: true } : {}) }}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.chip, selected && styles.selectedChip]}
+      style={[styles.chip, selected && styles.selectedChip, disabled && styles.disabledChip]}
     >
       <AppText tone={selected ? 'primary' : 'muted'} variant="label">{label}</AppText>
     </Pressable>
@@ -85,11 +88,12 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
         </Section>
       ) : null}
 
-      <Section title="Club run">
+      <View style={styles.clubSection}>
         <View style={styles.switchRow}>
-          <AppText tone="muted" variant="label">Club run</AppText>
+          <AppText variant="subheading">Club run</AppText>
           <Host
             colorScheme="dark"
+            seedColor={SpringaColors.brand}
             style={styles.switchHost}
             accessible
             accessibilityRole="switch"
@@ -113,6 +117,7 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
                   day={item.day}
                   label={item.shortLabel}
                   selected={value.clubDay === item.day}
+                  disabled={value.clubType !== 'long' && item.day === value.longRunDay}
                   accessibilityLabel={`${item.label} club day`}
                   onPress={() => onChange(setClubDay(value, item.day))}
                 />
@@ -145,13 +150,14 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
             {errors.clubType ? <AppText tone="error" variant="caption">{errors.clubType}</AppText> : null}
           </>
         ) : null}
-      </Section>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { gap: Spacing.xl },
+  clubSection: { gap: Spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: {
     minHeight: 44,
@@ -164,6 +170,7 @@ const styles = StyleSheet.create({
     borderColor: SpringaColors.border,
     borderWidth: 1,
   },
+  disabledChip: { opacity: 0.48 },
   selectedChip: { backgroundColor: SpringaColors.brandAction, borderColor: SpringaColors.brand },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   switchHost: { width: 64, height: 48, alignItems: 'flex-end', justifyContent: 'center' },

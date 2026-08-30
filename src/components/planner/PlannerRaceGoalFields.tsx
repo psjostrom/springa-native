@@ -11,6 +11,7 @@ type PlannerRaceGoalFieldsProps = {
   value: PlannerConfig;
   onChange: (value: PlannerConfig) => void;
   errors?: Record<string, string>;
+  deriveTimeline?: boolean;
 };
 
 function dateFromValue(value: string): Date {
@@ -22,7 +23,7 @@ function dateOnly(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function PlannerRaceGoalFields({ value, onChange, errors = {} }: PlannerRaceGoalFieldsProps) {
+export function PlannerRaceGoalFields({ value, onChange, errors = {}, deriveTimeline = false }: PlannerRaceGoalFieldsProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [raceDistanceText, setRaceDistanceText] = useState(String(value.raceDist));
   return (
@@ -35,18 +36,21 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {} }: PlannerR
         value={value.raceName}
         error={errors.raceName}
       />
-      <TextField
-        accessibilityLabel="Race distance"
-        keyboardType="decimal-pad"
-        onChangeText={(text) => {
-          setRaceDistanceText(text);
-          const next = Number(text);
-          if (Number.isFinite(next)) onChange({ ...value, raceDist: next });
-        }}
-        onBlur={() => setRaceDistanceText(String(value.raceDist))}
-        value={raceDistanceText}
-        error={errors.raceDist}
-      />
+      <View style={styles.numericField}>
+        <AppText variant="label">Race distance (km)</AppText>
+        <TextField
+          accessibilityLabel="Race distance (km)"
+          keyboardType="decimal-pad"
+          onChangeText={(text) => {
+            setRaceDistanceText(text);
+            const next = Number(text);
+            if (Number.isFinite(next)) onChange({ ...value, raceDist: next });
+          }}
+          onBlur={() => setRaceDistanceText(String(value.raceDist))}
+          value={raceDistanceText}
+          error={errors.raceDist}
+        />
+      </View>
       <View style={styles.dateField}>
         <AppText variant="label">Race date</AppText>
         <Pressable
@@ -66,7 +70,10 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {} }: PlannerR
           mode="date"
           display="default"
           onValueChange={(_event, selectedDate) => {
-            if (selectedDate) onChange(setRaceDate(value, dateOnly(selectedDate), new Date()));
+            if (selectedDate) {
+              const raceDate = dateOnly(selectedDate);
+              onChange(deriveTimeline ? setRaceDate(value, raceDate, new Date()) : { ...value, raceDate });
+            }
             if (Platform.OS === 'android') setPickerVisible(false);
           }}
           onDismiss={() => setPickerVisible(false)}
@@ -77,6 +84,7 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {} }: PlannerR
 }
 
 const styles = StyleSheet.create({
+  numericField: { gap: Spacing.xs },
   dateField: { gap: Spacing.xs },
   dateButton: {
     minHeight: 52,

@@ -41,6 +41,8 @@ function PreviewChart({ preview }: { preview: PlannerPreviewDto }) {
   const minDistance = preview.weeks.length > 0 ? Math.min(...preview.weeks.map((week) => week.distanceKm)) : 0;
   const totalDistance = preview.weeks.reduce((total, week) => total + week.distanceKm, 0);
   const slotWidth = chartWidth / Math.max(1, preview.weeks.length);
+  const firstWeek = preview.weeks[0]?.week ?? 0;
+  const lastWeek = preview.weeks[preview.weeks.length - 1]?.week ?? 0;
   const summary = `${preview.summary.planWeeks}-week plan. Weekly distance minimum ${minDistance} km, maximum ${maxDistance} km, total ${totalDistance.toFixed(1)} km.`;
 
   return (
@@ -63,8 +65,8 @@ function PreviewChart({ preview }: { preview: PlannerPreviewDto }) {
           })}
         </Svg>
         <View style={styles.axisLabels}>
-          <AppText variant="caption" tone="muted">Week 1</AppText>
-          <AppText variant="caption" tone="muted">Week {preview.summary.planWeeks}</AppText>
+          <AppText variant="caption" tone="muted">Week {firstWeek}</AppText>
+          <AppText variant="caption" tone="muted">Week {lastWeek}</AppText>
         </View>
       </View>
     </Card>
@@ -127,11 +129,6 @@ export function PlannerPreviewView({
         ListHeaderComponent={
           <View style={styles.header}>
             <PlannerSummaryCard config={preview.config} hasActivePlan={false} weeksToGo={null} />
-            <Card tone="brand">
-              <AppText variant="label">
-                {preview.intent === 'start' ? 'Reviewing new program preview' : 'Reviewing workout update'}
-              </AppText>
-            </Card>
             {preview.warning ? (
               <Card tone="subtle">
                 <AppText variant="label" tone="warning">{preview.warning.title}</AppText>

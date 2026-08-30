@@ -15,6 +15,7 @@ import {
 import type { PlannerConfig, PlannerFitnessOption } from '@/api/types';
 
 const NOW = new Date('2026-08-18T12:00:00');
+const STALE_PLAN_NOW = new Date('2026-08-27T12:00:00');
 const options: PlannerFitnessOption[] = [
   { label: '5K', distanceKm: 5, defaultSeconds: 1500, minSeconds: 1200, maxSeconds: 1800, stepSeconds: 30 },
   { label: '10K', distanceKm: 10, defaultSeconds: 3600, minSeconds: 3000, maxSeconds: 4800, stepSeconds: 60 },
@@ -41,6 +42,13 @@ const config: PlannerConfig = {
   startKm: 8,
   includeBasePhase: true,
   effortMetric: 'pace',
+};
+
+const staleConfig: PlannerConfig = {
+  ...config,
+  raceDate: '2026-10-18',
+  totalWeeks: 9,
+  includeBasePhase: false,
 };
 
 describe('Planner draft rules', () => {
@@ -85,10 +93,22 @@ describe('Planner draft rules', () => {
     expect(validatePlannerDraft({ ...config, currentAbilitySecs: 5000 }, options, constraints, NOW)).toHaveProperty('currentAbilitySecs');
   });
 
-  it('ignores race-name and day-order changes when comparing plan inputs', () => {
-    expect(plannerConfigAffectsPlan(config, { ...config, raceName: 'New name' })).toBe(false);
+  it('keeps timeline matching strict by default and only skips stale-plan matching explicitly', () => {
+    expect(validatePlannerDraft(staleConfig, options, constraints, STALE_PLAN_NOW)).toHaveProperty('totalWeeks', 'Plan length must match race date.');
+    expect(validatePlannerDraft(staleConfig, options, constraints, STALE_PLAN_NOW, { skipTimelineMatch: true })).not.toHaveProperty('totalWeeks');
+    expect(validatePlannerDraft({ ...staleConfig, startKm: 1 }, options, constraints, STALE_PLAN_NOW, { skipTimelineMatch: true })).toHaveProperty('startKm');
+  });
+
+  it('keeps changed edit race dates on strict timeline validation', () => {
+    const changedRaceDate = { ...staleConfig, raceDate: '2026-11-01' };
+    expect(validatePlannerDraft(changedRaceDate, options, constraints, STALE_PLAN_NOW, {
+      skipTimelineMatch: changedRaceDate.raceDate === staleConfig.raceDate,
+    })).toHaveProperty('totalWeeks', 'Plan length must match race date.');
+  });
+
+  it('compares every plan field while ignoring run-day order', () => {
     expect(plannerConfigAffectsPlan(config, { ...config, runDays: [0, 4, 2] })).toBe(false);
-    expect(plannerConfigAffectsPlan(config, { ...config, startKm: 10 })).toBe(true);
+    expect(plannerConfigAffectsPlan(config, { ...config, raceName: 'New name' })).toBe(true);
   });
 
   it('calculates speed label and ordered summary segments', () => {
