@@ -141,6 +141,7 @@ export function validatePlannerDraft(
   fitnessOptions: PlannerFitnessOption[],
   constraints: PlannerState['constraints'],
   now: Date,
+  isNewProgram = false,
 ): PlannerFieldErrors {
   const errors: PlannerFieldErrors = {};
   const raceDate = dateAtNoon(config.raceDate);
@@ -148,11 +149,15 @@ export function validatePlannerDraft(
   if (!Number.isFinite(config.raceDist) || config.raceDist < constraints.raceDistanceKm.min || config.raceDist > constraints.raceDistanceKm.max) {
     errors.raceDist = `Race distance must be ${constraints.raceDistanceKm.min}-${constraints.raceDistanceKm.max} km.`;
   }
-  const expectedWeeks = weeksForRaceDate(config.raceDate, now);
-  if (!Number.isInteger(config.totalWeeks) || config.totalWeeks < constraints.minimumWeeks) {
-    errors.totalWeeks = `Plan must be at least ${constraints.minimumWeeks} weeks.`;
-  } else if (expectedWeeks != null && config.totalWeeks !== expectedWeeks) {
-    errors.totalWeeks = 'Plan length must match race date.';
+  if (!Number.isInteger(config.totalWeeks) || config.totalWeeks < 1) {
+    errors.totalWeeks = 'Plan must be at least 1 week.';
+  } else if (isNewProgram) {
+    const expectedWeeks = weeksForRaceDate(config.raceDate, now);
+    if (config.totalWeeks < constraints.minimumWeeks) {
+      errors.totalWeeks = `Plan must be at least ${constraints.minimumWeeks} weeks.`;
+    } else if (expectedWeeks != null && config.totalWeeks !== expectedWeeks) {
+      errors.totalWeeks = 'Plan length must match race date.';
+    }
   }
   const fitness = fitnessOptions.find((option) => option.distanceKm === config.currentAbilityDist);
   if (fitness == null) {

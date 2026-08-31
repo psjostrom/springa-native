@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
@@ -38,6 +38,12 @@ function newerPageParam(currentNewest: string, now = new Date()): DateWindow | u
 
 export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
+const warmedIdentities = new Set<string>();
+
+export function resetCalendarWarming() {
+  warmedIdentities.clear();
+}
+
 export function useCalendarEvents() {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
@@ -65,7 +71,6 @@ export function useCalendarEvents() {
 
   const pages = query.data?.pages;
   const events = useMemo(() => mergeCalendarEvents(pages ?? []), [pages]);
-  const prefetchedFor = useRef<string | null>(null);
   const {
     isSuccess,
     data,
@@ -77,12 +82,12 @@ export function useCalendarEvents() {
     isFetchingNextPage,
   } = query;
 
-  // After the first (today→future) page paints, warm older (history) then newer.
+  // After the first (today→future) page paints, warm older (history) then newer once per identity.
   useEffect(() => {
     if (!calendarEnabled || !isSuccess) return;
-    if (prefetchedFor.current === identity) return;
+    if (warmedIdentities.has(identity)) return;
     if ((data?.pages.length ?? 0) < 1) return;
-    prefetchedFor.current = identity;
+    warmedIdentities.add(identity);
     void (async () => {
       if (hasPreviousPage) await fetchPreviousPage();
       if (hasNextPage) await fetchNextPage();

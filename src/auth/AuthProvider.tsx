@@ -15,6 +15,7 @@ import {
   loadSession,
   saveSession,
 } from './session';
+import { resetCalendarWarming } from '@/query/useCalendarEvents';
 
 type AuthStatus = AuthValue['status'];
 
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setStatus('signedOut');
     queryClient.clear();
+    resetCalendarWarming();
     void clearSession().catch((err) => {
       setConfigError(
         err instanceof Error

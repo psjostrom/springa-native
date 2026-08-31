@@ -85,15 +85,15 @@ export function PlannerContent() {
     setMode('new-program');
   };
 
-  const validateDraft = (next: PlannerConfig) => {
-    const errors = validatePlannerDraft(next, state.fitnessOptions, state.constraints, new Date());
+  const validateDraft = (next: PlannerConfig, isNew = mode === 'new-program') => {
+    const errors = validatePlannerDraft(next, state.fitnessOptions, state.constraints, new Date(), isNew);
     setDraftErrors(errors);
     return errors;
   };
 
   const saveConfig = async () => {
     if (draft == null) return;
-    const errors = validateDraft(draft);
+    const errors = validateDraft(draft, false);
     if (Object.keys(errors).length > 0) return;
     const planChanged = effectiveConfig != null && plannerConfigAffectsPlan(effectiveConfig, draft);
     try {
@@ -112,7 +112,7 @@ export function PlannerContent() {
   };
 
   const requestPreview = async (intent: 'start' | 'update', next: PlannerConfig) => {
-    const errors = validateDraft(next);
+    const errors = validateDraft(next, intent === 'start');
     if (Object.keys(errors).length > 0) return;
     setPreviewError(null);
     setPreviewErrorDetails(null);

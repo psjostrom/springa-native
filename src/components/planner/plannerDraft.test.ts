@@ -106,4 +106,19 @@ describe('Planner draft rules', () => {
     expect(setLongRunDay(config, 1)).toEqual(config);
     expect(setClubDay(config, 1)).toEqual(config);
   });
+
+  it('allows active in-flight plans with remaining weeks differing from totalWeeks', () => {
+    // Plan created in the past with totalWeeks: 14, but only 4 weeks remain from now
+    const pastNow = new Date('2026-11-01T12:00:00');
+    const activePlan = { ...config, totalWeeks: 14, raceDate: '2026-11-29' };
+    const errors = validatePlannerDraft(activePlan, options, constraints, pastNow, false);
+    expect(errors).toEqual({});
+  });
+
+  it('enforces totalWeeks matching raceDate for new programs', () => {
+    const pastNow = new Date('2026-11-01T12:00:00');
+    const newProgram = { ...config, totalWeeks: 14, raceDate: '2026-11-29' };
+    const errors = validatePlannerDraft(newProgram, options, constraints, pastNow, true);
+    expect(errors).toHaveProperty('totalWeeks');
+  });
 });

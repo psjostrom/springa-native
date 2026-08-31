@@ -33,7 +33,6 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       client={client}
       persistOptions={persistOptions}
       onSuccess={handleSuccess}
-      onError={handleSuccess}
     >
       <QueryHydrationContext.Provider value={hydrationValue}>
         {children}
