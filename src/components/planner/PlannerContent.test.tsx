@@ -105,11 +105,12 @@ describe('Planner content', () => {
     await user.press(await screen.findByRole('button', { name: 'Start New Program' }));
     expect(screen.getByText('Start new program')).toBeOnTheScreen();
     await user.press(screen.getByRole('button', { name: 'Preview plan' }));
-    expect(await screen.findByText('Reviewing new program preview')).toBeOnTheScreen();
-    // LegendList may not mount virtualized rows under Vitest; header is the gate.
     expect(screen.getByText('Week 1')).toBeOnTheScreen();
     expect(settingsWrites).toBe(0);
     expect(previewBody).toMatchObject({ intent: 'start', config: expect.any(Object) });
+
+    await user.press(screen.getByRole('button', { name: 'Start Program' }));
+    expect(await screen.findByText('Program started.')).toBeOnTheScreen();
   });
 
   it('shows loading and retryable errors', async () => {

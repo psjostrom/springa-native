@@ -293,4 +293,43 @@ describe('AgendaList', () => {
     expect(completedOverviewRequests).not.toContain('act-1');
     expect(completedOverviewRequests).not.toContain('act-2');
   });
+
+  it('triggers reload on pull to refresh', async () => {
+    let calendarFetches = 0;
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), () => {
+        calendarFetches += 1;
+        return HttpResponse.json([
+          {
+            id: 'event-refreshed',
+            date: new Date().toISOString(),
+            name: 'Refreshed run',
+            description: '',
+            type: 'planned',
+            category: 'easy',
+          },
+        ]);
+      }),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <View style={{ width: 390, height: 800 }}>
+          <AgendaGate>
+            <AgendaList />
+          </AgendaGate>
+        </View>
+      </TestAppProviders>,
+    );
+
+    await waitFor(() => expect(calendarFetches).toBeGreaterThanOrEqual(1));
+    const initialFetches = calendarFetches;
+
+    const refreshControl = screen.getByTestId('agenda-refresh-control');
+    refreshControl.props.onRefresh();
+
+    await waitFor(() => {
+      expect(calendarFetches).toBeGreaterThan(initialFetches);
+    });
+  });
 });

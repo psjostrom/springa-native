@@ -38,12 +38,6 @@ function newerPageParam(currentNewest: string, now = new Date()): DateWindow | u
 
 export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
-const warmedIdentities = new Set<string>();
-
-export function resetCalendarWarming() {
-  warmedIdentities.clear();
-}
-
 export function useCalendarEvents() {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
@@ -82,19 +76,17 @@ export function useCalendarEvents() {
     isFetchingNextPage,
   } = query;
 
-  // After the first (today→future) page paints, warm older (history) then newer once per identity.
+  // After the first (today→future) page paints, warm older (history) then newer.
+  // Gated strictly on data.pages.length === 1 so components mounting with existing cache never refire warming.
   useEffect(() => {
     if (!calendarEnabled || !isSuccess) return;
-    if (warmedIdentities.has(identity)) return;
-    if ((data?.pages.length ?? 0) < 1) return;
-    warmedIdentities.add(identity);
+    if ((data?.pages.length ?? 0) !== 1) return;
     void (async () => {
       if (hasPreviousPage) await fetchPreviousPage();
       if (hasNextPage) await fetchNextPage();
     })();
   }, [
     calendarEnabled,
-    identity,
     isSuccess,
     data?.pages.length,
     hasPreviousPage,

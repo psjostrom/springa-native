@@ -142,7 +142,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         if (carbsInFlight.current) {
           throw new Error('Save already in progress');
         }
-        if (activityId == null) {
+        if (!activityId) {
           throw new Error('No activity selected');
         }
         carbsInFlight.current = true;
@@ -165,7 +165,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         if (preRunInFlight.current) {
           throw new Error('Save already in progress');
         }
-        if (activityId == null) {
+        if (!activityId) {
           throw new Error('No activity selected');
         }
         preRunInFlight.current = true;
@@ -205,6 +205,22 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
                   ),
                 },
         );
+        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
+          { queryKey: calendarKey },
+          (current) =>
+            current == null
+              ? current
+              : {
+                  ...current,
+                  pages: current.pages.map((page) =>
+                    page.map((candidate) =>
+                      candidate.id === event.id
+                        ? { ...candidate, preRunCarbsG: carbsG }
+                        : candidate,
+                    ),
+                  ),
+                },
+        );
       },
     }),
     saveFeedback: useMutation<
@@ -216,7 +232,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         if (feedbackInFlight.current) {
           throw new Error('Save already in progress');
         }
-        if (activityId == null) {
+        if (!activityId) {
           throw new Error('No activity selected');
         }
         feedbackInFlight.current = true;

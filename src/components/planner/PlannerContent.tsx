@@ -158,8 +158,6 @@ export function PlannerContent() {
         value={draft}
         errors={draftErrors}
         requestError={configError}
-        fitnessOptions={state.fitnessOptions}
-        constraints={state.constraints}
         saving={mutations.saveConfig.isPending}
         onChange={(next) => {
           setDraft(next);

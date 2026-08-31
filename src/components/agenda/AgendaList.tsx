@@ -164,6 +164,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       maintainVisibleContentPosition={false}
       refreshControl={
         <RefreshControl
+          testID="agenda-refresh-control"
           refreshing={isRefreshing}
           onRefresh={handleRefresh}
           tintColor={SpringaColors.brand}

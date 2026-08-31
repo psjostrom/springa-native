@@ -172,19 +172,18 @@ function parseConstraints(value: unknown): PlannerState['constraints'] {
   if (!isRecord(raceDistance) || !isRecord(startDistance)) return invalid();
   exact(raceDistance, ['min', 'max']);
   exact(startDistance, ['min', 'max']);
-  if (raceDistance.min !== 1 || raceDistance.max !== 100 || startDistance.min !== 2 || startDistance.max !== 42) {
-    return invalid();
-  }
-  if (value.minimumWeeks !== 8 || value.minimumNormalWeeks !== 10 || value.recommendedWeeks !== 12 || value.basePhaseMinimumWeeks !== 11) {
-    return invalid();
-  }
+  const raceMin = finiteNumber(raceDistance.min);
+  const raceMax = finiteNumber(raceDistance.max);
+  const startMin = finiteNumber(startDistance.min);
+  const startMax = finiteNumber(startDistance.max);
+  if (raceMin >= raceMax || startMin >= startMax) return invalid();
   return {
-    raceDistanceKm: { min: 1, max: 100 },
-    startDistanceKm: { min: 2, max: 42 },
-    minimumWeeks: 8,
-    minimumNormalWeeks: 10,
-    recommendedWeeks: 12,
-    basePhaseMinimumWeeks: 11,
+    raceDistanceKm: { min: raceMin, max: raceMax },
+    startDistanceKm: { min: startMin, max: startMax },
+    minimumWeeks: finiteNumber(value.minimumWeeks),
+    minimumNormalWeeks: finiteNumber(value.minimumNormalWeeks),
+    recommendedWeeks: finiteNumber(value.recommendedWeeks),
+    basePhaseMinimumWeeks: finiteNumber(value.basePhaseMinimumWeeks),
   };
 }
 

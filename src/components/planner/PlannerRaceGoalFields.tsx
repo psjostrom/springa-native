@@ -40,8 +40,11 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {} }: PlannerR
         keyboardType="decimal-pad"
         onChangeText={(text) => {
           setRaceDistanceText(text);
-          const next = Number(text);
-          if (Number.isFinite(next)) onChange({ ...value, raceDist: next });
+          const normalized = text.replace(',', '.');
+          const next = Number(normalized);
+          if (Number.isFinite(next) && !normalized.endsWith('.')) {
+            onChange({ ...value, raceDist: next });
+          }
         }}
         onBlur={() => setRaceDistanceText(String(value.raceDist))}
         value={raceDistanceText}

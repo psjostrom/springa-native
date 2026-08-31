@@ -116,6 +116,23 @@ describe('Planner response parsers', () => {
     expect(parsePlannerApplyResponse(apply).appliedWorkoutCount).toBe(3);
   });
 
+  it('parses dynamic server constraints', () => {
+    const dynamicState = {
+      ...state,
+      constraints: {
+        raceDistanceKm: { min: 2, max: 150 },
+        startDistanceKm: { min: 5, max: 50 },
+        minimumWeeks: 6,
+        minimumNormalWeeks: 8,
+        recommendedWeeks: 10,
+        basePhaseMinimumWeeks: 9,
+      },
+    };
+    const parsed = parsePlannerState(dynamicState);
+    expect(parsed.constraints.raceDistanceKm).toEqual({ min: 2, max: 150 });
+    expect(parsed.constraints.minimumWeeks).toBe(6);
+  });
+
   it.each([
     ['state', () => parsePlannerState({ ...state, plan: [] })],
     ['state config', () => parsePlannerState({ ...state, currentConfig: { ...config, raceDate: '2026-02-30' } })],

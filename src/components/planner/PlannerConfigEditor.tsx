@@ -1,6 +1,6 @@
 import { Host, Picker } from '@expo/ui';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
+import type { PlannerConfig } from '@/api/types';
 import { AppText, Button, Card } from '@/components/ui';
 import { Spacing } from '@/theme/tokens';
 import { PlannerRaceGoalFields } from './PlannerRaceGoalFields';
@@ -10,8 +10,6 @@ type PlannerConfigEditorProps = {
   value: PlannerConfig;
   errors: Record<string, string>;
   requestError?: string | null;
-  fitnessOptions: PlannerFitnessOption[];
-  constraints: PlannerState['constraints'];
   saving: boolean;
   onChange: (value: PlannerConfig) => void;
   onDone: () => void;
