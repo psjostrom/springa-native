@@ -56,8 +56,6 @@ function ControlledPlannerConfigEditor() {
     <PlannerConfigEditor
       value={value}
       errors={{}}
-      fitnessOptions={fitnessOptions}
-      constraints={constraints}
       saving={false}
       onChange={setValue}
       onDone={() => {}}

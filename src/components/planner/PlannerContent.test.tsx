@@ -1,12 +1,16 @@
 import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlannerContent } from './PlannerContent';
 import { apiUrl } from '@/test/msw/helpers';
 import { makeTestAuthValue, makeTestSession, TestAppProviders } from '@/test/TestAppProviders';
 import { blurRouteForTests } from '@/test/ExpoRouterTestDouble';
 import { activePlannerState, replacePlanPreview } from '@/test/msw/handlers/planner';
 import { server } from '@/test/msw/server';
+
+beforeEach(() => {
+  vi.setSystemTime(new Date('2026-08-25T12:00:00'));
+});
 
 afterEach(() => {
   vi.useRealTimers();

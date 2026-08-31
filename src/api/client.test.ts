@@ -234,7 +234,7 @@ describe('createApiClient', () => {
     });
   });
 
-  it('preserves Planner field and partial-apply error details', async () => {
+  it('preserves Planner field error details', async () => {
     server.use(
       http.post(apiUrl('/api/planner/preview'), () =>
         HttpResponse.json({
@@ -251,25 +251,6 @@ describe('createApiClient', () => {
       details: { fields: { raceDate: 'Choose a valid date.' } },
     });
 
-    server.use(
-      http.post(apiUrl('/api/planner/apply'), () =>
-        HttpResponse.json({
-          error: 'Some workouts could not be updated',
-          code: 'PLANNER_APPLY_PARTIAL',
-          appliedWorkoutCount: 2,
-          failures: [{ id: 'event-3', name: 'W03 Tempo', error: 'upstream 502' }],
-        }, { status: 502 })),
-    );
-    await expect(
-      makeClient().applyPlanner({ intent: 'start', config: plannerConfig, previewHash: 'a'.repeat(64) }),
-    ).rejects.toMatchObject({
-      status: 502,
-      code: 'PLANNER_APPLY_PARTIAL',
-      details: {
-        appliedWorkoutCount: 2,
-        failures: [{ id: 'event-3', name: 'W03 Tempo', error: 'upstream 502' }],
-      },
-    });
   });
 
   it('treats missing token as unauthorized', async () => {

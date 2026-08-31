@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, type ApiClient } from '@/api/client';
+import { type ApiClient } from '@/api/client';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import type {
@@ -92,16 +92,12 @@ export function usePlannerMutations() {
           queryClient.invalidateQueries({ queryKey: calendarKey }),
         ]);
       },
-      onError: (error) => {
-        if (
-          error instanceof ApiError &&
-          (error.code === 'PLANNER_APPLY_PARTIAL' || error.code === 'PLANNER_STATE_FINALIZE_FAILED')
-        ) {
-          void Promise.all([
-            queryClient.invalidateQueries({ queryKey: plannerKey }),
-            queryClient.invalidateQueries({ queryKey: calendarKey }),
-          ]);
-        }
+      onError: () => {
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: plannerKey }),
+          queryClient.invalidateQueries({ queryKey: settingsKey }),
+          queryClient.invalidateQueries({ queryKey: calendarKey }),
+        ]);
       },
     }),
   };

@@ -4,6 +4,8 @@ import { render, screen, userEvent, waitFor } from '@testing-library/react-nativ
 import { http, HttpResponse } from 'msw';
 import { queryKeys } from './keys';
 import { usePlannerMutations, usePlannerQuery } from './usePlanner';
+import { useCalendarEvents } from './useCalendarEvents';
+import { useSettingsQuery } from './useSettingsQuery';
 import { apiUrl } from '@/test/msw/helpers';
 import { makeTestAuthValue, makeTestSession, TestAppProviders } from '@/test/TestAppProviders';
 import { activePlannerState, defaultPlannerConfig } from '@/test/msw/handlers/planner';
@@ -32,6 +34,37 @@ function Probe() {
           previewHash: 'a'.repeat(64),
         }).catch(() => {});
       }}><Text>Apply</Text></Pressable>
+    </>
+  );
+}
+
+function CacheInvalidationProbe() {
+  const planner = usePlannerQuery();
+  const settings = useSettingsQuery();
+  const calendar = useCalendarEvents();
+  const { apply } = usePlannerMutations();
+
+  return (
+    <>
+      <Text>Planner cache: {planner.status}</Text>
+      <Text>Settings cache: {settings.status}</Text>
+      <Text>
+        Calendar cache: {calendar.isLoading ? 'loading' : calendar.isError ? 'error' : 'ready'}
+      </Text>
+      <Text>Apply: {apply.isError ? 'error' : 'idle'}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Apply with cache invalidation error"
+        onPress={() => {
+          void apply.mutateAsync({
+            intent: 'start',
+            config: defaultPlannerConfig(),
+            previewHash: 'a'.repeat(64),
+          }).catch(() => {});
+        }}
+      >
+        <Text>Apply</Text>
+      </Pressable>
     </>
   );
 }
@@ -75,18 +108,65 @@ describe('Planner query boundary', () => {
     await waitFor(() => expect(screen.getByText('Apply: done')).toBeOnTheScreen());
   });
 
-  it('keeps partial apply errors visible without automatic mutation retry', async () => {
+  it('keeps apply errors visible without automatic mutation retry', async () => {
     server.use(http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json({
-      error: 'Some workouts could not be updated',
-      code: 'PLANNER_APPLY_PARTIAL',
-      appliedWorkoutCount: 2,
-      failures: [{ id: 'event-3', name: 'W03 Tempo', error: 'upstream 502' }],
+      error: 'Workouts could not be updated',
+      code: 'INTERVALS_UPSTREAM_ERROR',
     }, { status: 502 })));
     await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}><Probe /></TestAppProviders>);
     await screen.findByText('Planner: ready');
     const user = userEvent.setup();
     await user.press(screen.getByRole('button', { name: 'Apply planner' }));
     await waitFor(() => expect(screen.getByText('Apply: error')).toBeOnTheScreen());
+  });
+
+  it('invalidates Planner, Settings, and Calendar after any apply error', async () => {
+    let plannerGets = 0;
+    let settingsGets = 0;
+    let calendarGets = 0;
+    server.use(
+      http.get(apiUrl('/api/planner'), () => {
+        plannerGets += 1;
+        return HttpResponse.json(activePlannerState());
+      }),
+      http.get(apiUrl('/api/settings'), () => {
+        settingsGets += 1;
+        return HttpResponse.json({
+          intervalsConnected: true,
+          diabetesMode: true,
+          displayName: 'Runner',
+          email: 'runner@example.com',
+        });
+      }),
+      http.get(apiUrl('/api/intervals/calendar'), () => {
+        calendarGets += 1;
+        return HttpResponse.json([]);
+      }),
+      http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json(
+        { error: 'unexpected apply failure', code: 'UNEXPECTED_ERROR' },
+        { status: 500 },
+      )),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <CacheInvalidationProbe />
+      </TestAppProviders>,
+    );
+    expect(await screen.findByText('Planner cache: ready')).toBeOnTheScreen();
+    expect(await screen.findByText('Settings cache: ready')).toBeOnTheScreen();
+    expect(await screen.findByText('Calendar cache: ready')).toBeOnTheScreen();
+    await waitFor(() => expect(calendarGets).toBe(3));
+
+    const baseline = { plannerGets, settingsGets, calendarGets };
+    const user = userEvent.setup();
+    await user.press(screen.getByRole('button', { name: 'Apply with cache invalidation error' }));
+    await waitFor(() => expect(screen.getByText('Apply: error')).toBeOnTheScreen());
+    await waitFor(() => {
+      expect(plannerGets).toBeGreaterThan(baseline.plannerGets);
+      expect(settingsGets).toBeGreaterThan(baseline.settingsGets);
+      expect(calendarGets).toBeGreaterThan(baseline.calendarGets);
+    });
   });
 
   it('uses a distinct key for each signed-in identity', () => {

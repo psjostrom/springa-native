@@ -1,7 +1,6 @@
 import { LegendList } from '@legendapp/list/react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { useWindowDimensions, StyleSheet, View } from 'react-native';
-import type { ApiErrorDetails } from '@/api/errors';
 import type { PlannerPreview as PlannerPreviewDto, PlannerPreviewWorkout } from '@/api/types';
 import { AppText, Button, Card } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -11,7 +10,6 @@ import { PlannerSummaryCard } from './PlannerSummaryCard';
 type PlannerPreviewProps = {
   preview: PlannerPreviewDto;
   error: string | null;
-  errorDetails?: ApiErrorDetails | null;
   applying: boolean;
   onEdit: () => void;
   onCancel: () => void;
@@ -101,7 +99,6 @@ function buildRows(preview: PlannerPreviewDto): PlannerPreviewRow[] {
 export function PlannerPreviewView({
   preview,
   error,
-  errorDetails,
   applying,
   onEdit,
   onCancel,
@@ -145,16 +142,6 @@ export function PlannerPreviewView({
             {error ? (
               <View>
                 <AppText accessibilityRole="alert" tone="error">{error}</AppText>
-                {errorDetails?.appliedWorkoutCount != null ? (
-                  <AppText tone="warning" variant="caption">
-                    {errorDetails.appliedWorkoutCount} workouts applied before failure.
-                  </AppText>
-                ) : null}
-                {errorDetails?.failures?.map((failure) => (
-                  <AppText key={failure.id} tone="warning" variant="caption">
-                    {failure.name}: {failure.error}
-                  </AppText>
-                ))}
               </View>
             ) : null}
             <View style={styles.actions}>

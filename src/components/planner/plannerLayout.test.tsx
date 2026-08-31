@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen, userEvent } from '@testing-library/react-native';
+import { useState } from 'react';
+import { describe, expect, it } from 'vitest';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
 import { SpringaColors } from '@/theme/colors';
 import { Spacing } from '@/theme/tokens';
@@ -37,6 +38,22 @@ const constraints: PlannerState['constraints'] = {
   recommendedWeeks: 12,
   basePhaseMinimumWeeks: 11,
 };
+
+function ControlledFitnessEditor() {
+  const [value, setValue] = useState(config);
+  return (
+    <NewProgramEditor
+      value={value}
+      errors={{}}
+      fitnessOptions={fitnessOptions}
+      constraints={constraints}
+      previewing={false}
+      onChange={setValue}
+      onCancel={() => {}}
+      onPreview={() => {}}
+    />
+  );
+}
 
 function hasTextColor(node: { props: { style?: unknown } }, color: string): boolean {
   return ([node.props.style].flat(Infinity) as ({ color?: string } | null | undefined)[])
@@ -94,8 +111,6 @@ describe('Planner native control labels', () => {
       <PlannerConfigEditor
         value={config}
         errors={{}}
-        fitnessOptions={fitnessOptions}
-        constraints={constraints}
         saving={false}
         onChange={() => {}}
         onCancel={() => {}}
@@ -179,25 +194,20 @@ describe('Planner native control labels', () => {
     );
   });
 
-  it('adjusts fitness time through accessibility actions', async () => {
-    const onChange = vi.fn();
+  it('uses a controlled native slider for fitness time', async () => {
     await render(
-      <NewProgramEditor
-        value={config}
-        errors={{}}
-        fitnessOptions={fitnessOptions}
-        constraints={constraints}
-        previewing={false}
-        onChange={onChange}
-        onCancel={() => {}}
-        onPreview={() => {}}
-      />,
+      <ControlledFitnessEditor />,
     );
 
-    fireEvent(screen.getByTestId('planner-fitness-slider-accessibility'), 'accessibilityAction', {
-      nativeEvent: { actionName: 'increment' },
-    });
+    const slider = screen.getByTestId('planner-fitness-slider');
+    expect(slider).toHaveProp('accessibilityRole', 'adjustable');
+    expect(slider.props.accessibilityValue).toEqual({ min: 3000, max: 4800, now: 3600 });
 
-    expect(onChange).toHaveBeenCalledWith({ ...config, currentAbilitySecs: 3660 });
+    await userEvent.setup().press(slider);
+
+    expect(screen.getByTestId('planner-fitness-slider')).toHaveProp(
+      'accessibilityValue',
+      { min: 3000, max: 4800, now: 3660 },
+    );
   });
 });
