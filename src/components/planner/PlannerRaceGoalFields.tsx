@@ -11,6 +11,7 @@ type PlannerRaceGoalFieldsProps = {
   value: PlannerConfig;
   onChange: (value: PlannerConfig) => void;
   errors?: Record<string, string>;
+  basePhaseMinimumWeeks?: number;
 };
 
 function dateFromValue(value: string): Date {
@@ -22,7 +23,12 @@ function dateOnly(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function PlannerRaceGoalFields({ value, onChange, errors = {} }: PlannerRaceGoalFieldsProps) {
+export function PlannerRaceGoalFields({
+  value,
+  onChange,
+  errors = {},
+  basePhaseMinimumWeeks,
+}: PlannerRaceGoalFieldsProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [raceDistanceText, setRaceDistanceText] = useState(String(value.raceDist));
   return (
@@ -70,7 +76,7 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {} }: PlannerR
           display="default"
           onChange={(_event, selectedDate) => {
             if (Platform.OS === 'android') setPickerVisible(false);
-            if (selectedDate) onChange(setRaceDate(value, dateOnly(selectedDate), new Date()));
+            if (selectedDate) onChange(setRaceDate(value, dateOnly(selectedDate), new Date(), basePhaseMinimumWeeks));
           }}
           onDismiss={() => setPickerVisible(false)}
         />

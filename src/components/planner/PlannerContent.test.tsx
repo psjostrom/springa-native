@@ -141,4 +141,34 @@ describe('Planner content', () => {
     expect(screen.getByText('Start a fresh plan for the next race without repeating account setup.')).toBeOnTheScreen();
     expect(screen.queryByText(/wks to go/)).toBeNull();
   });
+
+  it('previews and applies an update to existing workouts with confirmation banner', async () => {
+    server.use(
+      http.post(apiUrl('/api/planner/preview'), () =>
+        HttpResponse.json({
+          ...replacePlanPreview(),
+          intent: 'update',
+          action: 'update-targets',
+        }),
+      ),
+      http.post(apiUrl('/api/planner/apply'), () =>
+        HttpResponse.json({
+          action: 'update-targets',
+          appliedWorkoutCount: 3,
+          warnings: [],
+          state: activePlannerState(),
+        }),
+      ),
+    );
+    await renderPlanner();
+    const user = userEvent.setup();
+    await user.press(await screen.findByRole('button', { name: 'Edit planner settings' }));
+    await user.press(screen.getByRole('button', { name: 'Monday run day' }));
+    await user.press(screen.getByRole('button', { name: 'Done editing planner' }));
+    expect(await screen.findByText('Update future workouts to match your new settings?')).toBeOnTheScreen();
+    await user.press(screen.getByRole('button', { name: 'Preview update' }));
+    expect(await screen.findByText('Reviewing workout update')).toBeOnTheScreen();
+    await user.press(screen.getByRole('button', { name: 'Update Workouts' }));
+    expect(await screen.findByText('Workouts updated.')).toBeOnTheScreen();
+  });
 });

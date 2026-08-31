@@ -76,6 +76,12 @@ describe('Planner draft rules', () => {
       totalWeeks: 9,
       includeBasePhase: false,
     });
+    // With dynamic basePhaseMinimumWeeks = 8, 9 weeks allows base phase
+    expect(setRaceDate(config, '2026-10-18', NOW, 8)).toMatchObject({
+      raceDate: '2026-10-18',
+      totalWeeks: 9,
+      includeBasePhase: true,
+    });
   });
 
   it('formats fitness times and reports immediate field errors', () => {

@@ -97,16 +97,14 @@ export function createSessionApi(
     return enqueue(async () => {
       const store = await getStore();
       try {
-        await store.deleteItemAsync(SESSION_KEY);
-      } catch {
         try {
           await store.deleteItemAsync(SESSION_KEY);
-        } catch (err) {
-          // SecureStore deletion failed after retry; rethrow so caller knows persistence failed.
-          throw err;
+        } catch {
+          await store.deleteItemAsync(SESSION_KEY);
         }
+      } finally {
+        await asyncStorage.removeItem(QUERY_CACHE_KEY);
       }
-      await asyncStorage.removeItem(QUERY_CACHE_KEY);
     });
   }
 

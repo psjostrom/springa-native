@@ -91,4 +91,15 @@ describe('QueryProvider and QueryHydrationContext', () => {
     expect(await screen.findByText('Hydrated')).toBeOnTheScreen();
     expect(screen.getByText('Cached: persisted-value')).toBeOnTheScreen();
   });
+
+  it('recovers cleanly and sets isHydrated to true when AsyncStorage contains corrupted JSON', async () => {
+    await AsyncStorage.setItem(QUERY_CACHE_KEY, 'not-valid-json{{{');
+    await render(
+      <QueryProvider>
+        <Probe />
+      </QueryProvider>,
+    );
+    expect(await screen.findByText('Hydrated')).toBeOnTheScreen();
+    expect(screen.getByText('Cached: empty')).toBeOnTheScreen();
+  });
 });

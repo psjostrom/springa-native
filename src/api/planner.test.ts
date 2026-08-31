@@ -133,6 +133,15 @@ describe('Planner response parsers', () => {
     expect(parsed.constraints.minimumWeeks).toBe(6);
   });
 
+  it('tolerates additive backend properties on planner payloads', () => {
+    const forwardCompatibleState = {
+      ...state,
+      extraServerField: 'metadata-123',
+      currentConfig: { ...config, newBackendSetting: true },
+    };
+    expect(parsePlannerState(forwardCompatibleState).plan.status).toBe('active');
+  });
+
   it.each([
     ['state', () => parsePlannerState({ ...state, plan: [] })],
     ['state config', () => parsePlannerState({ ...state, currentConfig: { ...config, raceDate: '2026-02-30' } })],

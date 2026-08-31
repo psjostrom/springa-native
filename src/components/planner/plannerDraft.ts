@@ -124,7 +124,12 @@ export function setClubType(
   };
 }
 
-export function setRaceDate(config: PlannerConfig, raceDate: string, now: Date): PlannerConfig {
+export function setRaceDate(
+  config: PlannerConfig,
+  raceDate: string,
+  now: Date,
+  basePhaseMinimumWeeks = 11,
+): PlannerConfig {
   const date = dateAtNoon(raceDate);
   const totalWeeks = weeksForRaceDate(raceDate, now);
   if (date == null || totalWeeks == null) return config;
@@ -132,7 +137,7 @@ export function setRaceDate(config: PlannerConfig, raceDate: string, now: Date):
     ...config,
     raceDate,
     totalWeeks,
-    includeBasePhase: totalWeeks >= 11 && config.includeBasePhase,
+    includeBasePhase: totalWeeks >= basePhaseMinimumWeeks && config.includeBasePhase,
   };
 }
 

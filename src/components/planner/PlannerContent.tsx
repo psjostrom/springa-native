@@ -61,7 +61,7 @@ export function PlannerContent() {
   }
 
   const state = planner.state;
-  const settingsReady = settings.status !== 'ready' || settings.settings?.diabetesMode !== false;
+  const showFuelRates = settings.status !== 'ready' || settings.settings?.diabetesMode !== false;
   const effectiveConfig = savedConfig ?? currentConfig;
 
   const beginEdit = () => {
@@ -281,7 +281,7 @@ export function PlannerContent() {
             ) : null}
           </Card>
         ) : null}
-        <PlannerFuelRatesCard fuelRates={state.fuelRates} enabled={settingsReady} />
+        <PlannerFuelRatesCard fuelRates={state.fuelRates} enabled={showFuelRates} />
       </ScrollView>
       <PlannerUpdateChoiceSheet
         isPresented={updateChoicePresented}

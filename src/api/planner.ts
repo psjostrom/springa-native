@@ -23,14 +23,6 @@ function invalid(): never {
   throw new ApiError(200, 'Planner response had unexpected shape');
 }
 
-function exact(record: Record<string, unknown>, keys: readonly string[]): void {
-  const actual = Object.keys(record).sort();
-  const expected = [...keys].sort();
-  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
-    invalid();
-  }
-}
-
 function stringField(record: Record<string, unknown>, key: string): string {
   return typeof record[key] === 'string' ? record[key] : invalid();
 }
@@ -93,25 +85,8 @@ function nullableNumber(value: unknown): number | null {
   return value === null ? null : finiteNumber(value);
 }
 
-const CONFIG_KEYS = [
-  'raceName',
-  'raceDist',
-  'raceDate',
-  'currentAbilityDist',
-  'currentAbilitySecs',
-  'runDays',
-  'longRunDay',
-  'clubDay',
-  'clubType',
-  'totalWeeks',
-  'startKm',
-  'includeBasePhase',
-  'effortMetric',
-] as const;
-
 function parsePlannerConfig(value: unknown): PlannerConfig {
   if (!isRecord(value)) return invalid();
-  exact(value, CONFIG_KEYS);
   const runDays = weekdays(value.runDays);
   const longRunDay = weekday(value.longRunDay);
   const clubDay = value.clubDay === null ? null : weekday(value.clubDay);
@@ -135,7 +110,7 @@ function parsePlannerConfig(value: unknown): PlannerConfig {
     longRunDay,
     clubDay,
     clubType,
-    totalWeeks: integerField(value, 'totalWeeks', 8),
+    totalWeeks: integerField(value, 'totalWeeks', 1),
     startKm: finiteNumber(value.startKm),
     includeBasePhase: booleanField(value, 'includeBasePhase'),
     effortMetric: effortMetric(value.effortMetric),
@@ -144,7 +119,6 @@ function parsePlannerConfig(value: unknown): PlannerConfig {
 
 function parseFitnessOption(value: unknown): PlannerFitnessOption {
   if (!isRecord(value)) return invalid();
-  exact(value, ['label', 'distanceKm', 'defaultSeconds', 'minSeconds', 'maxSeconds', 'stepSeconds']);
   const label = value.label;
   if (label !== '5K' && label !== '10K' && label !== 'Half' && label !== 'Marathon') return invalid();
   return {
@@ -159,19 +133,9 @@ function parseFitnessOption(value: unknown): PlannerFitnessOption {
 
 function parseConstraints(value: unknown): PlannerState['constraints'] {
   if (!isRecord(value)) return invalid();
-  exact(value, [
-    'raceDistanceKm',
-    'startDistanceKm',
-    'minimumWeeks',
-    'minimumNormalWeeks',
-    'recommendedWeeks',
-    'basePhaseMinimumWeeks',
-  ]);
   const raceDistance = value.raceDistanceKm;
   const startDistance = value.startDistanceKm;
   if (!isRecord(raceDistance) || !isRecord(startDistance)) return invalid();
-  exact(raceDistance, ['min', 'max']);
-  exact(startDistance, ['min', 'max']);
   const raceMin = finiteNumber(raceDistance.min);
   const raceMax = finiteNumber(raceDistance.max);
   const startMin = finiteNumber(startDistance.min);
@@ -190,7 +154,6 @@ function parseConstraints(value: unknown): PlannerState['constraints'] {
 function parseSync(value: unknown): PlannerSync {
   if (value === null) return null;
   if (!isRecord(value)) return invalid();
-  exact(value, ['status', 'dirtyKind']);
   if (value.status !== 'unknown' && value.status !== 'synced' && value.status !== 'dirty') return invalid();
   if (value.dirtyKind !== null && value.dirtyKind !== 'target-only' && value.dirtyKind !== 'structural') return invalid();
   return {
@@ -201,7 +164,6 @@ function parseSync(value: unknown): PlannerSync {
 
 function parseFuelRate(value: unknown): PlannerFuelRate {
   if (!isRecord(value)) return invalid();
-  exact(value, ['gramsPerHour', 'source']);
   if (value.source !== 'learned' && value.source !== 'default') return invalid();
   return { gramsPerHour: finiteNumber(value.gramsPerHour), source: value.source };
 }
@@ -209,7 +171,6 @@ function parseFuelRate(value: unknown): PlannerFuelRate {
 function parseFuelRates(value: unknown): PlannerState['fuelRates'] {
   if (value === null) return null;
   if (!isRecord(value)) return invalid();
-  exact(value, ['easy', 'long', 'interval']);
   return {
     easy: parseFuelRate(value.easy),
     long: parseFuelRate(value.long),
@@ -219,11 +180,9 @@ function parseFuelRates(value: unknown): PlannerState['fuelRates'] {
 
 export function parsePlannerState(value: unknown): PlannerState {
   if (!isRecord(value)) return invalid();
-  exact(value, ['currentConfig', 'newProgramDraft', 'fitnessOptions', 'constraints', 'plan', 'fuelRates']);
   if (value.currentConfig !== null && !isRecord(value.currentConfig)) return invalid();
   const plan = value.plan;
   if (!isRecord(plan)) return invalid();
-  exact(plan, ['status', 'sync', 'weeksToGo', 'futureWorkoutCount']);
   if (plan.status !== 'none' && plan.status !== 'active' && plan.status !== 'complete') return invalid();
   return {
     currentConfig: value.currentConfig === null ? null : parsePlannerConfig(value.currentConfig),
@@ -243,14 +202,12 @@ export function parsePlannerState(value: unknown): PlannerState {
 function parseWarning(value: unknown): PlannerWarning | null {
   if (value === null) return null;
   if (!isRecord(value)) return invalid();
-  exact(value, ['kind', 'title', 'message']);
   if (value.kind !== 'compressed' && value.kind !== 'very-compressed') return invalid();
   return { kind: value.kind, title: stringField(value, 'title'), message: stringField(value, 'message') };
 }
 
 function parsePreviewWorkout(value: unknown): PlannerPreviewWorkout {
   if (!isRecord(value)) return invalid();
-  exact(value, ['key', 'week', 'date', 'name', 'category', 'distanceKm', 'durationMinutes', 'fuelRateGPerHour']);
   return {
     key: stringField(value, 'key'),
     week: integerField(value, 'week', 1),
@@ -265,18 +222,15 @@ function parsePreviewWorkout(value: unknown): PlannerPreviewWorkout {
 
 export function parsePlannerPreview(value: unknown): PlannerPreview {
   if (!isRecord(value)) return invalid();
-  exact(value, ['intent', 'action', 'config', 'previewHash', 'warning', 'summary', 'weeks', 'workouts']);
   if (value.intent !== 'start' && value.intent !== 'update') return invalid();
   if (value.action !== 'replace-plan' && value.action !== 'update-targets') return invalid();
   if (typeof value.previewHash !== 'string' || !/^[0-9a-f]{64}$/.test(value.previewHash)) return invalid();
   const summary = value.summary;
   if (!isRecord(summary)) return invalid();
-  exact(summary, ['workoutCount', 'planWeeks', 'firstWorkoutDate', 'raceDate', 'totalDistanceKm']);
   const weeks = value.weeks;
   if (!Array.isArray(weeks)) return invalid();
   const parsedWeeks = weeks.map((item) => {
     if (!isRecord(item)) return invalid();
-    exact(item, ['week', 'startsOn', 'distanceKm', 'workoutCount']);
     return {
       week: integerField(item, 'week', 1),
       startsOn: dateOnly(item.startsOn),
@@ -304,14 +258,12 @@ export function parsePlannerPreview(value: unknown): PlannerPreview {
 
 function parseApplyWarning(value: unknown): PlannerApplyWarning {
   if (!isRecord(value)) return invalid();
-  exact(value, ['code', 'message']);
   if (value.code !== 'STALE_WORKOUTS_NOT_REMOVED' && value.code !== 'GOOGLE_CALENDAR_SYNC_FAILED') return invalid();
   return { code: value.code, message: stringField(value, 'message') };
 }
 
 export function parsePlannerApplyResponse(value: unknown): PlannerApplyResponse {
   if (!isRecord(value)) return invalid();
-  exact(value, ['action', 'appliedWorkoutCount', 'warnings', 'state']);
   if (value.action !== 'replace-plan' && value.action !== 'update-targets') return invalid();
   if (!Array.isArray(value.warnings)) return invalid();
   return {

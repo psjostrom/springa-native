@@ -32,6 +32,9 @@ function Probe() {
           previewHash: 'a'.repeat(64),
         }).catch(() => {});
       }}><Text>Apply</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Reload planner" onPress={() => {
+        void planner.reload();
+      }}><Text>Reload</Text></Pressable>
     </>
   );
 }
@@ -57,8 +60,8 @@ describe('Planner query boundary', () => {
     await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}><Probe /></TestAppProviders>);
     expect(await screen.findByText('Planner: error')).toBeOnTheScreen();
     failed = false;
-    // The component exposes reload through a later screen; remounting keeps this boundary test deterministic.
-    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}><Probe /></TestAppProviders>);
+    const user = userEvent.setup();
+    await user.press(screen.getByRole('button', { name: 'Reload planner' }));
     expect(await screen.findByText('Planner: ready')).toBeOnTheScreen();
   });
 

@@ -322,10 +322,8 @@ describe('AgendaList', () => {
       </TestAppProviders>,
     );
 
-    await waitFor(() => expect(calendarFetches).toBeGreaterThanOrEqual(1));
+    const refreshControl = await screen.findByTestId('agenda-refresh-control');
     const initialFetches = calendarFetches;
-
-    const refreshControl = screen.getByTestId('agenda-refresh-control');
     refreshControl.props.onRefresh();
 
     await waitFor(() => {

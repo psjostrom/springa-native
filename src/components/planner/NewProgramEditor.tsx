@@ -91,7 +91,12 @@ export function NewProgramEditor({
             </Pressable>
           </View>
 
-          <PlannerRaceGoalFields value={value} onChange={onChange} errors={errors} />
+          <PlannerRaceGoalFields
+            value={value}
+            onChange={onChange}
+            errors={errors}
+            basePhaseMinimumWeeks={constraints.basePhaseMinimumWeeks}
+          />
 
           <View style={styles.section}>
             <AppText variant="label">Current fitness</AppText>
