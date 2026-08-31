@@ -17,7 +17,7 @@ export function defaultPlannerConfig(): PlannerConfig {
     longRunDay: 0,
     clubDay: null,
     clubType: null,
-    totalWeeks: 14,
+    totalWeeks: 13,
     startKm: 8,
     includeBasePhase: true,
     effortMetric: 'pace',

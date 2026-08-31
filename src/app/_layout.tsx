@@ -62,14 +62,14 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <ApiClientProvider>
-        <QueryProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <ApiClientProvider>
           <StatusBar style="light" />
           <SplashScreenController />
           <RootNavigator />
-        </QueryProvider>
-      </ApiClientProvider>
-    </AuthProvider>
+        </ApiClientProvider>
+      </AuthProvider>
+    </QueryProvider>
   );
 }

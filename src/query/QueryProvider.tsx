@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { asyncStoragePersister, PERSIST_MAX_AGE } from './persister';
 import { QueryHydrationContext } from './QueryHydrationContext';
@@ -10,6 +10,12 @@ export function QueryProvider({ children }: { children: ReactNode }) {
 
   const handleSuccess = useCallback(() => {
     setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    // Safety fallback: ensure splash screen dismissal proceeds if storage hangs
+    const timer = setTimeout(() => setIsHydrated(true), 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   const persistOptions = useMemo(

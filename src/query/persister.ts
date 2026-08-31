@@ -8,4 +8,11 @@ export const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,
   key: QUERY_CACHE_KEY,
   throttleTime: 1000,
+  deserialize: (cachedString) => {
+    try {
+      return JSON.parse(cachedString);
+    } catch {
+      return undefined;
+    }
+  },
 });

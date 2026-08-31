@@ -37,7 +37,6 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
     reload,
     fetchOlder,
     fetchNewer,
-    hasOlder,
     isFetchingOlder,
     isFetchingNewer,
     olderError,
@@ -112,12 +111,6 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
     sessionEmail,
   ]);
 
-  // Empty older windows are gaps — keep paging while history is open and still empty.
-  useEffect(() => {
-    if (!historyMode || earlier.length > 0 || isFetchingOlder || !hasOlder || olderError) return;
-    void fetchOlder();
-  }, [historyMode, earlier.length, isFetchingOlder, hasOlder, olderError, fetchOlder]);
-
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     const refreshStart = Date.now();
@@ -155,7 +148,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   const listData = historyMode ? [...earlier].reverse() : upcoming;
   const historyStillLoading =
-    historyMode && earlier.length === 0 && (isFetchingOlder || hasOlder);
+    historyMode && earlier.length === 0 && isFetchingOlder;
 
   return (
     <LegendList
