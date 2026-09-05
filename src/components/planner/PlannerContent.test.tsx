@@ -93,20 +93,19 @@ describe('Planner content', () => {
     expect(await screen.findByText('3 days/wk')).toBeOnTheScreen();
   });
 
-  it('previews race-name-only edits without saving settings', async () => {
-    let settingsWrites = 0;
-    let previewWrites = 0;
+  it('saves race-name-only edits without replacing workouts', async () => {
+    const state = activePlannerState();
+    state.plan.sync = { status: 'dirty', dirtyKind: 'structural' };
+    let savedConfig: unknown;
     server.use(
-      http.put(apiUrl('/api/settings'), () => {
-        settingsWrites += 1;
+      http.get(apiUrl('/api/planner'), () => HttpResponse.json(state)),
+      http.put(apiUrl('/api/settings'), async ({ request }) => {
+        savedConfig = await request.json();
+        state.currentConfig = savedConfig as typeof state.currentConfig;
         return HttpResponse.json({ ok: true });
       }),
-      http.post(apiUrl('/api/planner/preview'), () => {
-        previewWrites += 1;
-        const preview = replacePlanPreview();
-        preview.intent = 'update';
-        return HttpResponse.json(preview);
-      }),
+      http.post(apiUrl('/api/planner/preview'), () =>
+        HttpResponse.json({ error: 'Race name must not replace workouts' }, { status: 500 })),
     );
 
     await renderPlanner();
@@ -117,9 +116,9 @@ describe('Planner content', () => {
     await user.type(raceName, 'New race name');
     await user.press(screen.getByRole('button', { name: 'Done editing planner' }));
 
-    await waitFor(() => expect(previewWrites).toBe(1));
-    expect(settingsWrites).toBe(0);
-    expect(await screen.findByText('Ready to update')).toBeOnTheScreen();
+    expect(await screen.findByText('New race name 21.1km')).toBeOnTheScreen();
+    expect(savedConfig).toMatchObject({ raceName: 'New race name' });
+    expect(screen.queryByText('Ready to update')).toBeNull();
   });
 
   it('previews unchanged config when server sync is dirty', async () => {
@@ -213,6 +212,23 @@ describe('Planner content', () => {
     expect(await screen.findByText('preview unavailable')).toBeOnTheScreen();
   });
 
+  it('shows server validation errors on the matching editor field', async () => {
+    server.use(http.post(apiUrl('/api/planner/preview'), () => HttpResponse.json({
+      error: 'Planner config is invalid',
+      code: 'PLANNER_CONFIG_INVALID',
+      fields: { raceDate: 'Choose a race date supported by this plan.' },
+    }, { status: 400 })));
+
+    await renderPlanner();
+    const user = userEvent.setup();
+    await user.press(await screen.findByRole('button', { name: 'Edit planner settings' }));
+    await user.press(screen.getByRole('button', { name: 'Monday run day' }));
+    await user.press(screen.getByRole('button', { name: 'Done editing planner' }));
+
+    expect(await screen.findByText('Choose a race date supported by this plan.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Choose race date' })).toBeOnTheScreen();
+  });
+
   it('keeps a pending preview cancelled after its response arrives', async () => {
     let resolvePreview: (() => void) | undefined;
     server.use(http.post(apiUrl('/api/planner/preview'), () =>
@@ -257,7 +273,7 @@ describe('Planner content', () => {
         });
       }),
       http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json(
-        { error: 'Preview changed' },
+        { error: 'The plan changed on the server', code: 'PLAN_PREVIEW_STALE' },
         { status: 409 },
       )),
     );
@@ -388,6 +404,27 @@ describe('Planner content', () => {
     expect(screen.queryByText('Program started.')).toBeNull();
   });
 
+  it('shows apply warnings after the program is saved', async () => {
+    server.use(http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json({
+      action: 'replace-plan',
+      appliedWorkoutCount: 3,
+      warnings: [{
+        code: 'GOOGLE_CALENDAR_SYNC_FAILED',
+        message: 'Workouts were saved, but Google Calendar could not be updated.',
+      }],
+      state: activePlannerState(),
+    })));
+
+    await renderPlanner();
+    const user = userEvent.setup();
+    await user.press(await screen.findByRole('button', { name: 'Start New Program' }));
+    await user.press(screen.getByRole('button', { name: 'Preview plan' }));
+    await user.press(await screen.findByRole('button', { name: 'Start Program' }));
+
+    expect(await screen.findByText('Program started.')).toBeOnTheScreen();
+    expect(screen.getByText('Workouts were saved, but Google Calendar could not be updated.')).toBeOnTheScreen();
+  });
+
   it('previews active race-date updates without changing plan length', async () => {
     vi.setSystemTime(new Date('2026-07-20T12:00:00'));
     const active = activePlannerState();
@@ -467,7 +504,7 @@ describe('Planner content', () => {
         return HttpResponse.json(preview);
       }),
       http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json(
-        { error: 'Preview changed' },
+        { error: 'Preview changed', code: 'PLAN_PREVIEW_STALE' },
         { status: 409 },
       )),
     );

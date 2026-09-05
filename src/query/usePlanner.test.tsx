@@ -8,6 +8,7 @@ import { useCalendarEvents } from './useCalendarEvents';
 import { useSettingsQuery } from './useSettingsQuery';
 import { apiUrl } from '@/test/msw/helpers';
 import { makeTestAuthValue, makeTestSession, TestAppProviders } from '@/test/TestAppProviders';
+import { defaultCalendarEvents } from '@/test/msw/handlers/calendar';
 import { activePlannerState, defaultPlannerConfig } from '@/test/msw/handlers/planner';
 import { server } from '@/test/msw/server';
 
@@ -42,23 +43,34 @@ function CacheInvalidationProbe() {
   const planner = usePlannerQuery();
   const settings = useSettingsQuery();
   const calendar = useCalendarEvents();
-  const { apply } = usePlannerMutations();
+  const { apply, saveConfig } = usePlannerMutations();
 
   return (
     <>
-      <Text>Planner cache: {planner.status}</Text>
-      <Text>Settings cache: {settings.status}</Text>
-      <Text>
-        Calendar cache: {calendar.isLoading ? 'loading' : calendar.isError ? 'error' : 'ready'}
-      </Text>
+      <Text>Planner race: {planner.state?.currentConfig?.raceName ?? 'none'}</Text>
+      <Text>Settings user: {settings.settings?.displayName ?? 'none'}</Text>
+      <Text>Calendar event: {calendar.events[0]?.name ?? 'none'}</Text>
+      <Text>Save: {saveConfig.isSuccess ? 'done' : saveConfig.isError ? 'error' : 'idle'}</Text>
       <Text>Apply: {apply.isError ? 'error' : 'idle'}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Apply with cache invalidation error"
+        accessibilityLabel="Save with cache refresh"
+        onPress={() => {
+          void saveConfig.mutateAsync({
+            ...defaultPlannerConfig(),
+            raceName: 'Saved race',
+          }).catch(() => {});
+        }}
+      >
+        <Text>Save</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Apply with cache refresh"
         onPress={() => {
           void apply.mutateAsync({
             intent: 'start',
-            config: defaultPlannerConfig(),
+            config: { ...defaultPlannerConfig(), raceName: 'Applied race' },
             previewHash: 'a'.repeat(64),
           }).catch(() => {});
         }}
@@ -120,32 +132,23 @@ describe('Planner query boundary', () => {
     await waitFor(() => expect(screen.getByText('Apply: error')).toBeOnTheScreen());
   });
 
-  it('invalidates Planner, Settings, and Calendar after any apply error', async () => {
-    let plannerGets = 0;
-    let settingsGets = 0;
-    let calendarGets = 0;
+  it('refreshes Planner and Settings after saving config', async () => {
+    let plannerState = activePlannerState();
+    let settingsState = {
+      intervalsConnected: true,
+      diabetesMode: true,
+      displayName: 'Runner',
+      email: 'runner@example.com',
+    };
     server.use(
-      http.get(apiUrl('/api/planner'), () => {
-        plannerGets += 1;
-        return HttpResponse.json(activePlannerState());
+      http.get(apiUrl('/api/planner'), () => HttpResponse.json(plannerState)),
+      http.get(apiUrl('/api/settings'), () => HttpResponse.json(settingsState)),
+      http.put(apiUrl('/api/settings'), async ({ request }) => {
+        const config = await request.json() as NonNullable<typeof plannerState.currentConfig>;
+        plannerState = { ...plannerState, currentConfig: config };
+        settingsState = { ...settingsState, displayName: 'Saved Runner' };
+        return HttpResponse.json({ ok: true });
       }),
-      http.get(apiUrl('/api/settings'), () => {
-        settingsGets += 1;
-        return HttpResponse.json({
-          intervalsConnected: true,
-          diabetesMode: true,
-          displayName: 'Runner',
-          email: 'runner@example.com',
-        });
-      }),
-      http.get(apiUrl('/api/intervals/calendar'), () => {
-        calendarGets += 1;
-        return HttpResponse.json([]);
-      }),
-      http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json(
-        { error: 'unexpected apply failure', code: 'UNEXPECTED_ERROR' },
-        { status: 500 },
-      )),
     );
 
     await render(
@@ -153,20 +156,100 @@ describe('Planner query boundary', () => {
         <CacheInvalidationProbe />
       </TestAppProviders>,
     );
-    expect(await screen.findByText('Planner cache: ready')).toBeOnTheScreen();
-    expect(await screen.findByText('Settings cache: ready')).toBeOnTheScreen();
-    expect(await screen.findByText('Calendar cache: ready')).toBeOnTheScreen();
-    await waitFor(() => expect(calendarGets).toBe(3));
+    expect(await screen.findByText('Planner race: Stockholm Half')).toBeOnTheScreen();
+    expect(await screen.findByText('Settings user: Runner')).toBeOnTheScreen();
 
-    const baseline = { plannerGets, settingsGets, calendarGets };
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Save with cache refresh' }));
+
+    expect(await screen.findByText('Planner race: Saved race')).toBeOnTheScreen();
+    expect(await screen.findByText('Settings user: Saved Runner')).toBeOnTheScreen();
+  });
+
+  it('refreshes Planner, Settings, and Calendar after applying a plan', async () => {
+    let plannerState = activePlannerState();
+    let settingsState = {
+      intervalsConnected: true,
+      diabetesMode: true,
+      displayName: 'Runner',
+      email: 'runner@example.com',
+    };
+    let calendarEvent = defaultCalendarEvents()[0]!;
+    server.use(
+      http.get(apiUrl('/api/planner'), () => HttpResponse.json(plannerState)),
+      http.get(apiUrl('/api/settings'), () => HttpResponse.json(settingsState)),
+      http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([calendarEvent])),
+      http.post(apiUrl('/api/planner/apply'), async ({ request }) => {
+        const body = await request.json() as { config: NonNullable<typeof plannerState.currentConfig> };
+        plannerState = { ...plannerState, currentConfig: body.config };
+        settingsState = { ...settingsState, displayName: 'Applied Runner' };
+        calendarEvent = { ...calendarEvent, name: 'Applied workout' };
+        return HttpResponse.json({
+          action: 'replace-plan',
+          appliedWorkoutCount: 3,
+          warnings: [],
+          state: plannerState,
+        });
+      }),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <CacheInvalidationProbe />
+      </TestAppProviders>,
+    );
+    expect(await screen.findByText('Planner race: Stockholm Half')).toBeOnTheScreen();
+    expect(await screen.findByText('Settings user: Runner')).toBeOnTheScreen();
+    expect(await screen.findByText('Calendar event: Easy Run')).toBeOnTheScreen();
+
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Apply with cache refresh' }));
+
+    expect(await screen.findByText('Planner race: Applied race')).toBeOnTheScreen();
+    expect(await screen.findByText('Settings user: Applied Runner')).toBeOnTheScreen();
+    expect(await screen.findByText('Calendar event: Applied workout')).toBeOnTheScreen();
+  });
+
+  it('refreshes Planner, Settings, and Calendar after any apply error', async () => {
+    let plannerState = activePlannerState();
+    let settingsState = {
+      intervalsConnected: true,
+      diabetesMode: true,
+      displayName: 'Runner',
+      email: 'runner@example.com',
+    };
+    let calendarEvent = defaultCalendarEvents()[0]!;
+    server.use(
+      http.get(apiUrl('/api/planner'), () => HttpResponse.json(plannerState)),
+      http.get(apiUrl('/api/settings'), () => HttpResponse.json(settingsState)),
+      http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([calendarEvent])),
+      http.post(apiUrl('/api/planner/apply'), () => {
+        plannerState = {
+          ...plannerState,
+          currentConfig: { ...plannerState.currentConfig!, raceName: 'Recovered race' },
+        };
+        settingsState = { ...settingsState, displayName: 'Recovered Runner' };
+        calendarEvent = { ...calendarEvent, name: 'Recovered workout' };
+        return HttpResponse.json(
+          { error: 'unexpected apply failure', code: 'UNEXPECTED_ERROR' },
+          { status: 500 },
+        );
+      }),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <CacheInvalidationProbe />
+      </TestAppProviders>,
+    );
+    expect(await screen.findByText('Planner race: Stockholm Half')).toBeOnTheScreen();
+    expect(await screen.findByText('Settings user: Runner')).toBeOnTheScreen();
+    expect(await screen.findByText('Calendar event: Easy Run')).toBeOnTheScreen();
+
     const user = userEvent.setup();
-    await user.press(screen.getByRole('button', { name: 'Apply with cache invalidation error' }));
+    await user.press(screen.getByRole('button', { name: 'Apply with cache refresh' }));
     await waitFor(() => expect(screen.getByText('Apply: error')).toBeOnTheScreen());
-    await waitFor(() => {
-      expect(plannerGets).toBeGreaterThan(baseline.plannerGets);
-      expect(settingsGets).toBeGreaterThan(baseline.settingsGets);
-      expect(calendarGets).toBeGreaterThan(baseline.calendarGets);
-    });
+    expect(await screen.findByText('Planner race: Recovered race')).toBeOnTheScreen();
+    expect(await screen.findByText('Settings user: Recovered Runner')).toBeOnTheScreen();
+    expect(await screen.findByText('Calendar event: Recovered workout')).toBeOnTheScreen();
   });
 
   it('uses a distinct key for each signed-in identity', () => {

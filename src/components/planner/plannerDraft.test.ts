@@ -108,7 +108,7 @@ describe('Planner draft rules', () => {
 
   it('compares every plan field while ignoring run-day order', () => {
     expect(plannerConfigAffectsPlan(config, { ...config, runDays: [0, 4, 2] })).toBe(false);
-    expect(plannerConfigAffectsPlan(config, { ...config, raceName: 'New name' })).toBe(true);
+    expect(plannerConfigAffectsPlan(config, { ...config, raceName: 'New name' })).toBe(false);
   });
 
   it('calculates speed label and ordered summary segments', () => {

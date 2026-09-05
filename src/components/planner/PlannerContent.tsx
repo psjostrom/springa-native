@@ -29,7 +29,7 @@ export function PlannerContent() {
   const [draftErrors, setDraftErrors] = useState<Record<string, string>>({});
   const [configError, setConfigError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PlannerPreview | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<Error | null>(null);
   const previewRequestId = useRef(0);
   const [result, setResult] = useState<{
     response: PlannerApplyResponse;
@@ -103,13 +103,16 @@ export function PlannerContent() {
     const errors = validateDraft(draft, state.plan.status === 'active');
     if (Object.keys(errors).length > 0) return;
     if (state.plan.status === 'active') {
-      const unchanged = currentConfig != null && !plannerConfigAffectsPlan(currentConfig, draft);
-      if (unchanged && state.plan.sync?.status !== 'dirty') {
+      const planChanged = currentConfig == null || plannerConfigAffectsPlan(currentConfig, draft);
+      const raceNameChanged = currentConfig?.raceName.trim() !== draft.raceName.trim();
+      if (planChanged || (!raceNameChanged && state.plan.sync?.status === 'dirty')) {
+        await requestPreview('update', draft);
+        return;
+      }
+      if (!raceNameChanged) {
         cancelDraft();
         return;
       }
-      await requestPreview('update', draft);
-      return;
     }
     try {
       await mutations.saveConfig.mutateAsync(draft);
@@ -138,7 +141,7 @@ export function PlannerContent() {
       if (error instanceof ApiError && error.details?.fields) {
         setDraftErrors((previous) => ({ ...previous, ...error.details?.fields }));
       }
-      setPreviewError(error instanceof Error ? error.message : 'Couldn’t preview plan.');
+      setPreviewError(error instanceof Error ? error : new Error('Couldn’t preview plan.'));
     }
   };
 
@@ -156,7 +159,7 @@ export function PlannerContent() {
       setResult({ response, intent });
       setMode('collapsed');
     } catch (error) {
-      setPreviewError(error instanceof Error ? error.message : 'Couldn’t apply plan.');
+      setPreviewError(error instanceof Error ? error : new Error('Couldn’t apply plan.'));
     }
   };
 
@@ -169,7 +172,7 @@ export function PlannerContent() {
       <PlannerConfigEditor
         value={draft}
         errors={draftErrors}
-        requestError={configError ?? previewError}
+        requestError={configError ?? previewError?.message}
         saving={mutations.saveConfig.isPending || mutations.preview.isPending}
         onChange={(next) => {
           setDraft(next);
@@ -191,7 +194,7 @@ export function PlannerContent() {
         fitnessOptions={state.fitnessOptions}
         constraints={state.constraints}
         previewing={mutations.preview.isPending}
-        previewError={previewError}
+        previewError={previewError?.message}
         onChange={(next) => {
           setDraft(next);
           setDraftErrors({});

@@ -1,6 +1,7 @@
 import { LegendList } from '@legendapp/list/react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { useWindowDimensions, StyleSheet, View } from 'react-native';
+import { ApiError } from '@/api/client';
 import type { PlannerPreview as PlannerPreviewDto, PlannerPreviewWorkout } from '@/api/types';
 import { AppText, Button, Card } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -9,7 +10,7 @@ import { PlannerSummaryCard } from './PlannerSummaryCard';
 
 type PlannerPreviewProps = {
   preview: PlannerPreviewDto;
-  error: string | null;
+  error: Error | null;
   applying: boolean;
   onEdit: () => void;
   onCancel: () => void;
@@ -141,7 +142,7 @@ export function PlannerPreviewView({
             </Card>
             {error ? (
               <View>
-                <AppText accessibilityRole="alert" tone="error">{error}</AppText>
+                <AppText accessibilityRole="alert" tone="error">{error.message}</AppText>
               </View>
             ) : null}
             <View style={styles.actions}>
@@ -151,7 +152,7 @@ export function PlannerPreviewView({
                 loading={applying}
                 onPress={onApply}
               />
-              {error?.includes('Preview changed') ? (
+              {error instanceof ApiError && error.code === 'PLAN_PREVIEW_STALE' ? (
                 <Button label="Preview again" variant="secondary" onPress={onPreviewAgain} />
               ) : null}
               <View style={styles.secondaryActions}>

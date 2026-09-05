@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { ApiError, createApiClient, parseUserSettings } from './client';
+import { formatIsoDay } from '@/domain/calendarWindows';
 import { apiUrl } from '@/test/msw/helpers';
 import { degradedCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
 import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
@@ -116,7 +117,8 @@ describe('createApiClient', () => {
   });
 
   it('returns calendar events on 200', async () => {
-    const events = await makeClient().getCalendar('2026-08-01', '2026-08-31');
+    const day = formatIsoDay(new Date());
+    const events = await makeClient().getCalendar(day, day);
     expect(events.length).toBeGreaterThan(0);
     expect(events[0]?.date).toBeInstanceOf(Date);
     expect(events.some((e) => e.name === 'Threshold intervals')).toBe(true);

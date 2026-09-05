@@ -188,7 +188,6 @@ export function formatFitnessTime(seconds: number): string {
 
 export function plannerConfigAffectsPlan(current: PlannerConfig, next: PlannerConfig): boolean {
   const comparable = (config: PlannerConfig) => JSON.stringify({
-    raceName: config.raceName.trim(),
     raceDist: config.raceDist,
     raceDate: config.raceDate,
     currentAbilityDist: config.currentAbilityDist,
