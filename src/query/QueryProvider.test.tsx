@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { Pressable, Text } from 'react-native';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { QUERY_CACHE_KEY } from './persister';
 import { useQueryHydration } from './QueryHydrationContext';
@@ -12,13 +12,13 @@ function HydrationProbe() {
   return <Text>{isHydrated ? 'Hydrated' : 'Not Hydrated'}</Text>;
 }
 
-function Probe() {
+function Probe({ enabled = false }: { enabled?: boolean }) {
   const { isHydrated } = useQueryHydration();
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ['test-probe'],
     queryFn: () => 'fetched-value',
-    enabled: false,
+    enabled,
   });
 
   return (
@@ -26,6 +26,9 @@ function Probe() {
       <Text>{isHydrated ? 'Hydrated' : 'Not Hydrated'}</Text>
       <Text>{client ? 'Client Ready' : 'No Client'}</Text>
       <Text>Cached: {query.data ?? 'empty'}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Fetch data" onPress={() => void query.refetch()}>
+        <Text>Fetch</Text>
+      </Pressable>
     </>
   );
 }
@@ -101,5 +104,13 @@ describe('QueryProvider and QueryHydrationContext', () => {
     );
     expect(await screen.findByText('Hydrated')).toBeOnTheScreen();
     expect(screen.getByText('Cached: empty')).toBeOnTheScreen();
+
+    await waitFor(async () => {
+      expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+    });
+
+    const user = userEvent.setup();
+    await user.press(screen.getByRole('button', { name: 'Fetch data' }));
+    expect(await screen.findByText('Cached: fetched-value')).toBeOnTheScreen();
   });
 });

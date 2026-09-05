@@ -38,9 +38,6 @@ const safeAsyncStorage = {
     }
   },
   removeItem: async (key: string) => {
-    if (key === QUERY_CACHE_KEY) {
-      cacheEvicted = true;
-    }
     try {
       await AsyncStorage.removeItem(key);
     } catch {
@@ -57,6 +54,7 @@ export const asyncStoragePersister = createAsyncStoragePersister({
     try {
       return JSON.parse(cachedString);
     } catch {
+      void safeAsyncStorage.removeItem(QUERY_CACHE_KEY);
       return undefined;
     }
   },

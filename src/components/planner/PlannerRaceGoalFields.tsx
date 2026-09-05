@@ -46,16 +46,17 @@ export function PlannerRaceGoalFields({
         keyboardType="decimal-pad"
         onChangeText={(text) => {
           setRaceDistanceText(text);
-          const normalized = text.replace(',', '.');
+          const normalized = text.replace(',', '.').trim();
+          if (!normalized || normalized.endsWith('.')) return;
           const next = Number(normalized);
-          if (Number.isFinite(next) && !normalized.endsWith('.')) {
+          if (Number.isFinite(next) && next > 0) {
             onChange({ ...value, raceDist: next });
           }
         }}
         onBlur={() => {
-          const normalized = raceDistanceText.replace(',', '.');
+          const normalized = raceDistanceText.replace(',', '.').trim();
           const next = Number(normalized);
-          if (Number.isFinite(next) && next > 0) {
+          if (normalized.length > 0 && Number.isFinite(next) && next > 0) {
             onChange({ ...value, raceDist: next });
             setRaceDistanceText(String(next));
           } else {

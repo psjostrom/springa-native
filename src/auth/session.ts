@@ -104,8 +104,12 @@ export function createSessionApi(
           await store.deleteItemAsync(SESSION_KEY);
         }
       } finally {
-        await asyncStorage.removeItem(QUERY_CACHE_KEY);
         await evictPersistedQueryCache();
+        try {
+          await asyncStorage.removeItem(QUERY_CACHE_KEY);
+        } catch {
+          // ignore storage remove errors
+        }
       }
     });
   }

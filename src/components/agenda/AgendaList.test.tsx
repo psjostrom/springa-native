@@ -10,6 +10,8 @@ import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
 import { defaultCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
 import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
+import { queryKeys } from '@/query/keys';
+import { createAppQueryClient } from '@/query/queryClient';
 import {
   makeTestAuthValue,
   makeTestSession,
@@ -30,6 +32,12 @@ function sampleEvent(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
     prescribedCarbsG: 42,
     ...overrides,
   };
+}
+
+function isoDay(offsetDays: number) {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays, 12, 0, 0);
+  return d.toISOString();
 }
 
 describe('AgendaEventCard', () => {
@@ -185,12 +193,6 @@ describe('AgendaList', () => {
     const plannedDetailRequests: string[] = [];
     const completedOverviewRequests: string[] = [];
 
-    const now = new Date();
-    const isoDay = (offsetDays: number) => {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays, 12, 0, 0);
-      return d.toISOString();
-    };
-
     const pastEvents = [
       // Older completed events (beyond the last 10)
       { id: 'past-comp-1', date: isoDay(-12), name: 'Past 1', type: 'completed', category: 'easy', activityId: 'act-1' },
@@ -330,4 +332,108 @@ describe('AgendaList', () => {
       expect(calendarFetches).toBeGreaterThan(initialFetches);
     });
   });
+
+  it('prefetches stale cached workouts while skipping fresh cached workouts', async () => {
+    const session = makeTestSession();
+    const queryClient = createAppQueryClient();
+
+    const calendarEvents = [
+      {
+        id: 'plan-fresh',
+        date: isoDay(0),
+        name: 'Fresh Plan',
+        type: 'planned',
+        category: 'easy',
+      },
+      {
+        id: 'plan-stale',
+        date: isoDay(1),
+        name: 'Stale Plan',
+        type: 'planned',
+        category: 'interval',
+      },
+      {
+        id: 'past-fresh',
+        date: isoDay(-2),
+        name: 'Fresh Past',
+        type: 'completed',
+        category: 'easy',
+        activityId: 'act-fresh',
+      },
+      {
+        id: 'past-stale',
+        date: isoDay(-1),
+        name: 'Stale Past',
+        type: 'completed',
+        category: 'easy',
+        activityId: 'act-stale',
+      },
+    ];
+
+    // Fresh planned workout detail (updated now, well within 5m staleTime)
+    queryClient.setQueryData(
+      queryKeys.plannedWorkout(session.email, 'plan-fresh'),
+      defaultPlannedWorkoutDetail(),
+      { updatedAt: Date.now() },
+    );
+
+    // Stale planned workout detail (updated 10m ago > 5m staleTime)
+    queryClient.setQueryData(
+      queryKeys.plannedWorkout(session.email, 'plan-stale'),
+      defaultPlannedWorkoutDetail(),
+      { updatedAt: Date.now() - 1000 * 60 * 10 },
+    );
+
+    // Fresh completed overview (updated now, well within 24h staleTime)
+    queryClient.setQueryData(
+      queryKeys.completedWorkoutOverview(session.email, 'act-fresh'),
+      defaultCompletedOverview('act-fresh'),
+      { updatedAt: Date.now() },
+    );
+
+    // Stale completed overview (updated 25h ago > 24h staleTime)
+    queryClient.setQueryData(
+      queryKeys.completedWorkoutOverview(session.email, 'act-stale'),
+      defaultCompletedOverview('act-stale'),
+      { updatedAt: Date.now() - 1000 * 60 * 60 * 25 },
+    );
+
+    const plannedFetches: string[] = [];
+    const completedFetches: string[] = [];
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), () =>
+        HttpResponse.json(calendarEvents),
+      ),
+      http.get(apiUrl('/api/intervals/events/:id'), ({ params }) => {
+        plannedFetches.push(String(params.id));
+        return HttpResponse.json(defaultPlannedWorkoutDetail());
+      }),
+      http.get(apiUrl('/api/intervals/activity/:id/overview'), ({ params }) => {
+        completedFetches.push(String(params.id));
+        return HttpResponse.json(defaultCompletedOverview(String(params.id)));
+      }),
+    );
+
+    await render(
+      <TestAppProviders
+        auth={makeTestAuthValue(session)}
+        queryClient={queryClient}
+      >
+        <View style={{ width: 390, height: 800 }}>
+          <AgendaGate>
+            <AgendaList />
+          </AgendaGate>
+        </View>
+      </TestAppProviders>,
+    );
+
+    await waitFor(() => {
+      expect(plannedFetches).toContain('plan-stale');
+      expect(completedFetches).toContain('act-stale');
+    });
+
+    expect(plannedFetches).not.toContain('plan-fresh');
+    expect(completedFetches).not.toContain('act-fresh');
+  });
 });
+

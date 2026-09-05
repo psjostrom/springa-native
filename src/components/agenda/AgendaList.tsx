@@ -9,7 +9,6 @@ import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { AppText, Card, StateView } from '@/components/ui';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
-import { queryKeys } from '@/query/keys';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 
 import { prefetchCompletedWorkoutOverview } from '@/query/useCompletedWorkoutOverview';
@@ -71,10 +70,6 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       await Promise.all([
         ...plannedUpcomingIds.map(async (eventId) => {
           if (cancelled) return;
-          const cached = queryClient.getQueryState(
-            queryKeys.plannedWorkout(sessionEmail, eventId),
-          );
-          if (cached?.data != null) return;
           await prefetchPlannedWorkoutDetail(
             queryClient,
             apiClient,
@@ -84,10 +79,6 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
         }),
         ...completedEarlierActivityIds.map(async (activityId) => {
           if (cancelled) return;
-          const cached = queryClient.getQueryState(
-            queryKeys.completedWorkoutOverview(sessionEmail, activityId),
-          );
-          if (cached?.data != null) return;
           await prefetchCompletedWorkoutOverview(
             queryClient,
             apiClient,

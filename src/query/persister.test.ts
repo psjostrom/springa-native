@@ -39,4 +39,28 @@ describe('persister and queryClient configuration', () => {
 
     resetCacheEvicted();
   });
+
+  it('persists fresh query data after removeClient is called for expired data', async () => {
+    resetCacheEvicted();
+    await asyncStoragePersister.removeClient();
+
+    const freshPayload = {
+      timestamp: Date.now(),
+      buster: '',
+      clientState: {
+        mutations: [],
+        queries: [
+          {
+            queryKey: ['fresh-key'],
+            queryHash: '["fresh-key"]',
+            state: { data: 'fresh-data' },
+          },
+        ],
+      },
+    };
+
+    await asyncStoragePersister.persistClient(freshPayload as never);
+    const restored = await asyncStoragePersister.restoreClient();
+    expect(restored).toEqual(freshPayload);
+  });
 });
