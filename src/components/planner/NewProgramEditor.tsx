@@ -195,7 +195,16 @@ export function NewProgramEditor({
                   onChange({ ...value, startKm: next });
                 }
               }}
-              onBlur={() => setStartKmText(String(value.startKm))}
+              onBlur={() => {
+                const normalized = startKmText.replace(',', '.');
+                const next = Number(normalized);
+                if (Number.isFinite(next) && next > 0) {
+                  onChange({ ...value, startKm: next });
+                  setStartKmText(String(next));
+                } else {
+                  setStartKmText(String(value.startKm));
+                }
+              }}
               error={errors.startKm}
             />
             <View style={styles.checkboxRow}>

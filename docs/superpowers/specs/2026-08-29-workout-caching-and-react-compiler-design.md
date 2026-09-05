@@ -83,7 +83,7 @@ This design introduces:
 
 ## 3. Data Flow & State Management
 
-```
+```text
 [App Launch]
     │
     ├──> AuthProvider loads SecureStore session ──┐

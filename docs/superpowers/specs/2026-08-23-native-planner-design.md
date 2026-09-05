@@ -821,7 +821,7 @@ Native behavior:
 - Preview failure: keep editor and values.
 - Stale preview: keep preview, show message, and offer Preview again.
 - Apply failure: keep preview and allow explicit retry.
-- Partial apply or finalization failure: also invalidate Planner and Calendar because provider state may have changed.
+- Partial apply or finalization failure: also invalidate Planner, Calendar, and Settings because provider and settings state may have changed.
 - Warning response: show success state plus warning; refresh Planner and Calendar.
 - Disable duplicate action presses while mutation is pending.
 

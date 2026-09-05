@@ -52,7 +52,16 @@ export function PlannerRaceGoalFields({
             onChange({ ...value, raceDist: next });
           }
         }}
-        onBlur={() => setRaceDistanceText(String(value.raceDist))}
+        onBlur={() => {
+          const normalized = raceDistanceText.replace(',', '.');
+          const next = Number(normalized);
+          if (Number.isFinite(next) && next > 0) {
+            onChange({ ...value, raceDist: next });
+            setRaceDistanceText(String(next));
+          } else {
+            setRaceDistanceText(String(value.raceDist));
+          }
+        }}
         value={raceDistanceText}
         error={errors.raceDist}
       />

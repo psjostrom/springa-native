@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { QUERY_CACHE_KEY } from '@/query/persister';
+import { evictPersistedQueryCache, resetCacheEvicted, QUERY_CACHE_KEY } from '@/query/persister';
 
 export type Session = {
   token: string;
@@ -88,6 +88,7 @@ export function createSessionApi(
 
   async function saveSession(session: Session): Promise<void> {
     return enqueue(async () => {
+      resetCacheEvicted();
       const store = await getStore();
       await store.setItemAsync(SESSION_KEY, JSON.stringify(session));
     });
@@ -104,6 +105,7 @@ export function createSessionApi(
         }
       } finally {
         await asyncStorage.removeItem(QUERY_CACHE_KEY);
+        await evictPersistedQueryCache();
       }
     });
   }
