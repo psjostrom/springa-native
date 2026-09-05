@@ -3,8 +3,10 @@ import { http, HttpResponse } from 'msw';
 import { ApiError, createApiClient, parseUserSettings } from './client';
 import { apiUrl } from '@/test/msw/helpers';
 import { degradedCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
+import { isoDaysFromToday } from '@/test/msw/handlers/calendar';
 import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
 import { server } from '@/test/msw/server';
+import type { PlannerConfig } from './types';
 
 const baseUrl = process.env.EXPO_PUBLIC_SPRINGA_API_URL ?? 'https://www.springa.run';
 
@@ -15,6 +17,83 @@ function makeClient(onUnauthorized: () => void = () => {}) {
     baseUrl,
   });
 }
+
+const plannerConfig: PlannerConfig = {
+  raceName: 'Stockholm Half',
+  raceDist: 21.1,
+  raceDate: '2026-11-29',
+  currentAbilityDist: 10,
+  currentAbilitySecs: 3600,
+  runDays: [0, 2, 4],
+  longRunDay: 0,
+  clubDay: null,
+  clubType: null,
+  totalWeeks: 14,
+  startKm: 8,
+  includeBasePhase: true,
+  effortMetric: 'pace',
+} as const;
+
+const plannerState = {
+  currentConfig: plannerConfig,
+  newProgramDraft: plannerConfig,
+  fitnessOptions: [{
+    label: '5K',
+    distanceKm: 5,
+    defaultSeconds: 1500,
+    minSeconds: 1200,
+    maxSeconds: 1800,
+    stepSeconds: 30,
+  }],
+  constraints: {
+    raceDistanceKm: { min: 1, max: 100 },
+    startDistanceKm: { min: 2, max: 42 },
+    minimumWeeks: 8,
+    minimumNormalWeeks: 10,
+    recommendedWeeks: 12,
+    basePhaseMinimumWeeks: 11,
+  },
+  plan: {
+    status: 'none',
+    sync: null,
+    weeksToGo: null,
+    futureWorkoutCount: 0,
+  },
+  fuelRates: null,
+};
+
+const plannerPreview = {
+  intent: 'start',
+  action: 'replace-plan',
+  config: plannerConfig,
+  previewHash: 'a'.repeat(64),
+  warning: null,
+  summary: {
+    workoutCount: 1,
+    planWeeks: 14,
+    firstWorkoutDate: '2026-09-01',
+    raceDate: '2026-11-29',
+    totalDistanceKm: 6,
+  },
+  weeks: [{ week: 1, startsOn: '2026-08-31', distanceKm: 6, workoutCount: 1 }],
+  workouts: [{
+    key: 'easy-1',
+    week: 1,
+    date: '2026-09-01',
+    name: 'W01 Easy',
+    category: 'easy',
+    distanceKm: 6,
+    durationMinutes: 36,
+    fuelRateGPerHour: null,
+  }],
+};
+
+const plannerApply = {
+  action: 'replace-plan',
+  appliedWorkoutCount: 1,
+  warnings: [],
+  state: plannerState,
+};
 
 describe('parseUserSettings', () => {
   it('accepts a plain object', () => {
@@ -38,7 +117,7 @@ describe('createApiClient', () => {
   });
 
   it('returns calendar events on 200', async () => {
-    const events = await makeClient().getCalendar('2026-08-01', '2026-08-31');
+    const events = await makeClient().getCalendar(isoDaysFromToday(-7), isoDaysFromToday(7));
     expect(events.length).toBeGreaterThan(0);
     expect(events[0]?.date).toBeInstanceOf(Date);
     expect(events.some((e) => e.name === 'Threshold intervals')).toBe(true);
@@ -113,6 +192,85 @@ describe('createApiClient', () => {
       expect((err as ApiError).status).toBe(0);
       expect((err as ApiError).message).toMatch(/network/i);
     }
+  });
+
+  it('loads and mutates Planner through exact API methods', async () => {
+    let settingsBody: unknown;
+    let previewBody: unknown;
+    let applyBody: unknown;
+    server.use(
+      http.get(apiUrl('/api/planner'), () => HttpResponse.json(plannerState)),
+      http.put(apiUrl('/api/settings'), async ({ request }) => {
+        settingsBody = await request.json();
+        return HttpResponse.json({ ok: true });
+      }),
+      http.post(apiUrl('/api/planner/preview'), async ({ request }) => {
+        previewBody = await request.json();
+        return HttpResponse.json(plannerPreview);
+      }),
+      http.post(apiUrl('/api/planner/apply'), async ({ request }) => {
+        applyBody = await request.json();
+        return HttpResponse.json(plannerApply);
+      }),
+    );
+
+    const client = makeClient();
+    await expect(client.getPlanner()).resolves.toMatchObject({ plan: { status: 'none' } });
+    await expect(client.savePlannerConfig(plannerConfig)).resolves.toEqual({ ok: true });
+    await expect(client.previewPlanner({ intent: 'start', config: plannerConfig })).resolves.toMatchObject({
+      previewHash: 'a'.repeat(64),
+    });
+    await expect(client.applyPlanner({
+      intent: 'start',
+      config: plannerConfig,
+      previewHash: 'a'.repeat(64),
+    })).resolves.toMatchObject({ appliedWorkoutCount: 1 });
+
+    expect(settingsBody).toEqual(plannerConfig);
+    expect(previewBody).toEqual({ intent: 'start', config: plannerConfig });
+    expect(applyBody).toEqual({
+      intent: 'start',
+      config: plannerConfig,
+      previewHash: 'a'.repeat(64),
+    });
+  });
+
+  it('preserves Planner field and partial-apply error details', async () => {
+    server.use(
+      http.post(apiUrl('/api/planner/preview'), () =>
+        HttpResponse.json({
+          error: 'Planner config is invalid',
+          code: 'PLANNER_CONFIG_INVALID',
+          fields: { raceDate: 'Choose a valid date.' },
+        }, { status: 400 })),
+    );
+    await expect(
+      makeClient().previewPlanner({ intent: 'start', config: plannerConfig }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: 'PLANNER_CONFIG_INVALID',
+      details: { fields: { raceDate: 'Choose a valid date.' } },
+    });
+
+    server.use(
+      http.post(apiUrl('/api/planner/apply'), () =>
+        HttpResponse.json({
+          error: 'Some workouts could not be updated',
+          code: 'PLANNER_APPLY_PARTIAL',
+          appliedWorkoutCount: 2,
+          failures: [{ id: 'event-3', name: 'W03 Tempo', error: 'upstream 502' }],
+        }, { status: 502 })),
+    );
+    await expect(
+      makeClient().applyPlanner({ intent: 'start', config: plannerConfig, previewHash: 'a'.repeat(64) }),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'PLANNER_APPLY_PARTIAL',
+      details: {
+        appliedWorkoutCount: 2,
+        failures: [{ id: 'event-3', name: 'W03 Tempo', error: 'upstream 502' }],
+      },
+    });
   });
 
   it('treats missing token as unauthorized', async () => {

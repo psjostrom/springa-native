@@ -15,9 +15,10 @@ import type {
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
 } from '@/api/types';
+import { parseLocalDateTime } from '@/components/workout/plannedWorkoutPresentation';
 import { queryKeys } from './keys';
 
-const PLANNED_WORKOUT_STALE_TIME = 60_000;
+export const PLANNED_WORKOUT_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 function replaceCalendarEvent(
   event: CalendarEvent,
@@ -28,7 +29,7 @@ function replaceCalendarEvent(
   return {
     ...event,
     id: detail.event.id,
-    date: new Date(detail.event.startDateLocal),
+    date: parseLocalDateTime(detail.event.startDateLocal),
     name: detail.event.name,
     description: detail.event.description,
     category: detail.event.category,
@@ -81,9 +82,8 @@ export function usePlannedWorkoutDetail(eventId: string) {
     isError: enabled && query.isError,
     isDisabled: !enabled,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () => {
-      void query.refetch();
-    },
+    reload: () => query.refetch(),
+
   };
 }
 
@@ -157,7 +157,7 @@ export function usePlannedWorkoutMutations(eventId: string) {
                 ...current,
                 pages: current.pages.map((page) => page.map((event) =>
                   event.id === eventId
-                    ? { ...event, date: new Date(startDateLocal) }
+                    ? { ...event, date: parseLocalDateTime(startDateLocal) }
                     : event,
                 )),
               },
@@ -246,6 +246,19 @@ export function usePlannedWorkoutMutations(eventId: string) {
         queryClient.setQueryData<PlannedWorkoutDetail>(
           plannedWorkoutKey,
           (detail) => detail == null ? detail : { ...detail, preRunCarbsG: carbsG },
+        );
+        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
+          { queryKey: calendarKey },
+          (current) => current == null
+            ? current
+            : {
+                ...current,
+                pages: current.pages.map((page) => page.map((event) =>
+                  event.id === eventId
+                    ? { ...event, preRunCarbsG: carbsG }
+                    : event,
+                )),
+              },
         );
       },
     }),

@@ -1,4 +1,5 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useCallback,
   useEffect,
@@ -18,6 +19,7 @@ import {
 type AuthStatus = AuthValue['status'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [session, setSession] = useState<AuthValue['session']>(null);
   const [configError, setConfigError] = useState<string | null>(null);
@@ -73,10 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    // Gate on local session immediately — SecureStore clear must not block UI.
+    // Gate on local session immediately — SecureStore clear & cache eviction must not block UI.
     // clearSession is queued with saveSession so a late delete cannot wipe a newer sign-in.
     setSession(null);
     setStatus('signedOut');
+    queryClient.clear();
     void clearSession().catch((err) => {
       setConfigError(
         err instanceof Error
@@ -87,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void GoogleSignin.signOut().catch(() => {
       // ignore native sign-out errors after local clear
     });
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({

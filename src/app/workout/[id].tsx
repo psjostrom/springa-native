@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WorkoutActionsSheet } from '@/components/workout/WorkoutActionsSheet';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
@@ -17,14 +17,6 @@ export default function WorkoutSheetScreen() {
   const event = id ? findCalendarEvent(events, id) : undefined;
   const [actionsPresented, setActionsPresented] = useState(false);
   const [actions, setActions] = useState<PlannedWorkoutActions | null>(null);
-
-  useEffect(() => {
-    if (id == null || isLoading || event != null) return;
-    const t = setTimeout(() => {
-      if (router.canGoBack()) router.back();
-    }, 1200);
-    return () => clearTimeout(t);
-  }, [id, isLoading, event, router]);
 
   const dismiss = () => {
     if (router.canGoBack()) router.back();
@@ -61,6 +53,7 @@ export default function WorkoutSheetScreen() {
           event={event ?? null}
           onClose={dismiss}
           onActionsReady={setActions}
+          onReplace={(newId) => router.setParams({ id: newId })}
         />
       </View>
       {actions ? (

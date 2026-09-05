@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
@@ -36,6 +36,8 @@ function newerPageParam(currentNewest: string, now = new Date()): DateWindow | u
   return next;
 }
 
+export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
+
 export function useCalendarEvents() {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
@@ -57,11 +59,12 @@ export function useCalendarEvents() {
     getPreviousPageParam: (_firstPage, _pages, firstPageParam) =>
       olderPageParam(firstPageParam.oldest),
     enabled: calendarEnabled,
+    staleTime: CALENDAR_STALE_TIME,
+    maxPages: 8,
   });
 
   const pages = query.data?.pages;
   const events = useMemo(() => mergeCalendarEvents(pages ?? []), [pages]);
-  const prefetchedFor = useRef<string | null>(null);
   const {
     isSuccess,
     data,
@@ -74,18 +77,16 @@ export function useCalendarEvents() {
   } = query;
 
   // After the first (today→future) page paints, warm older (history) then newer.
+  // Gated strictly on data.pages.length === 1 so components mounting with existing cache never refire warming.
   useEffect(() => {
     if (!calendarEnabled || !isSuccess) return;
-    if (prefetchedFor.current === identity) return;
-    if ((data?.pages.length ?? 0) < 1) return;
-    prefetchedFor.current = identity;
+    if ((data?.pages.length ?? 0) !== 1) return;
     void (async () => {
       if (hasPreviousPage) await fetchPreviousPage();
       if (hasNextPage) await fetchNextPage();
     })();
   }, [
     calendarEnabled,
-    identity,
     isSuccess,
     data?.pages.length,
     hasPreviousPage,
@@ -104,14 +105,17 @@ export function useCalendarEvents() {
     return fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const reload = useCallback(() => query.refetch(), [query]);
+
   return {
     events,
     isLoading: calendarEnabled && query.isPending,
     isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () => {
-      void query.refetch();
-    },
+    reload,
+
+
+
     fetchOlder,
     fetchNewer,
     hasOlder: Boolean(hasPreviousPage),

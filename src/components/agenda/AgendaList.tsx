@@ -1,14 +1,18 @@
 import { LegendList } from '@legendapp/list/react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, History } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+
 import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { AppText, Card, StateView } from '@/components/ui';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
+import { queryKeys } from '@/query/keys';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
+
+import { prefetchCompletedWorkoutOverview } from '@/query/useCompletedWorkoutOverview';
 import { prefetchPlannedWorkoutDetail } from '@/query/usePlannedWorkout';
 import { SpringaColors } from '@/theme/colors';
 import { IconSize, Spacing } from '@/theme/tokens';
@@ -33,7 +37,6 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
     reload,
     fetchOlder,
     fetchNewer,
-    hasOlder,
     isFetchingOlder,
     isFetchingNewer,
     olderError,
@@ -42,11 +45,20 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   const { earlier, upcoming } = useMemo(() => splitAgendaEvents(events), [events]);
   const plannedUpcomingIds = useMemo(
-    () => upcoming
-      .filter((event) => event.type === 'planned')
-      .slice(0, 8)
-      .map((event) => event.id),
+    () =>
+      upcoming
+        .filter((event) => event.type === 'planned')
+        .slice(0, 10)
+        .map((event) => event.id),
     [upcoming],
+  );
+  const completedEarlierActivityIds = useMemo(
+    () =>
+      earlier
+        .filter((event) => event.type === 'completed' && event.activityId != null)
+        .slice(-10)
+        .map((event) => event.activityId as string),
+    [earlier],
   );
   const sessionEmail = session?.email;
   const historyMode = view === 'history';
@@ -54,21 +66,60 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   useEffect(() => {
     if (authStatus !== 'signedIn' || sessionEmail == null) return;
 
-    plannedUpcomingIds.forEach((eventId) => {
-      void prefetchPlannedWorkoutDetail(
-        queryClient,
-        apiClient,
-        sessionEmail,
-        eventId,
-      );
-    });
-  }, [apiClient, authStatus, plannedUpcomingIds, queryClient, sessionEmail]);
+    let cancelled = false;
+    const runPrefetch = async () => {
+      await Promise.all([
+        ...plannedUpcomingIds.map(async (eventId) => {
+          if (cancelled) return;
+          const cached = queryClient.getQueryState(
+            queryKeys.plannedWorkout(sessionEmail, eventId),
+          );
+          if (cached?.data != null) return;
+          await prefetchPlannedWorkoutDetail(
+            queryClient,
+            apiClient,
+            sessionEmail,
+            eventId,
+          ).catch(() => {});
+        }),
+        ...completedEarlierActivityIds.map(async (activityId) => {
+          if (cancelled) return;
+          const cached = queryClient.getQueryState(
+            queryKeys.completedWorkoutOverview(sessionEmail, activityId),
+          );
+          if (cached?.data != null) return;
+          await prefetchCompletedWorkoutOverview(
+            queryClient,
+            apiClient,
+            sessionEmail,
+            activityId,
+          ).catch(() => {});
+        }),
+      ]);
+    };
 
-  // Empty older windows are gaps — keep paging while history is open and still empty.
-  useEffect(() => {
-    if (!historyMode || earlier.length > 0 || isFetchingOlder || !hasOlder) return;
-    void fetchOlder();
-  }, [historyMode, earlier.length, isFetchingOlder, hasOlder, fetchOlder]);
+    void runPrefetch();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    apiClient,
+    authStatus,
+    completedEarlierActivityIds,
+    plannedUpcomingIds,
+    queryClient,
+    sessionEmail,
+  ]);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await reload();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [reload]);
 
   if (isLoading) {
     return (
@@ -92,7 +143,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   const listData = historyMode ? [...earlier].reverse() : upcoming;
   const historyStillLoading =
-    historyMode && earlier.length === 0 && (isFetchingOlder || hasOlder);
+    historyMode && earlier.length === 0 && isFetchingOlder;
 
   return (
     <LegendList
@@ -106,6 +157,16 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       recycleItems
       estimatedItemSize={96}
       maintainVisibleContentPosition={false}
+      refreshControl={
+        <RefreshControl
+          testID="agenda-refresh-control"
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          tintColor={SpringaColors.brand}
+          colors={[SpringaColors.brand]}
+        />
+      }
+
       onStartReached={undefined}
       onEndReached={() => {
         if (historyMode) {

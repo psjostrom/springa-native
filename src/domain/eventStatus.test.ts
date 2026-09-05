@@ -87,7 +87,16 @@ describe('mergeCalendarEvents', () => {
     expect(merged.map((e) => e.id)).toEqual(['b', 'a']);
     expect(merged[1]?.name).toBe('A updated');
   });
+
+  it('handles rehydrated cache events where date is an ISO string', () => {
+    const a = { ...event({ id: 'a', date: new Date(2026, 7, 2), name: 'A' }), date: '2026-08-02T10:00:00.000Z' as unknown as Date };
+    const b = { ...event({ id: 'b', date: new Date(2026, 7, 1), name: 'B' }), date: '2026-08-01T10:00:00.000Z' as unknown as Date };
+    const merged = mergeCalendarEvents([[a, b]]);
+    expect(merged.map((e) => e.id)).toEqual(['b', 'a']);
+    expect(merged[0]?.date).toBeInstanceOf(Date);
+  });
 });
+
 
 describe('eventStatus', () => {
   const today = new Date(2026, 7, 7);

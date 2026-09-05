@@ -1,8 +1,9 @@
-import { type ReactElement, useCallback, useEffect, useRef } from 'react';
+import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -14,6 +15,7 @@ import {
   useCompletedWorkoutMutations,
   useCompletedWorkoutOverview,
 } from '@/query/useCompletedWorkoutOverview';
+import { SpringaColors } from '@/theme/colors';
 import { Spacing } from '@/theme/tokens';
 import { CompletedFeedback } from './completed/CompletedFeedback';
 import { CompletedFueling } from './completed/CompletedFueling';
@@ -71,6 +73,16 @@ export function CompletedWorkoutSheet({
     ? (mutations.saveFeedback.error?.message ?? 'Failed to save feedback.')
     : null;
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await reload();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [reload]);
+
   return (
     <KeyboardAvoidingView
       testID="completed-workout-keyboard"
@@ -91,6 +103,14 @@ export function CompletedWorkoutSheet({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
         accessibilityLabel="Completed workout details"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={SpringaColors.brand}
+            colors={[SpringaColors.brand]}
+          />
+        }
       >
         {data == null ? (
           <>

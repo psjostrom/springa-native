@@ -1,3 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { evictPersistedQueryCache, resetCacheEvicted, QUERY_CACHE_KEY } from '@/query/persister';
+
 export type Session = {
   token: string;
   expiresAt: number;
@@ -8,6 +11,10 @@ export type SessionStore = {
   getItemAsync: (key: string) => Promise<string | null>;
   setItemAsync: (key: string, value: string) => Promise<void>;
   deleteItemAsync: (key: string) => Promise<void>;
+};
+
+export type AsyncStorageLike = {
+  removeItem: (key: string) => Promise<void>;
 };
 
 const SESSION_KEY = 'springa.session.v1';
@@ -56,8 +63,11 @@ function createPersistQueue() {
   };
 }
 
-/** Session load/save/clear with serialized SecureStore mutations. */
-export function createSessionApi(getStore: () => Promise<SessionStore>) {
+/** Session load/save/clear with serialized SecureStore mutations and cache eviction. */
+export function createSessionApi(
+  getStore: () => Promise<SessionStore>,
+  asyncStorage: AsyncStorageLike = AsyncStorage,
+) {
   const enqueue = createPersistQueue();
 
   async function loadSession(): Promise<Session | null> {
@@ -78,6 +88,7 @@ export function createSessionApi(getStore: () => Promise<SessionStore>) {
 
   async function saveSession(session: Session): Promise<void> {
     return enqueue(async () => {
+      resetCacheEvicted();
       const store = await getStore();
       await store.setItemAsync(SESSION_KEY, JSON.stringify(session));
     });
@@ -87,14 +98,14 @@ export function createSessionApi(getStore: () => Promise<SessionStore>) {
     return enqueue(async () => {
       const store = await getStore();
       try {
-        await store.deleteItemAsync(SESSION_KEY);
-      } catch {
         try {
           await store.deleteItemAsync(SESSION_KEY);
-        } catch (err) {
-          // SecureStore deletion failed after retry; rethrow so caller knows persistence failed.
-          throw err;
+        } catch {
+          await store.deleteItemAsync(SESSION_KEY);
         }
+      } finally {
+        await asyncStorage.removeItem(QUERY_CACHE_KEY);
+        await evictPersistedQueryCache();
       }
     });
   }
@@ -107,3 +118,4 @@ const defaultApi = createSessionApi(() => import('expo-secure-store'));
 export const loadSession = defaultApi.loadSession;
 export const saveSession = defaultApi.saveSession;
 export const clearSession = defaultApi.clearSession;
+export const clearAuthSession = defaultApi.clearSession;
