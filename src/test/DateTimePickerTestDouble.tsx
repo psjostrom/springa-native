@@ -4,17 +4,23 @@ type Props = {
   onValueChange: (event: unknown, value: Date) => void;
   onDismiss: () => void;
   mode?: 'date' | 'time' | 'datetime';
+  accessibilityLabel?: string;
 };
 
-export default function DateTimePickerTestDouble({ onValueChange, onDismiss }: Props) {
+export default function DateTimePickerTestDouble({
+  onValueChange,
+  onDismiss,
+  accessibilityLabel,
+}: Props) {
+  const label = accessibilityLabel ?? 'Select move date';
   return (
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Select move date"
+        accessibilityLabel={label}
         onPress={() => onValueChange({ nativeEvent: {} }, new Date('2026-08-14T12:00:00'))}
       >
-        <Text>Select move date</Text>
+        <Text>{label}</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"

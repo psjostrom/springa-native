@@ -1,0 +1,127 @@
+import { Host, Switch } from '@expo/ui';
+import { StyleSheet, View } from 'react-native';
+import type { PlannerConfig } from '@/api/types';
+import { AppText, ChoiceChip, Section } from '@/components/ui';
+import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
+import {
+  PLANNER_DAYS,
+  setClubDay,
+  setClubEnabled,
+  setClubType,
+  setLongRunDay,
+  speedDayLabel,
+  toggleRunDay,
+} from './plannerDraft';
+
+type PlannerScheduleEditorProps = {
+  value: PlannerConfig;
+  onChange: (value: PlannerConfig) => void;
+  errors?: Record<string, string>;
+};
+
+export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerScheduleEditorProps) {
+  const clubEnabled = value.clubDay != null;
+  return (
+    <View style={styles.root}>
+      <Section title="Run days">
+        <View style={styles.chips}>
+          {PLANNER_DAYS.map((item) => (
+            <ChoiceChip
+              key={item.day}
+              label={item.shortLabel}
+              selected={value.runDays.includes(item.day)}
+              accessibilityLabel={`${item.label} run day`}
+              onPress={() => onChange(toggleRunDay(value, item.day))}
+            />
+          ))}
+        </View>
+        {errors.runDays ? <AppText tone="error" variant="caption">{errors.runDays}</AppText> : null}
+      </Section>
+
+      {value.clubType !== 'long' ? (
+        <Section title="Long run day">
+          <View style={styles.chips}>
+            {PLANNER_DAYS.filter((item) => value.runDays.includes(item.day)).map((item) => (
+              <ChoiceChip
+                key={item.day}
+                label={item.shortLabel}
+                selected={value.longRunDay === item.day}
+                accessibilityLabel={`${item.label} long run day`}
+                onPress={() => onChange(setLongRunDay(value, item.day))}
+              />
+            ))}
+          </View>
+          {speedDayLabel(value) ? <AppText tone="muted" variant="caption">{speedDayLabel(value)}</AppText> : null}
+          {errors.longRunDay ? <AppText tone="error" variant="caption">{errors.longRunDay}</AppText> : null}
+        </Section>
+      ) : null}
+
+      <View style={styles.clubSection}>
+        <View style={styles.switchRow}>
+          <AppText variant="subheading">Club run</AppText>
+          <Host
+            colorScheme="dark"
+            seedColor={SpringaColors.brand}
+            style={styles.switchHost}
+            accessible
+            accessibilityRole="switch"
+            accessibilityLabel="Club run"
+            accessibilityState={{ checked: clubEnabled }}
+            onAccessibilityTap={() => onChange(setClubEnabled(value, !clubEnabled))}
+          >
+            <Switch
+              value={clubEnabled}
+              onValueChange={(enabled) => onChange(setClubEnabled(value, enabled))}
+              testID="planner-club-switch"
+            />
+          </Host>
+        </View>
+        {clubEnabled ? (
+          <>
+            <View style={styles.chips}>
+              {PLANNER_DAYS.filter((item) => value.runDays.includes(item.day)).map((item) => (
+                <ChoiceChip
+                  key={item.day}
+                  label={item.shortLabel}
+                  selected={value.clubDay === item.day}
+                  disabled={value.clubType !== 'long' && item.day === value.longRunDay}
+                  accessibilityLabel={`${item.label} club day`}
+                  onPress={() => onChange(setClubDay(value, item.day))}
+                />
+              ))}
+            </View>
+            <View style={styles.chips}>
+              {(['long', 'speed', 'varies'] as const).map((type) => (
+                <ChoiceChip
+                  key={type}
+                  label={type === 'long' ? 'Long run' : type === 'speed' ? 'Speed work' : 'Varies'}
+                  accessibilityLabel={`${type} club run`}
+                  selected={value.clubType === type}
+                  onPress={() => onChange(setClubType(value, type))}
+                />
+              ))}
+            </View>
+            <AppText tone="muted" variant="caption">
+              {value.clubType === 'speed'
+                ? 'Springa skips its own speed session.'
+                : value.clubType === 'long'
+                  ? `Club day (${PLANNER_DAYS.find((item) => item.day === value.clubDay)?.shortLabel ?? ''}) is the long run day.`
+                  : 'Club day varies between long and quality work.'}
+            </AppText>
+            {errors.clubDay ? <AppText tone="error" variant="caption">{errors.clubDay}</AppText> : null}
+            {errors.clubType ? <AppText tone="error" variant="caption">{errors.clubType}</AppText> : null}
+          </>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { gap: Spacing.xl },
+  clubSection: { gap: Spacing.md },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
+  switchHost: { width: 64, height: 48, alignItems: 'flex-end', justifyContent: 'center' },
+});

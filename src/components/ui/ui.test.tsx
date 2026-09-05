@@ -2,7 +2,7 @@ import { render, screen, userEvent } from '@testing-library/react-native';
 import { useState } from 'react';
 import { Text } from 'react-native';
 import { describe, expect, it } from 'vitest';
-import { Button, Card, Grid, IconButton, StateView, TextField } from '.';
+import { Button, Card, ChoiceChip, Grid, IconButton, StateView, TextField } from '.';
 import { SpringaColors } from '@/theme/colors';
 
 function RetryState() {
@@ -53,6 +53,17 @@ describe('global UI', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Close' })).toBeOnTheScreen();
+  });
+
+  it('exposes selected and disabled choice chip state', async () => {
+    await render(
+      <ChoiceChip label="Sunday" selected disabled onPress={() => {}} />,
+    );
+
+    const chip = screen.getByRole('button', { name: 'Sunday' });
+    expect(chip).toBeDisabled();
+    expect(chip).toHaveProp('accessibilityState', { selected: true, disabled: true });
+    expect(chip).toHaveStyle({ minHeight: 44 });
   });
 
   it('composes arbitrary content in a brand card and grid', async () => {

@@ -1,19 +1,10 @@
-import { StyleSheet } from 'react-native';
 import { ScreenShell } from '@/components/shell/ScreenShell';
-import { AppText } from '@/components/ui';
-import { Spacing } from '@/theme/tokens';
+import { PlannerContent } from '@/components/planner/PlannerContent';
 
 export default function PlannerScreen() {
   return (
     <ScreenShell>
-      <AppText variant="subheading" tone="muted" style={styles.title}>Planner</AppText>
+      <PlannerContent />
     </ScreenShell>
   );
 }
-
-const styles = StyleSheet.create({
-  title: {
-    marginTop: Spacing.xxl,
-    textAlign: 'center',
-  },
-});
