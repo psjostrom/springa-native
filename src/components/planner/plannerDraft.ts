@@ -177,6 +177,7 @@ export function validatePlannerDraft(
   if (config.clubDay != null && !config.runDays.includes(config.clubDay)) errors.clubDay = 'Choose a selected run day.';
   if (config.clubDay == null && config.clubType != null) errors.clubType = 'Choose a club day first.';
   if (config.clubDay != null && config.clubType == null) errors.clubType = 'Choose a club type.';
+  if (config.clubType === 'long' && config.clubDay !== config.longRunDay) errors.clubDay = 'Long club run must be on long run day.';
   if (config.clubType !== 'long' && config.clubDay === config.longRunDay) errors.clubDay = 'Club day must differ from long run day.';
   if (!Number.isFinite(config.startKm) || config.startKm < constraints.startDistanceKm.min || config.startKm > constraints.startDistanceKm.max) {
     errors.startKm = `Starting distance must be ${constraints.startDistanceKm.min}-${constraints.startDistanceKm.max} km.`;

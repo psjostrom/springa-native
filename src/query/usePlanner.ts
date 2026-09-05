@@ -99,6 +99,7 @@ export function usePlannerMutations() {
         ) {
           void Promise.all([
             queryClient.invalidateQueries({ queryKey: plannerKey }),
+            queryClient.invalidateQueries({ queryKey: settingsKey }),
             queryClient.invalidateQueries({ queryKey: calendarKey }),
           ]);
         }

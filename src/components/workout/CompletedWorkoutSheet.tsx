@@ -75,20 +75,13 @@ export function CompletedWorkoutSheet({
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
-    const refreshStart = Date.now();
-    console.log(
-      `[COMPLETED] Pull-to-refresh triggered for activity ${event.activityId ?? ''}`,
-    );
     setIsRefreshing(true);
     try {
       await reload();
-      console.log(
-        `[COMPLETED] Pull-to-refresh finished in ${Date.now() - refreshStart}ms`,
-      );
     } finally {
       setIsRefreshing(false);
     }
-  }, [event.activityId, reload]);
+  }, [reload]);
 
   return (
     <KeyboardAvoidingView

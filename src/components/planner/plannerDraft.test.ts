@@ -89,6 +89,8 @@ describe('Planner draft rules', () => {
     expect(validatePlannerDraft({ ...config, startKm: 1.9 }, options, constraints, NOW)).toHaveProperty('startKm');
     expect(validatePlannerDraft({ ...config, raceDate: '2026-02-30' }, options, constraints, NOW)).toHaveProperty('raceDate');
     expect(validatePlannerDraft({ ...config, currentAbilitySecs: 5000 }, options, constraints, NOW)).toHaveProperty('currentAbilitySecs');
+    expect(validatePlannerDraft({ ...config, clubDay: 2, clubType: 'long', longRunDay: 0 }, options, constraints, NOW)).toHaveProperty('clubDay');
+    expect(validatePlannerDraft({ ...config, clubDay: 0, clubType: 'speed', longRunDay: 0 }, options, constraints, NOW)).toHaveProperty('clubDay');
   });
 
   it('ignores race-name and day-order changes when comparing plan inputs', () => {

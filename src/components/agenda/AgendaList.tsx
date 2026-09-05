@@ -113,14 +113,9 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
-    const refreshStart = Date.now();
-    console.log('[AGENDA] Pull-to-refresh triggered');
     setIsRefreshing(true);
     try {
       await reload();
-      console.log(
-        `[AGENDA] Pull-to-refresh finished in ${Date.now() - refreshStart}ms`,
-      );
     } finally {
       setIsRefreshing(false);
     }

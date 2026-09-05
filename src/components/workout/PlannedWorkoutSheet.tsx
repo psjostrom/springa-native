@@ -383,18 +383,13 @@ function DetailBody({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     if (!onRefresh) return;
-    const refreshStart = Date.now();
-    console.log(`[PLANNED] Pull-to-refresh triggered for event ${eventId}`);
     setIsRefreshing(true);
     try {
       await onRefresh();
-      console.log(
-        `[PLANNED] Pull-to-refresh finished in ${Date.now() - refreshStart}ms`,
-      );
     } finally {
       setIsRefreshing(false);
     }
-  }, [eventId, onRefresh]);
+  }, [onRefresh]);
 
   const [movePickerMode, setMovePickerMode] = useState<'date' | 'time' | 'datetime' | null>(null);
   const [movePickerValue, setMovePickerValue] = useState(detailDate);

@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { ApiError, createApiClient, parseUserSettings } from './client';
 import { apiUrl } from '@/test/msw/helpers';
 import { degradedCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
+import { isoDaysFromToday } from '@/test/msw/handlers/calendar';
 import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
 import { server } from '@/test/msw/server';
 import type { PlannerConfig } from './types';
@@ -116,7 +117,7 @@ describe('createApiClient', () => {
   });
 
   it('returns calendar events on 200', async () => {
-    const events = await makeClient().getCalendar('2026-08-01', '2026-08-31');
+    const events = await makeClient().getCalendar(isoDaysFromToday(-7), isoDaysFromToday(7));
     expect(events.length).toBeGreaterThan(0);
     expect(events[0]?.date).toBeInstanceOf(Date);
     expect(events.some((e) => e.name === 'Threshold intervals')).toBe(true);

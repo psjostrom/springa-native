@@ -172,6 +172,8 @@ describe('Planner response parsers', () => {
     { clubDay: 2, clubType: null },
     { longRunDay: 1 },
     { clubDay: 1, clubType: 'varies' },
+    { clubDay: 2, clubType: 'long', longRunDay: 0 },
+    { clubDay: 0, clubType: 'speed', longRunDay: 0 },
   ])('rejects inconsistent schedule config %j', (schedule) => {
     expect(() => parsePlannerState({
       ...state,
