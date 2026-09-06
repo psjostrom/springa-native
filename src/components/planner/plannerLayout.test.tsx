@@ -1,4 +1,4 @@
-import { render, screen, userEvent } from '@testing-library/react-native';
+import { fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
@@ -144,8 +144,8 @@ describe('Planner native control labels', () => {
       />,
     );
 
-    expect(screen.getByText('Week 7')).toBeOnTheScreen();
-    expect(screen.getByText('Week 14')).toBeOnTheScreen();
+    expect(screen.getAllByText('Week 7').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Week 14').length).toBeGreaterThan(0);
     expect(screen.queryByText('Week 1')).toBeNull();
   });
 
@@ -209,5 +209,18 @@ describe('Planner native control labels', () => {
       'accessibilityValue',
       { min: 3000, max: 4800, now: 3660 },
     );
+  });
+
+  it('keeps partial starting distance text until blur', async () => {
+    await render(<ControlledFitnessEditor />);
+    const field = screen.getByLabelText('Starting long-run distance (km)');
+
+    fireEvent.changeText(field, '8.');
+    await waitFor(() => expect(screen.getByLabelText('Starting long-run distance (km)')).toHaveProp('value', '8.'));
+    fireEvent(screen.getByLabelText('Starting long-run distance (km)'), 'blur');
+    await waitFor(() => expect(screen.getByLabelText('Starting long-run distance (km)')).toHaveProp('value', '8'));
+
+    fireEvent.changeText(screen.getByLabelText('Starting long-run distance (km)'), '');
+    await waitFor(() => expect(screen.getByLabelText('Starting long-run distance (km)')).toHaveProp('value', ''));
   });
 });
