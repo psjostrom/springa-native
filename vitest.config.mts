@@ -10,6 +10,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^expo-router$/,
+        replacement: path.join(root, 'src/test/ExpoRouterTestDouble.tsx'),
+      },
+      {
         find: /^@expo\/ui\/jetpack-compose$/,
         replacement: path.join(root, 'src/test/ExpoUiTestDouble.tsx'),
       },

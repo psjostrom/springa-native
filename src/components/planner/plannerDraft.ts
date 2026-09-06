@@ -146,23 +146,22 @@ export function validatePlannerDraft(
   fitnessOptions: PlannerFitnessOption[],
   constraints: PlannerState['constraints'],
   now: Date,
-  isNewProgram = false,
+  optionsOrIsNew: boolean | { skipTimelineMatch?: boolean } = {},
 ): PlannerFieldErrors {
+  const skipTimelineMatch = typeof optionsOrIsNew === 'boolean'
+    ? !optionsOrIsNew
+    : Boolean(optionsOrIsNew.skipTimelineMatch);
   const errors: PlannerFieldErrors = {};
   const raceDate = dateAtNoon(config.raceDate);
   if (raceDate == null) errors.raceDate = 'Choose a valid race date.';
   if (!Number.isFinite(config.raceDist) || config.raceDist < constraints.raceDistanceKm.min || config.raceDist > constraints.raceDistanceKm.max) {
     errors.raceDist = `Race distance must be ${constraints.raceDistanceKm.min}-${constraints.raceDistanceKm.max} km.`;
   }
-  if (!Number.isInteger(config.totalWeeks) || config.totalWeeks < 1) {
-    errors.totalWeeks = 'Plan must be at least 1 week.';
-  } else if (isNewProgram) {
-    const expectedWeeks = weeksForRaceDate(config.raceDate, now);
-    if (config.totalWeeks < constraints.minimumWeeks) {
-      errors.totalWeeks = `Plan must be at least ${constraints.minimumWeeks} weeks.`;
-    } else if (expectedWeeks != null && config.totalWeeks !== expectedWeeks) {
-      errors.totalWeeks = 'Plan length must match race date.';
-    }
+  const expectedWeeks = weeksForRaceDate(config.raceDate, now);
+  if (!Number.isInteger(config.totalWeeks) || config.totalWeeks < constraints.minimumWeeks) {
+    errors.totalWeeks = `Plan must be at least ${constraints.minimumWeeks} weeks.`;
+  } else if (!skipTimelineMatch && expectedWeeks != null && config.totalWeeks !== expectedWeeks) {
+    errors.totalWeeks = 'Plan length must match race date.';
   }
   const fitness = fitnessOptions.find((option) => option.distanceKm === config.currentAbilityDist);
   if (fitness == null) {
@@ -197,7 +196,7 @@ export function formatFitnessTime(seconds: number): string {
 }
 
 export function plannerConfigAffectsPlan(current: PlannerConfig, next: PlannerConfig): boolean {
-  const generationConfig = (config: PlannerConfig) => JSON.stringify({
+  const comparable = (config: PlannerConfig) => JSON.stringify({
     raceDist: config.raceDist,
     raceDate: config.raceDate,
     currentAbilityDist: config.currentAbilityDist,
@@ -211,7 +210,7 @@ export function plannerConfigAffectsPlan(current: PlannerConfig, next: PlannerCo
     includeBasePhase: config.includeBasePhase,
     effortMetric: config.effortMetric,
   });
-  return generationConfig(current) !== generationConfig(next);
+  return comparable(current) !== comparable(next);
 }
 
 export function speedDayLabel(config: PlannerConfig): string | null {

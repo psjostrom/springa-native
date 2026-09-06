@@ -1,9 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { useState } from 'react';
+import { describe, expect, it } from 'vitest';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
 import { SpringaColors } from '@/theme/colors';
+import { Spacing } from '@/theme/tokens';
+import { PlannerConfigEditor } from './PlannerConfigEditor';
 import { NewProgramEditor } from './NewProgramEditor';
+import { PlannerPreviewView } from './PlannerPreview';
 import { PlannerScheduleEditor } from './PlannerScheduleEditor';
+import { replacePlanPreview } from '@/test/msw/handlers/planner';
 
 const config: PlannerConfig = {
   raceName: '',
@@ -34,16 +39,37 @@ const constraints: PlannerState['constraints'] = {
   basePhaseMinimumWeeks: 11,
 };
 
+function ControlledFitnessEditor() {
+  const [value, setValue] = useState(config);
+  return (
+    <NewProgramEditor
+      value={value}
+      errors={{}}
+      fitnessOptions={fitnessOptions}
+      constraints={constraints}
+      previewing={false}
+      onChange={setValue}
+      onCancel={() => {}}
+      onPreview={() => {}}
+    />
+  );
+}
+
 function hasTextColor(node: { props: { style?: unknown } }, color: string): boolean {
   return ([node.props.style].flat(Infinity) as ({ color?: string } | null | undefined)[])
     .some((style) => style?.color === color);
 }
 
 describe('Planner native control labels', () => {
-  it('renders club switch label with app text styling', async () => {
+  it('renders one club heading beside switch', async () => {
     await render(<PlannerScheduleEditor value={config} onChange={() => {}} />);
 
-    expect(screen.getAllByText('Club run').some((node) => hasTextColor(node, SpringaColors.muted))).toBe(true);
+    const clubLabels = screen.getAllByText('Club run');
+    const clubSwitch = screen.getByRole('switch', { name: 'Club run' });
+    expect(clubLabels).toHaveLength(1);
+    const clubLabel = clubLabels[0]!;
+    expect(clubLabel.parent).toBe(clubSwitch.parent);
+    expect(clubLabel.parent).toHaveStyle({ flexDirection: 'row' });
   });
 
   it('renders base-phase checkbox label with app text styling', async () => {
@@ -61,6 +87,66 @@ describe('Planner native control labels', () => {
     );
 
     expect(screen.getAllByText('Include base phase').some((node) => hasTextColor(node, SpringaColors.muted))).toBe(true);
+  });
+
+  it('uses matching effort metric label for new programs', async () => {
+    await render(
+      <NewProgramEditor
+        value={config}
+        errors={{}}
+        fitnessOptions={fitnessOptions}
+        constraints={constraints}
+        previewing={false}
+        onChange={() => {}}
+        onCancel={() => {}}
+        onPreview={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Effort metric')).toBeTruthy();
+  });
+
+  it('gives race goal section same top spacing as other config sections', async () => {
+    await render(
+      <PlannerConfigEditor
+        value={config}
+        errors={{}}
+        saving={false}
+        onChange={() => {}}
+        onCancel={() => {}}
+        onDone={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Race goal').parent?.parent).toHaveStyle({ marginTop: Spacing.xl });
+  });
+
+  it('labels chart with returned preview week range', async () => {
+    const preview = replacePlanPreview();
+    preview.summary = { ...preview.summary, planWeeks: 14 };
+    preview.weeks = Array.from({ length: 8 }, (_, index) => ({
+      week: index + 7,
+      startsOn: '2026-09-01',
+      distanceKm: 20,
+      workoutCount: 1,
+    }));
+    preview.workouts = [];
+
+    await render(
+      <PlannerPreviewView
+        preview={preview}
+        error={null}
+        applying={false}
+        onEdit={() => {}}
+        onCancel={() => {}}
+        onApply={() => {}}
+        onPreviewAgain={() => {}}
+      />,
+    );
+
+    expect(screen.getAllByText('Week 7').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Week 14').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Week 1')).toBeNull();
   });
 
   it('exposes fitness slider range and value semantics', async () => {
@@ -108,25 +194,33 @@ describe('Planner native control labels', () => {
     );
   });
 
-  it('adjusts fitness time through accessibility actions', async () => {
-    const onChange = vi.fn();
+  it('uses a controlled native slider for fitness time', async () => {
     await render(
-      <NewProgramEditor
-        value={config}
-        errors={{}}
-        fitnessOptions={fitnessOptions}
-        constraints={constraints}
-        previewing={false}
-        onChange={onChange}
-        onCancel={() => {}}
-        onPreview={() => {}}
-      />,
+      <ControlledFitnessEditor />,
     );
 
-    fireEvent(screen.getByTestId('planner-fitness-slider-accessibility'), 'accessibilityAction', {
-      nativeEvent: { actionName: 'increment' },
-    });
+    const slider = screen.getByTestId('planner-fitness-slider');
+    expect(slider).toHaveProp('accessibilityRole', 'adjustable');
+    expect(slider.props.accessibilityValue).toEqual({ min: 3000, max: 4800, now: 3600 });
 
-    expect(onChange).toHaveBeenCalledWith({ ...config, currentAbilitySecs: 3660 });
+    await userEvent.setup().press(slider);
+
+    expect(screen.getByTestId('planner-fitness-slider')).toHaveProp(
+      'accessibilityValue',
+      { min: 3000, max: 4800, now: 3660 },
+    );
+  });
+
+  it('keeps partial starting distance text until blur', async () => {
+    await render(<ControlledFitnessEditor />);
+    const field = screen.getByLabelText('Starting long-run distance (km)');
+
+    fireEvent.changeText(field, '8.');
+    await waitFor(() => expect(screen.getByLabelText('Starting long-run distance (km)')).toHaveProp('value', '8.'));
+    fireEvent(screen.getByLabelText('Starting long-run distance (km)'), 'blur');
+    await waitFor(() => expect(screen.getByLabelText('Starting long-run distance (km)')).toHaveProp('value', '8'));
+
+    fireEvent.changeText(screen.getByLabelText('Starting long-run distance (km)'), '');
+    await waitFor(() => expect(screen.getByLabelText('Starting long-run distance (km)')).toHaveProp('value', ''));
   });
 });

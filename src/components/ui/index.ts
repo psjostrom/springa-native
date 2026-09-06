@@ -2,6 +2,7 @@ export * from './AppText';
 export * from './Badge';
 export * from './Button';
 export * from './Card';
+export * from './ChoiceChip';
 export * from './IconButton';
 export * from './Grid';
 export * from './Section';

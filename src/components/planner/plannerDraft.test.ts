@@ -129,4 +129,31 @@ describe('Planner draft rules', () => {
     const errors = validatePlannerDraft(newProgram, options, constraints, pastNow, true);
     expect(errors).toHaveProperty('totalWeeks');
   });
+
+  it('keeps timeline matching strict by default and only skips stale-plan matching explicitly', () => {
+    const staleConfig: PlannerConfig = {
+      ...config,
+      raceDate: '2026-10-18',
+      totalWeeks: 9,
+      includeBasePhase: false,
+    };
+    const STALE_PLAN_NOW = new Date('2026-08-27T12:00:00');
+    expect(validatePlannerDraft(staleConfig, options, constraints, STALE_PLAN_NOW)).toHaveProperty('totalWeeks', 'Plan length must match race date.');
+    expect(validatePlannerDraft(staleConfig, options, constraints, STALE_PLAN_NOW, { skipTimelineMatch: true })).not.toHaveProperty('totalWeeks');
+    expect(validatePlannerDraft({ ...staleConfig, startKm: 1 }, options, constraints, STALE_PLAN_NOW, { skipTimelineMatch: true })).toHaveProperty('startKm');
+  });
+
+  it('keeps changed edit race dates on strict timeline validation', () => {
+    const staleConfig: PlannerConfig = {
+      ...config,
+      raceDate: '2026-10-18',
+      totalWeeks: 9,
+      includeBasePhase: false,
+    };
+    const STALE_PLAN_NOW = new Date('2026-08-27T12:00:00');
+    const changedRaceDate = { ...staleConfig, raceDate: '2026-11-01' };
+    expect(validatePlannerDraft(changedRaceDate, options, constraints, STALE_PLAN_NOW, {
+      skipTimelineMatch: changedRaceDate.raceDate === staleConfig.raceDate,
+    })).toHaveProperty('totalWeeks', 'Plan length must match race date.');
+  });
 });

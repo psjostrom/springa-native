@@ -1,9 +1,9 @@
 import { Host, Switch } from '@expo/ui';
-import { Pressable, StyleSheet, View } from 'react-native';
-import type { PlannerConfig, PlannerWeekday } from '@/api/types';
-import { AppText, Section } from '@/components/ui';
+import { StyleSheet, View } from 'react-native';
+import type { PlannerConfig } from '@/api/types';
+import { AppText, ChoiceChip, Section } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
-import { Radius, Spacing } from '@/theme/tokens';
+import { Spacing } from '@/theme/tokens';
 import {
   PLANNER_DAYS,
   setClubDay,
@@ -20,32 +20,6 @@ type PlannerScheduleEditorProps = {
   errors?: Record<string, string>;
 };
 
-function DayChip({
-  day,
-  label,
-  selected,
-  accessibilityLabel,
-  onPress,
-}: {
-  day: PlannerWeekday;
-  label: string;
-  selected: boolean;
-  accessibilityLabel: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={[styles.chip, selected && styles.selectedChip]}
-    >
-      <AppText tone={selected ? 'primary' : 'muted'} variant="label">{label}</AppText>
-    </Pressable>
-  );
-}
-
 export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerScheduleEditorProps) {
   const clubEnabled = value.clubDay != null;
   return (
@@ -53,9 +27,8 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
       <Section title="Run days">
         <View style={styles.chips}>
           {PLANNER_DAYS.map((item) => (
-            <DayChip
+            <ChoiceChip
               key={item.day}
-              day={item.day}
               label={item.shortLabel}
               selected={value.runDays.includes(item.day)}
               accessibilityLabel={`${item.label} run day`}
@@ -70,9 +43,8 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
         <Section title="Long run day">
           <View style={styles.chips}>
             {PLANNER_DAYS.filter((item) => value.runDays.includes(item.day)).map((item) => (
-              <DayChip
+              <ChoiceChip
                 key={item.day}
-                day={item.day}
                 label={item.shortLabel}
                 selected={value.longRunDay === item.day}
                 accessibilityLabel={`${item.label} long run day`}
@@ -85,11 +57,12 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
         </Section>
       ) : null}
 
-      <Section title="Club run">
+      <View style={styles.clubSection}>
         <View style={styles.switchRow}>
-          <AppText tone="muted" variant="label">Club run</AppText>
+          <AppText variant="subheading">Club run</AppText>
           <Host
             colorScheme="dark"
+            seedColor={SpringaColors.brand}
             style={styles.switchHost}
             accessible
             accessibilityRole="switch"
@@ -108,11 +81,11 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
           <>
             <View style={styles.chips}>
               {PLANNER_DAYS.filter((item) => value.runDays.includes(item.day)).map((item) => (
-                <DayChip
+                <ChoiceChip
                   key={item.day}
-                  day={item.day}
                   label={item.shortLabel}
                   selected={value.clubDay === item.day}
+                  disabled={value.clubType !== 'long' && item.day === value.longRunDay}
                   accessibilityLabel={`${item.label} club day`}
                   onPress={() => onChange(setClubDay(value, item.day))}
                 />
@@ -120,18 +93,13 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
             </View>
             <View style={styles.chips}>
               {(['long', 'speed', 'varies'] as const).map((type) => (
-                <Pressable
+                <ChoiceChip
                   key={type}
-                  accessibilityRole="button"
+                  label={type === 'long' ? 'Long run' : type === 'speed' ? 'Speed work' : 'Varies'}
                   accessibilityLabel={`${type} club run`}
-                  accessibilityState={{ selected: value.clubType === type }}
+                  selected={value.clubType === type}
                   onPress={() => onChange(setClubType(value, type))}
-                  style={[styles.chip, value.clubType === type && styles.selectedChip]}
-                >
-                  <AppText tone={value.clubType === type ? 'primary' : 'muted'} variant="label">
-                    {type === 'long' ? 'Long run' : type === 'speed' ? 'Speed work' : 'Varies'}
-                  </AppText>
-                </Pressable>
+                />
               ))}
             </View>
             <AppText tone="muted" variant="caption">
@@ -145,26 +113,15 @@ export function PlannerScheduleEditor({ value, onChange, errors = {} }: PlannerS
             {errors.clubType ? <AppText tone="error" variant="caption">{errors.clubType}</AppText> : null}
           </>
         ) : null}
-      </Section>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { gap: Spacing.xl },
+  clubSection: { gap: Spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  chip: {
-    minHeight: 44,
-    minWidth: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radius.md,
-    backgroundColor: SpringaColors.surfaceAlt,
-    borderColor: SpringaColors.border,
-    borderWidth: 1,
-  },
-  selectedChip: { backgroundColor: SpringaColors.brandAction, borderColor: SpringaColors.brand },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   switchHost: { width: 64, height: 48, alignItems: 'flex-end', justifyContent: 'center' },
 });

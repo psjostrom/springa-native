@@ -1,7 +1,5 @@
 import {
-  Children,
   forwardRef,
-  isValidElement,
   type ReactNode,
   useImperativeHandle,
   useRef,
@@ -135,55 +133,6 @@ export function Host({
     </View>
   );
 }
-
-type PickerValue = string | number;
-type PickerItemProps = { label: string; value: PickerValue };
-
-function PickerItem({ label }: PickerItemProps) {
-  return <Text>{label}</Text>;
-}
-
-type PickerProps = {
-  selectedValue: PickerValue;
-  onValueChange: (value: PickerValue) => void;
-  enabled?: boolean;
-  children?: ReactNode;
-  testID?: string;
-};
-
-export function Picker({
-  selectedValue,
-  onValueChange,
-  enabled = true,
-  children,
-  testID,
-}: PickerProps) {
-  const items = Children.toArray(children).flatMap((child) =>
-    isValidElement<PickerItemProps>(child) ? [child.props] : [],
-  );
-
-  return (
-    <View
-      testID={testID}
-      accessibilityRole="combobox"
-      accessibilityState={{ disabled: !enabled }}
-      {...({ selectedValue, enabled } as unknown as ViewProps)}
-    >
-      {items.map((item) => (
-        <Pressable
-          key={String(item.value)}
-          accessibilityRole="button"
-          disabled={!enabled}
-          onPress={() => onValueChange(item.value)}
-        >
-          <Text>{item.label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-Picker.Item = PickerItem;
 
 type ModalBottomSheetRef = {
   hide: () => Promise<void>;

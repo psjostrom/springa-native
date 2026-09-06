@@ -11,6 +11,7 @@ type PlannerRaceGoalFieldsProps = {
   value: PlannerConfig;
   onChange: (value: PlannerConfig) => void;
   errors?: Record<string, string>;
+  deriveTimeline?: boolean;
   basePhaseMinimumWeeks?: number;
 };
 
@@ -27,6 +28,7 @@ export function PlannerRaceGoalFields({
   value,
   onChange,
   errors = {},
+  deriveTimeline = false,
   basePhaseMinimumWeeks,
 }: PlannerRaceGoalFieldsProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -41,31 +43,34 @@ export function PlannerRaceGoalFields({
         value={value.raceName}
         error={errors.raceName}
       />
-      <TextField
-        accessibilityLabel="Race distance"
-        keyboardType="decimal-pad"
-        onChangeText={(text) => {
-          setRaceDistanceText(text);
-          const normalized = text.replace(',', '.').trim();
-          if (!normalized || normalized.endsWith('.')) return;
-          const next = Number(normalized);
-          if (Number.isFinite(next) && next > 0) {
-            onChange({ ...value, raceDist: next });
-          }
-        }}
-        onBlur={() => {
-          const normalized = raceDistanceText.replace(',', '.').trim();
-          const next = Number(normalized);
-          if (normalized.length > 0 && Number.isFinite(next) && next > 0) {
-            onChange({ ...value, raceDist: next });
-            setRaceDistanceText(String(next));
-          } else {
-            setRaceDistanceText(String(value.raceDist));
-          }
-        }}
-        value={raceDistanceText}
-        error={errors.raceDist}
-      />
+      <View style={styles.numericField}>
+        <AppText variant="label">Race distance (km)</AppText>
+        <TextField
+          accessibilityLabel="Race distance (km)"
+          keyboardType="decimal-pad"
+          onChangeText={(text) => {
+            setRaceDistanceText(text);
+            const normalized = text.replace(',', '.').trim();
+            if (!normalized || normalized.endsWith('.')) return;
+            const next = Number(normalized);
+            if (Number.isFinite(next) && next > 0) {
+              onChange({ ...value, raceDist: next });
+            }
+          }}
+          onBlur={() => {
+            const normalized = raceDistanceText.replace(',', '.').trim();
+            const next = Number(normalized);
+            if (normalized.length > 0 && Number.isFinite(next) && next > 0) {
+              onChange({ ...value, raceDist: next });
+              setRaceDistanceText(String(next));
+            } else {
+              setRaceDistanceText(String(value.raceDist));
+            }
+          }}
+          value={raceDistanceText}
+          error={errors.raceDist}
+        />
+      </View>
       <View style={styles.dateField}>
         <AppText variant="label">Race date</AppText>
         <Pressable
@@ -86,7 +91,10 @@ export function PlannerRaceGoalFields({
           display="default"
           onChange={(_event, selectedDate) => {
             setPickerVisible(false);
-            if (selectedDate) onChange(setRaceDate(value, dateOnly(selectedDate), new Date(), basePhaseMinimumWeeks));
+            if (selectedDate) {
+              const raceDate = dateOnly(selectedDate);
+              onChange(deriveTimeline ? setRaceDate(value, raceDate, new Date(), basePhaseMinimumWeeks) : { ...value, raceDate });
+            }
           }}
           onDismiss={() => setPickerVisible(false)}
         />
@@ -96,6 +104,7 @@ export function PlannerRaceGoalFields({
 }
 
 const styles = StyleSheet.create({
+  numericField: { gap: Spacing.xs },
   dateField: { gap: Spacing.xs },
   dateButton: {
     minHeight: 52,
