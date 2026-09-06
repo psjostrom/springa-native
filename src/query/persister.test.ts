@@ -63,4 +63,48 @@ describe('persister and queryClient configuration', () => {
     const restored = await asyncStoragePersister.restoreClient();
     expect(restored).toEqual(freshPayload);
   });
+
+  it('awaits delayed removal on malformed cache before restoreClient resolves so fresh writes are not deleted', async () => {
+    resetCacheEvicted();
+    await AsyncStorage.setItem(QUERY_CACHE_KEY, 'not-valid-json{{{');
+
+    const originalRemoveItem = AsyncStorage.removeItem;
+    let removeInProgress = false;
+    let removeCompleted = false;
+
+    AsyncStorage.removeItem = async (key: string) => {
+      removeInProgress = true;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await originalRemoveItem.call(AsyncStorage, key);
+      removeInProgress = false;
+      removeCompleted = true;
+    };
+
+    try {
+      const restored = await asyncStoragePersister.restoreClient();
+      expect(restored).toBeUndefined();
+      expect(removeCompleted).toBe(true);
+      expect(removeInProgress).toBe(false);
+
+      const freshPayload = {
+        timestamp: Date.now(),
+        buster: '',
+        clientState: {
+          mutations: [],
+          queries: [
+            {
+              queryKey: ['fresh-key'],
+              queryHash: '["fresh-key"]',
+              state: { data: 'fresh-data' },
+            },
+          ],
+        },
+      };
+
+      await asyncStoragePersister.persistClient(freshPayload as never);
+      expect(await asyncStoragePersister.restoreClient()).toEqual(freshPayload);
+    } finally {
+      AsyncStorage.removeItem = originalRemoveItem;
+    }
+  });
 });

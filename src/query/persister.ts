@@ -50,11 +50,11 @@ export const asyncStoragePersister = createAsyncStoragePersister({
   storage: safeAsyncStorage,
   key: QUERY_CACHE_KEY,
   throttleTime: 1000,
-  deserialize: (cachedString) => {
+  deserialize: async (cachedString) => {
     try {
       return JSON.parse(cachedString);
     } catch {
-      void safeAsyncStorage.removeItem(QUERY_CACHE_KEY);
+      await safeAsyncStorage.removeItem(QUERY_CACHE_KEY);
       return undefined;
     }
   },

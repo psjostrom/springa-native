@@ -115,8 +115,8 @@ describe('session persistence queue', () => {
     expect(await loadSession()).toEqual(newSession);
   });
 
-  it('rejects clearSession when both deletion attempts fail', async () => {
-    const deleteError = new Error('SecureStore unavailable');
+  it('retries deletion on clearSession and succeeds when second attempt passes', async () => {
+    let attempts = 0;
     const store: SessionStore = {
       async getItemAsync() {
         return null;
@@ -125,13 +125,45 @@ describe('session persistence queue', () => {
         // no-op
       },
       async deleteItemAsync() {
-        throw deleteError;
+        attempts += 1;
+        if (attempts === 1) throw new Error('First attempt failed');
+      },
+    };
+
+    const { clearSession } = createSessionApi(async () => store);
+    await expect(clearSession()).resolves.toBeUndefined();
+    expect(attempts).toBe(2);
+  });
+
+  it('rejects clearSession when both deletion attempts fail and retains key for recovery', async () => {
+    let shouldFail = true;
+    let deleteCalls = 0;
+    const map = new Map<string, string>([['springa.session.v1', 'saved-session']]);
+    const store: SessionStore = {
+      async getItemAsync(key) {
+        return map.get(key) ?? null;
+      },
+      async setItemAsync(key, value) {
+        map.set(key, value);
+      },
+      async deleteItemAsync(key) {
+        deleteCalls += 1;
+        if (shouldFail) {
+          throw new Error('SecureStore unavailable');
+        }
+        map.delete(key);
       },
     };
 
     const { clearSession } = createSessionApi(async () => store);
 
-    await expect(clearSession()).rejects.toBe(deleteError);
+    await expect(clearSession()).rejects.toThrow('SecureStore unavailable');
+    expect(deleteCalls).toBe(2);
+    expect(map.get('springa.session.v1')).toBe('saved-session');
+
+    shouldFail = false;
+    await expect(clearSession()).resolves.toBeUndefined();
+    expect(map.get('springa.session.v1')).toBeUndefined();
   });
 
   it('evicts persisted query cache from AsyncStorage when clearing session', async () => {
@@ -201,6 +233,54 @@ describe('default session api and clearAuthSession', () => {
 
     expect(result).toBeNull();
     expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+  });
+
+  it('evicts persisted query cache when loading with missing session record', async () => {
+    await AsyncStorage.setItem(QUERY_CACHE_KEY, 'stale-user-cache');
+    const store: SessionStore = {
+      async getItemAsync() {
+        return null;
+      },
+      async setItemAsync() {},
+      async deleteItemAsync() {},
+    };
+
+    const { loadSession } = createSessionApi(async () => store);
+    const result = await loadSession();
+
+    expect(result).toBeNull();
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+  });
+
+  it('leaves eviction guard active if store persistence fails in saveSession', async () => {
+    const { evictPersistedQueryCache, asyncStoragePersister, resetCacheEvicted } =
+      await import('@/query/persister');
+    await evictPersistedQueryCache();
+
+    const store: SessionStore = {
+      async getItemAsync() {
+        return null;
+      },
+      async setItemAsync() {
+        throw new Error('Storage failure');
+      },
+      async deleteItemAsync() {},
+    };
+
+    const { saveSession } = createSessionApi(async () => store);
+    await expect(
+      saveSession({ token: 't', email: 'a@b.c', expiresAt: 2_000_000_000 }),
+    ).rejects.toThrow('Storage failure');
+
+    // Eviction guard remains active; writes to QUERY_CACHE_KEY are blocked
+    await asyncStoragePersister.persistClient({
+      timestamp: Date.now(),
+      buster: '',
+      clientState: { mutations: [], queries: [] },
+    });
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+
+    resetCacheEvicted();
   });
 });
 

@@ -141,6 +141,7 @@ export function NewProgramEditor({
               value={startKmText}
               onChangeText={(text) => {
                 setStartKmText(text);
+                if (text.trim() === '') return;
                 const next = Number(text);
                 if (Number.isFinite(next)) onChange({ ...value, startKm: next });
               }}

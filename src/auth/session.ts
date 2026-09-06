@@ -70,21 +70,28 @@ export function createSessionApi(
 ) {
   const enqueue = createPersistQueue();
 
+  const purgeQueryCache = async () => {
+    await evictPersistedQueryCache();
+    try {
+      await asyncStorage.removeItem(QUERY_CACHE_KEY);
+    } catch {
+      // ignore storage remove errors
+    }
+  };
+
   async function loadSession(): Promise<Session | null> {
     return enqueue(async () => {
       const store = await getStore();
       const raw = await store.getItemAsync(SESSION_KEY);
-      if (!raw) return null;
+      if (!raw) {
+        await purgeQueryCache();
+        return null;
+      }
 
       const session = parseSessionJson(raw);
       if (!session || !isSessionValid(session)) {
         await store.deleteItemAsync(SESSION_KEY);
-        await evictPersistedQueryCache();
-        try {
-          await asyncStorage.removeItem(QUERY_CACHE_KEY);
-        } catch {
-          // ignore storage remove errors
-        }
+        await purgeQueryCache();
         return null;
       }
 
@@ -94,9 +101,9 @@ export function createSessionApi(
 
   async function saveSession(session: Session): Promise<void> {
     return enqueue(async () => {
-      resetCacheEvicted();
       const store = await getStore();
       await store.setItemAsync(SESSION_KEY, JSON.stringify(session));
+      resetCacheEvicted();
     });
   }
 
@@ -105,14 +112,10 @@ export function createSessionApi(
       const store = await getStore();
       try {
         await store.deleteItemAsync(SESSION_KEY);
-      } finally {
-        await evictPersistedQueryCache();
-        try {
-          await asyncStorage.removeItem(QUERY_CACHE_KEY);
-        } catch {
-          // ignore storage remove errors
-        }
+      } catch {
+        await store.deleteItemAsync(SESSION_KEY);
       }
+      await purgeQueryCache();
     });
   }
 

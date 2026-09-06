@@ -370,25 +370,25 @@ describe('AgendaList', () => {
       },
     ];
 
-    // Fresh planned workout detail (updated now, well within 5m staleTime)
+    // Fresh planned workout detail (updated 4m ago < 5m staleTime)
     queryClient.setQueryData(
       queryKeys.plannedWorkout(session.email, 'plan-fresh'),
       defaultPlannedWorkoutDetail(),
-      { updatedAt: Date.now() },
+      { updatedAt: Date.now() - 1000 * 60 * 4 },
     );
 
-    // Stale planned workout detail (updated 10m ago > 5m staleTime)
+    // Stale planned workout detail (updated 6m ago > 5m staleTime)
     queryClient.setQueryData(
       queryKeys.plannedWorkout(session.email, 'plan-stale'),
       defaultPlannedWorkoutDetail(),
-      { updatedAt: Date.now() - 1000 * 60 * 10 },
+      { updatedAt: Date.now() - 1000 * 60 * 6 },
     );
 
-    // Fresh completed overview (updated now, well within 24h staleTime)
+    // Fresh completed overview (updated 23h ago < 24h staleTime)
     queryClient.setQueryData(
       queryKeys.completedWorkoutOverview(session.email, 'act-fresh'),
       defaultCompletedOverview('act-fresh'),
-      { updatedAt: Date.now() },
+      { updatedAt: Date.now() - 1000 * 60 * 60 * 23 },
     );
 
     // Stale completed overview (updated 25h ago > 24h staleTime)
