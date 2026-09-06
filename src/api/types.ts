@@ -1,5 +1,128 @@
 export type EffortMetric = 'pace' | 'hr' | 'feel';
 
+export type PlannerWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export type PlannerClubType = 'long' | 'speed' | 'varies';
+
+export type PlannerConfig = {
+  raceName: string;
+  raceDist: number;
+  raceDate: string;
+  currentAbilityDist: number;
+  currentAbilitySecs: number;
+  runDays: PlannerWeekday[];
+  longRunDay: PlannerWeekday;
+  clubDay: PlannerWeekday | null;
+  clubType: PlannerClubType | null;
+  totalWeeks: number;
+  startKm: number;
+  includeBasePhase: boolean;
+  effortMetric: EffortMetric;
+};
+
+export type PlannerFitnessOption = {
+  label: '5K' | '10K' | 'Half' | 'Marathon';
+  distanceKm: number;
+  defaultSeconds: number;
+  minSeconds: number;
+  maxSeconds: number;
+  stepSeconds: number;
+};
+
+export type PlannerSync = {
+  status: 'unknown' | 'synced' | 'dirty';
+  dirtyKind: 'target-only' | 'structural' | null;
+} | null;
+
+export type PlannerFuelRate = {
+  gramsPerHour: number;
+  source: 'learned' | 'default';
+};
+
+export type PlannerState = {
+  currentConfig: PlannerConfig | null;
+  newProgramDraft: PlannerConfig;
+  fitnessOptions: PlannerFitnessOption[];
+  constraints: {
+    raceDistanceKm: { min: 1; max: 100 };
+    startDistanceKm: { min: 2; max: 42 };
+    minimumWeeks: 8;
+    minimumNormalWeeks: 10;
+    recommendedWeeks: 12;
+    basePhaseMinimumWeeks: 11;
+  };
+  plan: {
+    status: 'none' | 'active' | 'complete';
+    sync: PlannerSync;
+    weeksToGo: number | null;
+    futureWorkoutCount: number;
+  };
+  fuelRates: {
+    easy: PlannerFuelRate;
+    long: PlannerFuelRate;
+    interval: PlannerFuelRate;
+  } | null;
+};
+
+export type PlannerWarning = {
+  kind: 'compressed' | 'very-compressed';
+  title: string;
+  message: string;
+};
+
+export type PlannerPreviewWorkout = {
+  key: string;
+  week: number;
+  date: string;
+  name: string;
+  category: PlannedWorkoutCategory;
+  distanceKm: number | null;
+  durationMinutes: number | null;
+  fuelRateGPerHour: number | null;
+};
+
+export type PlannerPreview = {
+  intent: 'start' | 'update';
+  action: 'replace-plan' | 'update-targets';
+  config: PlannerConfig;
+  previewHash: string;
+  warning: PlannerWarning | null;
+  summary: {
+    workoutCount: number;
+    planWeeks: number;
+    firstWorkoutDate: string | null;
+    raceDate: string;
+    totalDistanceKm: number;
+  };
+  weeks: {
+    week: number;
+    startsOn: string;
+    distanceKm: number;
+    workoutCount: number;
+  }[];
+  workouts: PlannerPreviewWorkout[];
+};
+
+export type PlannerPreviewRequest = {
+  intent: 'start' | 'update';
+  config: PlannerConfig;
+};
+
+export type PlannerApplyRequest = PlannerPreviewRequest & {
+  previewHash: string;
+};
+
+export type PlannerApplyWarning = {
+  code: 'STALE_WORKOUTS_NOT_REMOVED' | 'GOOGLE_CALENDAR_SYNC_FAILED';
+  message: string;
+};
+
+export type PlannerApplyResponse = {
+  action: 'replace-plan' | 'update-targets';
+  appliedWorkoutCount: number;
+  warnings: PlannerApplyWarning[];
+  state: PlannerState;
+};
+
 /**
  * Public settings JSON from Springa GET /api/settings.
  * Secrets (Intervals key, Nightscout secret) are never returned.
