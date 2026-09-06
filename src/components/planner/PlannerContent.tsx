@@ -158,6 +158,7 @@ export function PlannerContent() {
         value={draft}
         errors={draftErrors}
         requestError={configError}
+        basePhaseMinimumWeeks={state.constraints.basePhaseMinimumWeeks}
         saving={mutations.saveConfig.isPending}
         onChange={(next) => {
           setDraft(next);

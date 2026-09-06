@@ -1,6 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { PlannerConfig } from '@/api/types';
 import { AppText, Section, TextField } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -85,7 +85,7 @@ export function PlannerRaceGoalFields({
           mode="date"
           display="default"
           onChange={(_event, selectedDate) => {
-            if (Platform.OS === 'android') setPickerVisible(false);
+            setPickerVisible(false);
             if (selectedDate) onChange(setRaceDate(value, dateOnly(selectedDate), new Date(), basePhaseMinimumWeeks));
           }}
           onDismiss={() => setPickerVisible(false)}

@@ -19,21 +19,28 @@ export function PlannerSummaryCard({
   onEdit,
 }: PlannerSummaryCardProps) {
   const parts = plannerSummaryParts(config, hasActivePlan, weeksToGo);
+  const raceText = config.raceName.trim() ? `${config.raceName.trim()} ${config.raceDist}km` : null;
+  const weeksText = hasActivePlan && weeksToGo != null ? (weeksToGo <= 1 ? 'Race week!' : `${weeksToGo} wks to go`) : null;
+
   return (
     <Card tone="subtle" accessibilityLabel="Current training plan">
       <View style={styles.row}>
         <View style={styles.parts}>
-          {parts.map((part, index) => (
-            <View key={part} style={styles.part}>
-              {index > 0 ? <AppText tone="muted">·</AppText> : null}
-              <AppText
-                tone={index === parts.length - 1 && hasActivePlan ? 'success' : index === 2 ? 'brand' : 'primary'}
-                variant={index === 2 ? 'subheading' : 'label'}
-              >
-                {part}
-              </AppText>
-            </View>
-          ))}
+          {parts.map((part, index) => {
+            const isRace = part === raceText;
+            const isWeeks = part === weeksText;
+            return (
+              <View key={part} style={styles.part}>
+                {index > 0 ? <AppText tone="muted">·</AppText> : null}
+                <AppText
+                  tone={isWeeks ? 'success' : isRace ? 'brand' : 'primary'}
+                  variant={isRace ? 'subheading' : 'label'}
+                >
+                  {part}
+                </AppText>
+              </View>
+            );
+          })}
         </View>
         {onEdit ? (
           <Pressable

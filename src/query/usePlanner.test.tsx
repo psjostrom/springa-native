@@ -1,5 +1,6 @@
 import { Pressable, Text } from 'react-native';
-import { describe, expect, it } from 'vitest';
+import { QueryClient } from '@tanstack/react-query';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import { queryKeys } from './keys';
@@ -66,30 +67,43 @@ describe('Planner query boundary', () => {
   });
 
   it('runs save, preview, and apply mutations with their own lifecycle', async () => {
-    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}><Probe /></TestAppProviders>);
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())} queryClient={queryClient}><Probe /></TestAppProviders>);
     await screen.findByText('Planner: ready');
     const user = userEvent.setup();
 
     await user.press(screen.getByRole('button', { name: 'Save planner' }));
     await waitFor(() => expect(screen.getByText('Save: done')).toBeOnTheScreen());
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.planner('runner@example.com') }));
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.settings('runner@example.com') }));
+
     await user.press(screen.getByRole('button', { name: 'Preview planner' }));
     await waitFor(() => expect(screen.getByText('Preview: done')).toBeOnTheScreen());
+
+    invalidateSpy.mockClear();
     await user.press(screen.getByRole('button', { name: 'Apply planner' }));
     await waitFor(() => expect(screen.getByText('Apply: done')).toBeOnTheScreen());
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.planner('runner@example.com') }));
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.calendar('runner@example.com') }));
   });
 
   it('keeps partial apply errors visible without automatic mutation retry', async () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
     server.use(http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json({
       error: 'Some workouts could not be updated',
       code: 'PLANNER_APPLY_PARTIAL',
       appliedWorkoutCount: 2,
       failures: [{ id: 'event-3', name: 'W03 Tempo', error: 'upstream 502' }],
     }, { status: 502 })));
-    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}><Probe /></TestAppProviders>);
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())} queryClient={queryClient}><Probe /></TestAppProviders>);
     await screen.findByText('Planner: ready');
     const user = userEvent.setup();
     await user.press(screen.getByRole('button', { name: 'Apply planner' }));
     await waitFor(() => expect(screen.getByText('Apply: error')).toBeOnTheScreen());
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.settings('runner@example.com') }));
+    expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.calendar('runner@example.com') }));
   });
 
   it('uses a distinct key for each signed-in identity', () => {

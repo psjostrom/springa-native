@@ -60,7 +60,6 @@ export function useCalendarEvents() {
       olderPageParam(firstPageParam.oldest),
     enabled: calendarEnabled,
     staleTime: CALENDAR_STALE_TIME,
-    maxPages: 8,
   });
 
   const pages = query.data?.pages;
@@ -81,10 +80,18 @@ export function useCalendarEvents() {
   useEffect(() => {
     if (!calendarEnabled || !isSuccess) return;
     if ((data?.pages.length ?? 0) !== 1) return;
+    let cancelled = false;
     void (async () => {
-      if (hasPreviousPage) await fetchPreviousPage();
-      if (hasNextPage) await fetchNextPage();
+      try {
+        if (hasPreviousPage && !cancelled) await fetchPreviousPage();
+        if (hasNextPage && !cancelled) await fetchNextPage();
+      } catch {
+        // ignore background warming errors
+      }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [
     calendarEnabled,
     isSuccess,
@@ -105,7 +112,8 @@ export function useCalendarEvents() {
     return fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const reload = useCallback(() => query.refetch(), [query]);
+  const { refetch } = query;
+  const reload = useCallback(() => refetch(), [refetch]);
 
   return {
     events,

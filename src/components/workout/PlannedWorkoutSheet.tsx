@@ -141,7 +141,7 @@ function ClothingSection({
   );
 }
 
-function MetricValues({ detail }: { detail: PlannedWorkoutDetail }) {
+function getMetricValues(detail: PlannedWorkoutDetail) {
   const metrics = [
     detail.metrics.duration
       ? {
@@ -166,7 +166,7 @@ function MetricValues({ detail }: { detail: PlannedWorkoutDetail }) {
 }
 
 function WorkoutSummary({ detail }: { detail: PlannedWorkoutDetail }) {
-  const metrics = MetricValues({ detail });
+  const metrics = getMetricValues(detail);
   if (metrics.length === 0) return null;
 
   const labels: Record<string, string> = {

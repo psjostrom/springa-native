@@ -93,7 +93,6 @@ function parseOk(data: unknown): { ok: true } {
     data !== null &&
     typeof data === 'object' &&
     !Array.isArray(data) &&
-    Object.keys(data).length === 1 &&
     (data as Record<string, unknown>).ok === true
   ) {
     return { ok: true };
@@ -105,6 +104,9 @@ function parseApiErrorDetails(value: unknown): ApiErrorDetails | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const record = value as Record<string, unknown>;
   const details: ApiErrorDetails = {};
+  if (typeof record.code === 'string') {
+    details.code = record.code;
+  }
   if (
     record.fields !== null &&
     typeof record.fields === 'object' &&

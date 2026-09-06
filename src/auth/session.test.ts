@@ -179,5 +179,28 @@ describe('default session api and clearAuthSession', () => {
   it('exports clearAuthSession alias', () => {
     expect(clearAuthSession).toBe(clearSession);
   });
+
+  it('evicts persisted query cache when loading an expired session', async () => {
+    await AsyncStorage.setItem(QUERY_CACHE_KEY, 'stale-user-cache');
+    const map = new Map<string, string>();
+    map.set('springa.session.v1', JSON.stringify({ token: 'expired', email: 'test@example.com', expiresAt: 100 }));
+    const store: SessionStore = {
+      async getItemAsync(key) {
+        return map.get(key) ?? null;
+      },
+      async setItemAsync(key, value) {
+        map.set(key, value);
+      },
+      async deleteItemAsync(key) {
+        map.delete(key);
+      },
+    };
+
+    const { loadSession } = createSessionApi(async () => store);
+    const result = await loadSession();
+
+    expect(result).toBeNull();
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+  });
 });
 

@@ -1,4 +1,5 @@
 export type ApiErrorDetails = {
+  code?: string;
   fields?: Record<string, string>;
   appliedWorkoutCount?: number;
   failures?: { id: string; name: string; error: string }[];

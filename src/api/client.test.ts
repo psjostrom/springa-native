@@ -158,6 +158,36 @@ describe('createApiClient', () => {
     }
   });
 
+  it('populates code and details on structured API error responses', async () => {
+    server.use(
+      http.post(apiUrl('/api/planner/apply'), () =>
+        HttpResponse.json(
+          {
+            error: 'Plan preview has changed',
+            code: 'PLAN_PREVIEW_STALE',
+            appliedWorkoutCount: 2,
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    try {
+      await makeClient().applyPlanner({
+        intent: 'start',
+        config: plannerConfig,
+        previewHash: 'hash',
+      });
+      expect.unreachable('expected applyPlanner to throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.status).toBe(409);
+      expect(apiErr.code).toBe('PLAN_PREVIEW_STALE');
+      expect(apiErr.details?.code).toBe('PLAN_PREVIEW_STALE');
+      expect(apiErr.details?.appliedWorkoutCount).toBe(2);
+    }
+  });
+
   it('throws ApiError when settings JSON is not an object', async () => {
     server.use(
       http.get(apiUrl('/api/settings'), () => HttpResponse.json([1, 2, 3])),

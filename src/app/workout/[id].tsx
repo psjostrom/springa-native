@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WorkoutActionsSheet } from '@/components/workout/WorkoutActionsSheet';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
@@ -18,9 +18,13 @@ export default function WorkoutSheetScreen() {
   const [actionsPresented, setActionsPresented] = useState(false);
   const [actions, setActions] = useState<PlannedWorkoutActions | null>(null);
 
-  const dismiss = () => {
+  const dismiss = useCallback(() => {
     if (router.canGoBack()) router.back();
-  };
+  }, [router]);
+
+  const handleReplace = useCallback((newId: string) => {
+    router.setParams({ id: newId });
+  }, [router]);
 
   if (isLoading && event == null) {
     return <View style={styles.root} testID="workout-sheet" />;
@@ -53,7 +57,7 @@ export default function WorkoutSheetScreen() {
           event={event ?? null}
           onClose={dismiss}
           onActionsReady={setActions}
-          onReplace={(newId) => router.setParams({ id: newId })}
+          onReplace={handleReplace}
         />
       </View>
       {actions ? (

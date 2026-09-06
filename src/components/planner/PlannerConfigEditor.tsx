@@ -10,6 +10,7 @@ type PlannerConfigEditorProps = {
   value: PlannerConfig;
   errors: Record<string, string>;
   requestError?: string | null;
+  basePhaseMinimumWeeks?: number;
   saving: boolean;
   onChange: (value: PlannerConfig) => void;
   onDone: () => void;
@@ -19,6 +20,7 @@ export function PlannerConfigEditor({
   value,
   errors,
   requestError,
+  basePhaseMinimumWeeks,
   onChange,
   onDone,
   saving,
@@ -47,8 +49,14 @@ export function PlannerConfigEditor({
               </Picker>
             </Host>
           </View>
-          <PlannerRaceGoalFields value={value} onChange={onChange} errors={errors} />
+          <PlannerRaceGoalFields
+            value={value}
+            onChange={onChange}
+            errors={errors}
+            basePhaseMinimumWeeks={basePhaseMinimumWeeks}
+          />
           {errors.totalWeeks ? <AppText tone="error" variant="caption">{errors.totalWeeks}</AppText> : null}
+          {errors.includeBasePhase ? <AppText tone="error" variant="caption">{errors.includeBasePhase}</AppText> : null}
           {requestError ? <AppText tone="error" accessibilityRole="alert">{requestError}</AppText> : null}
           <Button
             label="Done"

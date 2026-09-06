@@ -119,6 +119,7 @@ export function PlannerPreviewView({
             <AppText tone="muted" variant="caption">{item.week.distanceKm} km · {item.week.workoutCount} workouts</AppText>
           </View>
         ) : <WorkoutRow workout={item.workout} />}
+        getItemType={(item) => item.kind}
         recycleItems
         estimatedItemSize={84}
         contentInsetAdjustmentBehavior="automatic"
@@ -167,7 +168,7 @@ export function PlannerPreviewView({
                 loading={applying}
                 onPress={onApply}
               />
-              {error?.includes('Preview changed') ? (
+              {errorDetails?.code === 'PLAN_PREVIEW_STALE' || error?.includes('Preview changed') ? (
                 <Button label="Preview again" variant="secondary" onPress={onPreviewAgain} />
               ) : null}
               <View style={styles.secondaryActions}>

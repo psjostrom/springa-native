@@ -79,6 +79,12 @@ export function createSessionApi(
       const session = parseSessionJson(raw);
       if (!session || !isSessionValid(session)) {
         await store.deleteItemAsync(SESSION_KEY);
+        await evictPersistedQueryCache();
+        try {
+          await asyncStorage.removeItem(QUERY_CACHE_KEY);
+        } catch {
+          // ignore storage remove errors
+        }
         return null;
       }
 
@@ -98,11 +104,7 @@ export function createSessionApi(
     return enqueue(async () => {
       const store = await getStore();
       try {
-        try {
-          await store.deleteItemAsync(SESSION_KEY);
-        } catch {
-          await store.deleteItemAsync(SESSION_KEY);
-        }
+        await store.deleteItemAsync(SESSION_KEY);
       } finally {
         await evictPersistedQueryCache();
         try {
