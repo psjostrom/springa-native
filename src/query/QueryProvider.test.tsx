@@ -115,22 +115,20 @@ describe('QueryProvider and QueryHydrationContext', () => {
   });
 
   it('sets isHydrated to true when persister restoration triggers onError', async () => {
-    const { asyncStoragePersister } = await import('./persister');
-    const originalRestore = asyncStoragePersister.restoreClient;
-    asyncStoragePersister.restoreClient = async () => {
-      throw new Error('Hardware read failed');
+    const errorPersister = {
+      persistClient: async () => {},
+      restoreClient: async () => {
+        throw new Error('Hardware read failed');
+      },
+      removeClient: async () => {},
     };
 
-    try {
-      await render(
-        <QueryProvider>
-          <Probe />
-        </QueryProvider>,
-      );
+    await render(
+      <QueryProvider persister={errorPersister}>
+        <Probe />
+      </QueryProvider>,
+    );
 
-      expect(await screen.findByText('Hydrated')).toBeOnTheScreen();
-    } finally {
-      asyncStoragePersister.restoreClient = originalRestore;
-    }
+    expect(await screen.findByText('Hydrated')).toBeOnTheScreen();
   });
 });

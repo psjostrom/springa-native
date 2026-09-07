@@ -77,7 +77,7 @@ export function PlannerRaceGoalFields({
           accessibilityRole="button"
           accessibilityLabel="Choose race date"
           accessibilityValue={{ text: value.raceDate }}
-          onPress={() => setPickerVisible(true)}
+          onPress={() => setPickerVisible((prev) => !prev)}
           style={styles.dateButton}
         >
           <AppText>{value.raceDate}</AppText>
@@ -91,7 +91,7 @@ export function PlannerRaceGoalFields({
           mode="date"
           display="default"
           onChange={(_event, selectedDate) => {
-            // ponytail: keep iOS DateTimePicker mounted until dismissed; Android closes on selection
+            // ponytail: iOS not officially supported; toggle via trigger button since onDismiss is Android-only
             if (Platform.OS === 'android') {
               setPickerVisible(false);
             }

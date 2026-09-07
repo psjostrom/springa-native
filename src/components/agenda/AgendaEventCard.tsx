@@ -33,12 +33,11 @@ function statusBorderColor(status: ReturnType<typeof getCardStatus>): string {
 
 export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
   const status = getCardStatus(event);
-  const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
-  const weekday = eventDate
+  const weekday = event.date
     .toLocaleDateString('en-GB', { weekday: 'short' })
     .toUpperCase();
-  const day = eventDate.toLocaleDateString('en-GB', { day: 'numeric' });
-  const month = eventDate.toLocaleDateString('en-GB', { month: 'short' });
+  const day = event.date.toLocaleDateString('en-GB', { day: 'numeric' });
+  const month = event.date.toLocaleDateString('en-GB', { month: 'short' });
   const missed = status === 'missed';
   const planned = status === 'planned' || status === 'race';
   const completed = status === 'completed';

@@ -77,22 +77,38 @@ export function useCalendarEvents() {
 
   const warmedIdentityRef = useRef<string | null>(null);
   const pageCount = data?.pages.length ?? 0;
-  const pageCountRef = useRef(pageCount);
-  useEffect(() => {
-    pageCountRef.current = pageCount;
-  }, [pageCount]);
+
+  const pageParams = data?.pageParams as DateWindow[] | undefined;
+  const newestIso = pageParams?.reduce(
+    (max, p) => (!max || p.newest > max ? p.newest : max),
+    '',
+  );
+  const isCacheBehindToday = Boolean(
+    newestIso && newestIso < formatIsoDay(new Date()),
+  );
 
   // After the first (today→future) page paints, warm older (history) then newer.
-  // Gated on pageCountRef.current === 1 so components mounting with existing cache never refire warming.
+  // Gated on pageCount === 1 so components mounting with existing cache never refire warming,
+  // unless the hydrated cache is behind today due to multi-day inactivity.
   useEffect(() => {
     if (!calendarEnabled || !isSuccess) return;
-    if (warmedIdentityRef.current === identity || pageCountRef.current !== 1) return;
+    if (warmedIdentityRef.current === identity || (pageCount !== 1 && !isCacheBehindToday)) return;
     warmedIdentityRef.current = identity;
     let cancelled = false;
     void (async () => {
       try {
         if (hasPreviousPage && !cancelled) await fetchPreviousPage();
-        if (hasNextPage && !cancelled) await fetchNextPage();
+        if (hasNextPage && !cancelled) {
+          let currentRes = await fetchNextPage();
+          while (!cancelled) {
+            const params = currentRes.data?.pageParams as DateWindow[] | undefined;
+            const last = params?.[params.length - 1];
+            if (!last || last.newest >= formatIsoDay(new Date()) || !currentRes.hasNextPage) {
+              break;
+            }
+            currentRes = await fetchNextPage();
+          }
+        }
       } catch {
         // ignore background warming errors
       }
@@ -107,7 +123,9 @@ export function useCalendarEvents() {
     hasNextPage,
     hasPreviousPage,
     identity,
+    isCacheBehindToday,
     isSuccess,
+    pageCount,
   ]);
 
   const fetchOlder = useCallback(() => {
@@ -135,6 +153,7 @@ export function useCalendarEvents() {
     fetchOlder,
     fetchNewer,
     hasOlder: Boolean(hasPreviousPage),
+    hasNewer: Boolean(hasNextPage),
     isFetchingOlder: isFetchingPreviousPage,
     isFetchingNewer: isFetchingNextPage,
     olderError: query.isFetchPreviousPageError,

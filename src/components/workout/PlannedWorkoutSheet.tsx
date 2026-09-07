@@ -461,6 +461,7 @@ function DetailBody({
     mutations.savePreRunCarbs.isPending ||
     mutations.changeEffortMetric.isPending;
 
+  // ponytail: iOS not officially supported; two-step date->time flow targets Android modal dialogs
   const openMove = useCallback(() => {
     setMovePickerValue(detailDate);
     setMovePickerMode('date');
