@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
@@ -75,11 +75,19 @@ export function useCalendarEvents() {
     isFetchingNextPage,
   } = query;
 
+  const warmedIdentityRef = useRef<string | null>(null);
+  const pageCount = data?.pages.length ?? 0;
+  const pageCountRef = useRef(pageCount);
+  useEffect(() => {
+    pageCountRef.current = pageCount;
+  }, [pageCount]);
+
   // After the first (today→future) page paints, warm older (history) then newer.
-  // Gated strictly on data.pages.length === 1 so components mounting with existing cache never refire warming.
+  // Gated on pageCountRef.current === 1 so components mounting with existing cache never refire warming.
   useEffect(() => {
     if (!calendarEnabled || !isSuccess) return;
-    if ((data?.pages.length ?? 0) !== 1) return;
+    if (warmedIdentityRef.current === identity || pageCountRef.current !== 1) return;
+    warmedIdentityRef.current = identity;
     let cancelled = false;
     void (async () => {
       try {
@@ -94,12 +102,12 @@ export function useCalendarEvents() {
     };
   }, [
     calendarEnabled,
-    isSuccess,
-    data?.pages.length,
-    hasPreviousPage,
-    hasNextPage,
-    fetchPreviousPage,
     fetchNextPage,
+    fetchPreviousPage,
+    hasNextPage,
+    hasPreviousPage,
+    identity,
+    isSuccess,
   ]);
 
   const fetchOlder = useCallback(() => {

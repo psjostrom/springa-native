@@ -165,7 +165,7 @@ export function PlannerPreviewView({
                 loading={applying}
                 onPress={onApply}
               />
-              {errorDetails?.code === 'PLAN_PREVIEW_STALE' || error?.includes('Preview changed') ? (
+              {errorDetails?.code === 'PLAN_PREVIEW_STALE' ? (
                 <Button label="Preview again" variant="secondary" onPress={onPreviewAgain} />
               ) : null}
               <View style={styles.secondaryActions}>

@@ -127,4 +127,3 @@ const defaultApi = createSessionApi(() => import('expo-secure-store'));
 export const loadSession = defaultApi.loadSession;
 export const saveSession = defaultApi.saveSession;
 export const clearSession = defaultApi.clearSession;
-export const clearAuthSession = defaultApi.clearSession;

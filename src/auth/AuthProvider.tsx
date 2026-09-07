@@ -31,9 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const existing = await loadSession();
         setSession(existing);
         setStatus(existing ? 'signedIn' : 'signedOut');
+        if (!existing) {
+          queryClient.clear();
+        }
       } catch {
         setSession(null);
         setStatus('signedOut');
+        queryClient.clear();
       }
 
       try {
@@ -50,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
       }
     })();
-  }, []);
+  }, [queryClient]);
 
   const signInWithGoogle = useCallback(async () => {
     await GoogleSignin.hasPlayServices();

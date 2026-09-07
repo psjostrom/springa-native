@@ -29,32 +29,7 @@ export function formatWorkoutDate(date: Date): string {
   });
 }
 
-function padDatePart(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-export function parseLocalDateTime(value: string): Date {
-  const match = value.match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/,
-  );
-  if (match == null) return new Date(value);
-
-  return new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-    Number(match[4]),
-    Number(match[5]),
-    Number(match[6] ?? 0),
-  );
-}
-
-export function formatLocalDateTime(date: Date): string {
-  return [
-    `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`,
-    `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}:${padDatePart(date.getSeconds())}`,
-  ].join('T');
-}
+export { formatLocalDateTime, parseLocalDateTime } from '@/domain/format';
 
 export function formatTimelineMinutes(minutes: number): string {
   return `${formatRounded(minutes)}m`;

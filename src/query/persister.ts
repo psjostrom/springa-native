@@ -4,14 +4,19 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 export const QUERY_CACHE_KEY = 'SPRINGA_REACT_QUERY_CACHE';
 export const PERSIST_MAX_AGE = 1000 * 60 * 60 * 24 * 14; // 14 days (safe for 32-bit setTimeout limit)
 
-let cacheEvicted = false;
+// ponytail: @tanstack/query-async-storage-persister asyncThrottle cannot be cancelled; gate writes on signout
+let writeGated = false;
+
+export function allowPersistedQueryWrites(): void {
+  writeGated = false;
+}
 
 export function resetCacheEvicted(): void {
-  cacheEvicted = false;
+  allowPersistedQueryWrites();
 }
 
 export async function evictPersistedQueryCache(): Promise<void> {
-  cacheEvicted = true;
+  writeGated = true;
   try {
     await AsyncStorage.removeItem(QUERY_CACHE_KEY);
   } catch {
@@ -28,7 +33,7 @@ const safeAsyncStorage = {
     }
   },
   setItem: async (key: string, value: string) => {
-    if (cacheEvicted && key === QUERY_CACHE_KEY) {
+    if (writeGated && key === QUERY_CACHE_KEY) {
       return;
     }
     try {

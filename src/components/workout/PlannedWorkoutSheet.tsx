@@ -374,11 +374,7 @@ function DetailBody({
 }) {
   const mutations = usePlannedWorkoutMutations(eventId);
   const detailDate = parseLocalDateTime(detail.event.startDateLocal);
-  const nowMs = now?.getTime();
-  const effectiveNow = useMemo(
-    () => (nowMs != null ? new Date(nowMs) : new Date()),
-    [nowMs],
-  );
+  const effectiveNow = useMemo(() => now ?? new Date(), [now]);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -526,10 +522,14 @@ function DetailBody({
   }, []);
 
   useEffect(() => {
-    if (onActionsReady == null) return;
-    onActionsReady(actions);
-    return () => onActionsReady(null);
+    onActionsReady?.(actions);
   }, [actions, onActionsReady]);
+
+  useEffect(() => {
+    return () => {
+      onActionsReady?.(null);
+    };
+  }, [onActionsReady]);
 
   return (
     <View
@@ -669,7 +669,7 @@ export function PlannedWorkoutSheet({
       eventId={event.id}
       onClose={onClose}
       onActionsReady={onActionsReady}
-      now={now}
+      now={effectiveNow}
       onRefresh={reload}
       onReplace={onReplace}
     />

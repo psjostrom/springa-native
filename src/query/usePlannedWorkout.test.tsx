@@ -113,7 +113,13 @@ function MutationProbe() {
 
 function CalendarProbe() {
   const { events } = useCalendarEvents();
-  return <Text>Calendar: {events[0]?.name ?? 'loading'}</Text>;
+  const event = events[0];
+  return (
+    <>
+      <Text>Calendar: {event?.name ?? 'loading'}</Text>
+      <Text>CalendarCarbs: {event?.preRunCarbsG ?? 'none'}</Text>
+    </>
+  );
 }
 
 function ReplacementCacheProbe() {
@@ -663,12 +669,14 @@ describe('planned workout query hooks', () => {
 
     expect(await screen.findByText('Carbs: none')).toBeOnTheScreen();
     expect(await screen.findByText('Calendar: Before carb save')).toBeOnTheScreen();
+    expect(await screen.findByText('CalendarCarbs: none')).toBeOnTheScreen();
     await waitFor(() => expect(calendarGets).toBeGreaterThan(0));
     const calendarBaseline = calendarGets;
     const user = userEvent.setup();
     await user.press(screen.getByLabelText('Save pre-run carbs'));
 
     expect(await screen.findByText('Carbs: 30')).toBeOnTheScreen();
+    expect(await screen.findByText('CalendarCarbs: 30')).toBeOnTheScreen();
     expect(detailGets).toBe(1);
     expect(calendarGets).toBe(calendarBaseline);
   });

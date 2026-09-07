@@ -76,6 +76,7 @@ export function PlannerRaceGoalFields({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Choose race date"
+          accessibilityValue={{ text: value.raceDate }}
           onPress={() => setPickerVisible(true)}
           style={styles.dateButton}
         >

@@ -146,11 +146,9 @@ export function validatePlannerDraft(
   fitnessOptions: PlannerFitnessOption[],
   constraints: PlannerState['constraints'],
   now: Date,
-  optionsOrIsNew: boolean | { skipTimelineMatch?: boolean } = {},
+  options: { skipTimelineMatch?: boolean } = {},
 ): PlannerFieldErrors {
-  const skipTimelineMatch = typeof optionsOrIsNew === 'boolean'
-    ? !optionsOrIsNew
-    : Boolean(optionsOrIsNew.skipTimelineMatch);
+  const skipTimelineMatch = Boolean(options.skipTimelineMatch);
   const errors: PlannerFieldErrors = {};
   const raceDate = dateAtNoon(config.raceDate);
   if (raceDate == null) errors.raceDate = 'Choose a valid race date.';
@@ -234,16 +232,33 @@ export function speedDayLabel(config: PlannerConfig): string | null {
   return `Speed auto-assigned to ${dayLabel(speedDay)}`;
 }
 
+export type PlannerSummaryItem = {
+  key: 'days' | 'long' | 'race' | 'weeks';
+  text: string;
+};
+
+export function plannerSummaryItems(
+  config: PlannerConfig,
+  hasActivePlan: boolean,
+  weeksToGo: number | null,
+): PlannerSummaryItem[] {
+  const items: PlannerSummaryItem[] = [
+    { key: 'days', text: `${config.runDays.length} days/wk` },
+    { key: 'long', text: `Long: ${dayLabel(config.longRunDay) || 'auto'}` },
+  ];
+  if (config.raceName.trim()) {
+    items.push({ key: 'race', text: `${config.raceName.trim()} ${config.raceDist}km` });
+  }
+  if (hasActivePlan && weeksToGo != null) {
+    items.push({ key: 'weeks', text: weeksToGo <= 1 ? 'Race week!' : `${weeksToGo} wks to go` });
+  }
+  return items;
+}
+
 export function plannerSummaryParts(
   config: PlannerConfig,
   hasActivePlan: boolean,
   weeksToGo: number | null,
 ): string[] {
-  const parts = [
-    `${config.runDays.length} days/wk`,
-    `Long: ${dayLabel(config.longRunDay) || 'auto'}`,
-  ];
-  if (config.raceName.trim()) parts.push(`${config.raceName.trim()} ${config.raceDist}km`);
-  if (hasActivePlan && weeksToGo != null) parts.push(weeksToGo <= 1 ? 'Race week!' : `${weeksToGo} wks to go`);
-  return parts;
+  return plannerSummaryItems(config, hasActivePlan, weeksToGo).map((item) => item.text);
 }

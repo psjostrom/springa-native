@@ -105,9 +105,9 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
 
   // Empty older windows are gaps — keep paging while history is open and still empty.
   useEffect(() => {
-    if (!historyMode || earlier.length > 0 || isFetchingOlder || !hasOlder) return;
+    if (!historyMode || earlier.length > 0 || isFetchingOlder || !hasOlder || Boolean(olderError)) return;
     void fetchOlder();
-  }, [historyMode, earlier.length, isFetchingOlder, hasOlder, fetchOlder]);
+  }, [historyMode, earlier.length, isFetchingOlder, hasOlder, olderError, fetchOlder]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {

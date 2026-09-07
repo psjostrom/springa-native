@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { describe, expect, it } from 'vitest';
 import { QUERY_CACHE_KEY } from '@/query/persister';
 import {
-  clearAuthSession,
   clearSession,
   createSessionApi,
   isSessionValid,
@@ -198,7 +197,7 @@ describe('session persistence queue', () => {
   });
 });
 
-describe('default session api and clearAuthSession', () => {
+describe('default session api and cache eviction', () => {
   it('evicts persisted query cache from default AsyncStorage on clearSession', async () => {
     await AsyncStorage.setItem(QUERY_CACHE_KEY, 'cached-query-data');
     expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBe('cached-query-data');
@@ -206,10 +205,6 @@ describe('default session api and clearAuthSession', () => {
     await clearSession();
 
     expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
-  });
-
-  it('exports clearAuthSession alias', () => {
-    expect(clearAuthSession).toBe(clearSession);
   });
 
   it('evicts persisted query cache when loading an expired session', async () => {

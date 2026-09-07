@@ -141,11 +141,21 @@ export function NewProgramEditor({
               value={startKmText}
               onChangeText={(text) => {
                 setStartKmText(text);
-                if (text.trim() === '') return;
-                const next = Number(text);
-                if (Number.isFinite(next)) onChange({ ...value, startKm: next });
+                const normalized = text.replace(',', '.').trim();
+                if (!normalized || normalized.endsWith('.')) return;
+                const next = Number(normalized);
+                if (Number.isFinite(next) && next > 0) onChange({ ...value, startKm: next });
               }}
-              onBlur={() => setStartKmText(String(value.startKm))}
+              onBlur={() => {
+                const normalized = startKmText.replace(',', '.').trim();
+                const next = Number(normalized);
+                if (normalized.length > 0 && Number.isFinite(next) && next > 0) {
+                  onChange({ ...value, startKm: next });
+                  setStartKmText(String(next));
+                } else {
+                  setStartKmText(String(value.startKm));
+                }
+              }}
               error={errors.startKm}
             />
             <View style={styles.checkboxRow}>

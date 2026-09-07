@@ -15,7 +15,7 @@ import type {
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
 } from '@/api/types';
-import { parseLocalDateTime } from '@/components/workout/plannedWorkoutPresentation';
+import { parseLocalDateTime } from '@/domain/format';
 import { queryKeys } from './keys';
 
 export const PLANNED_WORKOUT_STALE_TIME = 1000 * 60 * 5; // 5 minutes

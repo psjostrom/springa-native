@@ -205,22 +205,6 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
                   ),
                 },
         );
-        queryClient.setQueriesData<InfiniteData<CalendarEvent[]>>(
-          { queryKey: calendarKey },
-          (current) =>
-            current == null
-              ? current
-              : {
-                  ...current,
-                  pages: current.pages.map((page) =>
-                    page.map((candidate) =>
-                      candidate.id === event.id
-                        ? { ...candidate, preRunCarbsG: carbsG }
-                        : candidate,
-                    ),
-                  ),
-                },
-        );
       },
     }),
     saveFeedback: useMutation<

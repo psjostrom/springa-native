@@ -119,14 +119,14 @@ describe('Planner draft rules', () => {
     // Plan created in the past with totalWeeks: 14, but only 4 weeks remain from now
     const pastNow = new Date('2026-11-01T12:00:00');
     const activePlan = { ...config, totalWeeks: 14, raceDate: '2026-11-29' };
-    const errors = validatePlannerDraft(activePlan, options, constraints, pastNow, false);
+    const errors = validatePlannerDraft(activePlan, options, constraints, pastNow, { skipTimelineMatch: true });
     expect(errors).toEqual({});
   });
 
   it('enforces totalWeeks matching raceDate for new programs', () => {
     const pastNow = new Date('2026-11-01T12:00:00');
     const newProgram = { ...config, totalWeeks: 14, raceDate: '2026-11-29' };
-    const errors = validatePlannerDraft(newProgram, options, constraints, pastNow, true);
+    const errors = validatePlannerDraft(newProgram, options, constraints, pastNow);
     expect(errors).toHaveProperty('totalWeeks');
   });
 

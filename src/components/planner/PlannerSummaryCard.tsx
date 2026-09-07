@@ -3,7 +3,7 @@ import type { PlannerConfig } from '@/api/types';
 import { AppText, Card } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
 import { Radius, Spacing } from '@/theme/tokens';
-import { plannerSummaryParts } from './plannerDraft';
+import { plannerSummaryItems } from './plannerDraft';
 
 type PlannerSummaryCardProps = {
   config: PlannerConfig;
@@ -18,25 +18,23 @@ export function PlannerSummaryCard({
   weeksToGo,
   onEdit,
 }: PlannerSummaryCardProps) {
-  const parts = plannerSummaryParts(config, hasActivePlan, weeksToGo);
-  const raceText = config.raceName.trim() ? `${config.raceName.trim()} ${config.raceDist}km` : null;
-  const weeksText = hasActivePlan && weeksToGo != null ? (weeksToGo <= 1 ? 'Race week!' : `${weeksToGo} wks to go`) : null;
+  const items = plannerSummaryItems(config, hasActivePlan, weeksToGo);
 
   return (
     <Card tone="subtle" accessibilityLabel="Current training plan">
       <View style={styles.row}>
         <View style={styles.parts}>
-          {parts.map((part, index) => {
-            const isRace = part === raceText;
-            const isWeeks = part === weeksText;
+          {items.map((item, index) => {
+            const isRace = item.key === 'race';
+            const isWeeks = item.key === 'weeks';
             return (
-              <View key={part} style={styles.part}>
+              <View key={item.key} style={styles.part}>
                 {index > 0 ? <AppText tone="muted">·</AppText> : null}
                 <AppText
                   tone={isWeeks ? 'success' : isRace ? 'brand' : 'primary'}
                   variant={isRace ? 'subheading' : 'label'}
                 >
-                  {part}
+                  {item.text}
                 </AppText>
               </View>
             );
