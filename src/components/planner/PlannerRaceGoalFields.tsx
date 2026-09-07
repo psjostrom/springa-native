@@ -1,6 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import type { PlannerConfig } from '@/api/types';
 import { AppText, Section, TextField } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -51,7 +51,7 @@ export function PlannerRaceGoalFields({
           onChangeText={(text) => {
             setRaceDistanceText(text);
             const normalized = text.replace(',', '.').trim();
-            if (!normalized || normalized.endsWith('.')) return;
+            if (normalized.endsWith('.')) return;
             const next = Number(normalized);
             if (Number.isFinite(next) && next > 0) {
               onChange({ ...value, raceDist: next });
@@ -91,7 +91,10 @@ export function PlannerRaceGoalFields({
           mode="date"
           display="default"
           onChange={(_event, selectedDate) => {
-            setPickerVisible(false);
+            // ponytail: keep iOS DateTimePicker mounted until dismissed; Android closes on selection
+            if (Platform.OS === 'android') {
+              setPickerVisible(false);
+            }
             if (selectedDate) {
               const raceDate = dateOnly(selectedDate);
               onChange(deriveTimeline ? setRaceDate(value, raceDate, new Date(), basePhaseMinimumWeeks) : { ...value, raceDate });

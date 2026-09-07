@@ -163,28 +163,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     }
 
     let res: Response;
-    const start = Date.now();
-    if (__DEV__) {
-      console.log(`[API] --> ${init.method ?? 'GET'} ${normalized}`);
-    }
     try {
       res = await fetch(`${baseUrl}${normalized}`, {
         ...init,
         headers,
         signal: init.signal ?? AbortSignal.timeout(timeoutMs),
       });
-      if (__DEV__) {
-        console.log(
-          `[API] <-- ${init.method ?? 'GET'} ${normalized} ${res.status} (${Date.now() - start}ms)`,
-        );
-      }
     } catch (err) {
-      if (__DEV__) {
-        console.log(
-          `[API] ERR ${init.method ?? 'GET'} ${normalized} in ${Date.now() - start}ms:`,
-          err,
-        );
-      }
       if (
         err instanceof Error &&
         (err.name === 'TimeoutError' || err.name === 'AbortError')

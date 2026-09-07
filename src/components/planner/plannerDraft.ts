@@ -254,11 +254,3 @@ export function plannerSummaryItems(
   }
   return items;
 }
-
-export function plannerSummaryParts(
-  config: PlannerConfig,
-  hasActivePlan: boolean,
-  weeksToGo: number | null,
-): string[] {
-  return plannerSummaryItems(config, hasActivePlan, weeksToGo).map((item) => item.text);
-}

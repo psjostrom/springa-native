@@ -10,7 +10,6 @@ type PlannerConfigEditorProps = {
   value: PlannerConfig;
   errors: Record<string, string>;
   requestError?: string | null;
-  basePhaseMinimumWeeks?: number;
   saving: boolean;
   onChange: (value: PlannerConfig) => void;
   onCancel?: () => void;
@@ -21,7 +20,6 @@ export function PlannerConfigEditor({
   value,
   errors,
   requestError,
-  basePhaseMinimumWeeks,
   onChange,
   onCancel,
   onDone,
@@ -50,7 +48,6 @@ export function PlannerConfigEditor({
               value={value}
               onChange={onChange}
               errors={errors}
-              basePhaseMinimumWeeks={basePhaseMinimumWeeks}
             />
           </View>
           {errors.totalWeeks ? <AppText tone="error" variant="caption">{errors.totalWeeks}</AppText> : null}

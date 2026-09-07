@@ -113,4 +113,24 @@ describe('QueryProvider and QueryHydrationContext', () => {
     await user.press(screen.getByRole('button', { name: 'Fetch data' }));
     expect(await screen.findByText('Cached: fetched-value')).toBeOnTheScreen();
   });
+
+  it('sets isHydrated to true when persister restoration triggers onError', async () => {
+    const { asyncStoragePersister } = await import('./persister');
+    const originalRestore = asyncStoragePersister.restoreClient;
+    asyncStoragePersister.restoreClient = async () => {
+      throw new Error('Hardware read failed');
+    };
+
+    try {
+      await render(
+        <QueryProvider>
+          <Probe />
+        </QueryProvider>,
+      );
+
+      expect(await screen.findByText('Hydrated')).toBeOnTheScreen();
+    } finally {
+      asyncStoragePersister.restoreClient = originalRestore;
+    }
+  });
 });

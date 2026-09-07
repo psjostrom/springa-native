@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { evictPersistedQueryCache, resetCacheEvicted, QUERY_CACHE_KEY } from '@/query/persister';
+import { evictPersistedQueryCache, resetCacheEvicted } from '@/query/persister';
 
 export type Session = {
   token: string;
@@ -71,12 +71,7 @@ export function createSessionApi(
   const enqueue = createPersistQueue();
 
   const purgeQueryCache = async () => {
-    await evictPersistedQueryCache();
-    try {
-      await asyncStorage.removeItem(QUERY_CACHE_KEY);
-    } catch {
-      // ignore storage remove errors
-    }
+    await evictPersistedQueryCache(asyncStorage);
   };
 
   async function loadSession(): Promise<Session | null> {
@@ -90,8 +85,11 @@ export function createSessionApi(
 
       const session = parseSessionJson(raw);
       if (!session || !isSessionValid(session)) {
-        await store.deleteItemAsync(SESSION_KEY);
-        await purgeQueryCache();
+        try {
+          await store.deleteItemAsync(SESSION_KEY);
+        } finally {
+          await purgeQueryCache();
+        }
         return null;
       }
 
@@ -111,11 +109,14 @@ export function createSessionApi(
     return enqueue(async () => {
       const store = await getStore();
       try {
-        await store.deleteItemAsync(SESSION_KEY);
-      } catch {
-        await store.deleteItemAsync(SESSION_KEY);
+        try {
+          await store.deleteItemAsync(SESSION_KEY);
+        } catch {
+          await store.deleteItemAsync(SESSION_KEY);
+        }
+      } finally {
+        await purgeQueryCache();
       }
-      await purgeQueryCache();
     });
   }
 

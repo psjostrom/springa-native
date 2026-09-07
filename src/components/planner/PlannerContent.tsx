@@ -2,7 +2,6 @@ import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
-import type { ApiErrorDetails } from '@/api/errors';
 import type {
   PlannerApplyResponse,
   PlannerConfig,
@@ -31,7 +30,7 @@ export function PlannerContent() {
   const [configError, setConfigError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PlannerPreview | null>(null);
   const [previewError, setPreviewError] = useState<Error | null>(null);
-  const [previewErrorDetails, setPreviewErrorDetails] = useState<ApiErrorDetails | null>(null);
+  const previewErrorDetails = previewError instanceof ApiError ? previewError.details ?? null : null;
   const previewRequestId = useRef(0);
   const [result, setResult] = useState<{
     response: PlannerApplyResponse;
@@ -71,7 +70,6 @@ export function PlannerContent() {
     setDraftErrors({});
     setConfigError(null);
     setPreviewError(null);
-    setPreviewErrorDetails(null);
     setMode('edit-config');
   };
 
@@ -80,7 +78,6 @@ export function PlannerContent() {
     setDraftErrors({});
     setConfigError(null);
     setPreviewError(null);
-    setPreviewErrorDetails(null);
     setPreview(null);
     setResult(null);
     setMode('new-program');
@@ -92,7 +89,6 @@ export function PlannerContent() {
     setDraftErrors({});
     setConfigError(null);
     setPreviewError(null);
-    setPreviewErrorDetails(null);
     setPreview(null);
     setMode('collapsed');
   };
@@ -135,7 +131,6 @@ export function PlannerContent() {
     const errors = validateDraft(next, intent === 'update' && state.plan.status === 'active');
     if (Object.keys(errors).length > 0) return;
     setPreviewError(null);
-    setPreviewErrorDetails(null);
     try {
       const nextPreview = await mutations.preview.mutateAsync({ intent, config: next });
       if (requestId !== previewRequestId.current) return;
@@ -147,7 +142,6 @@ export function PlannerContent() {
       if (error instanceof ApiError && error.details?.fields) {
         setDraftErrors((previous) => ({ ...previous, ...error.details?.fields }));
       }
-      setPreviewErrorDetails(error instanceof ApiError ? error.details ?? null : null);
       setPreviewError(error instanceof Error ? error : new Error('Couldn’t preview plan.'));
     }
   };
@@ -157,7 +151,6 @@ export function PlannerContent() {
     previewRequestId.current += 1;
     const intent = preview.intent;
     setPreviewError(null);
-    setPreviewErrorDetails(null);
     try {
       const response = await mutations.apply.mutateAsync({
         intent: preview.intent,
@@ -167,7 +160,6 @@ export function PlannerContent() {
       setResult({ response, intent });
       setMode('collapsed');
     } catch (error) {
-      setPreviewErrorDetails(error instanceof ApiError ? error.details ?? null : null);
       setPreviewError(error instanceof Error ? error : new Error('Couldn’t apply plan.'));
     }
   };
@@ -182,14 +174,12 @@ export function PlannerContent() {
         value={draft}
         errors={draftErrors}
         requestError={configError ?? previewError?.message}
-        basePhaseMinimumWeeks={state.constraints.basePhaseMinimumWeeks}
         saving={mutations.saveConfig.isPending || mutations.preview.isPending}
         onChange={(next) => {
           setDraft(next);
           setDraftErrors({});
           setConfigError(null);
           setPreviewError(null);
-          setPreviewErrorDetails(null);
         }}
         onCancel={cancelDraft}
         onDone={() => void saveConfig()}
@@ -210,7 +200,6 @@ export function PlannerContent() {
           setDraft(next);
           setDraftErrors({});
           setPreviewError(null);
-          setPreviewErrorDetails(null);
         }}
         onCancel={cancelDraft}
         onPreview={() => void requestPreview('start', draft)}
@@ -231,7 +220,6 @@ export function PlannerContent() {
           setDraftErrors({});
           setConfigError(null);
           setPreviewError(null);
-          setPreviewErrorDetails(null);
           setMode(preview.intent === 'start' ? 'new-program' : 'edit-config');
         }}
         onCancel={cancelDraft}

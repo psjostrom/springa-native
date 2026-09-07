@@ -277,5 +277,54 @@ describe('default session api and cache eviction', () => {
 
     resetCacheEvicted();
   });
+
+  it('un-gates persistent query cache writes when saveSession succeeds', async () => {
+    const { evictPersistedQueryCache, asyncStoragePersister, resetCacheEvicted } =
+      await import('@/query/persister');
+    await evictPersistedQueryCache();
+
+    const map = new Map<string, string>();
+    const store: SessionStore = {
+      async getItemAsync(key) {
+        return map.get(key) ?? null;
+      },
+      async setItemAsync(key, value) {
+        map.set(key, value);
+      },
+      async deleteItemAsync(key) {
+        map.delete(key);
+      },
+    };
+
+    const { saveSession } = createSessionApi(async () => store);
+    await saveSession({ token: 't', email: 'a@b.c', expiresAt: 2_000_000_000 });
+
+    await asyncStoragePersister.persistClient({
+      timestamp: Date.now(),
+      buster: '',
+      clientState: { mutations: [], queries: [] },
+    });
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).not.toBeNull();
+
+    resetCacheEvicted();
+  });
+
+  it('purges query cache even when store deleteItemAsync throws in clearSession', async () => {
+    await AsyncStorage.setItem(QUERY_CACHE_KEY, 'cached-workouts');
+    const store: SessionStore = {
+      async getItemAsync() {
+        return null;
+      },
+      async setItemAsync() {},
+      async deleteItemAsync() {
+        throw new Error('KeyStore locked');
+      },
+    };
+
+    const { clearSession } = createSessionApi(async () => store);
+    await expect(clearSession()).rejects.toThrow('KeyStore locked');
+
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+  });
 });
 

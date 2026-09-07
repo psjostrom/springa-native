@@ -122,6 +122,49 @@ describe('AgendaList', () => {
     expect(await screen.findByLabelText('Earlier workouts')).toBeOnTheScreen();
   });
 
+  it('halts automatic gap paging in history mode when older page encounters an error', async () => {
+    let olderCalls = 0;
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
+        const url = new URL(request.url);
+        const oldest = url.searchParams.get('oldest');
+        if (oldest && oldest < '2026-09-07') {
+          olderCalls++;
+          return HttpResponse.json({ error: 'failed' }, { status: 500 });
+        }
+        return HttpResponse.json([
+          {
+            id: 'today-plan',
+            date: new Date().toISOString(),
+            name: 'Today Run',
+            type: 'planned',
+            category: 'easy',
+          },
+        ]);
+      }),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <View style={{ width: 390, height: 800 }}>
+          <AgendaGate>
+            <AgendaList />
+          </AgendaGate>
+        </View>
+      </TestAppProviders>,
+    );
+
+    const earlierBtn = await screen.findByLabelText('Earlier workouts');
+    await userEvent.setup().press(earlierBtn);
+
+    await waitFor(() => {
+      expect(olderCalls).toBeGreaterThanOrEqual(1);
+    });
+    const snapshotCalls = olderCalls;
+    await new Promise((r) => setTimeout(r, 50));
+    expect(olderCalls).toBe(snapshotCalls);
+  });
+
   it('shows calendar error and recovers after Retry', async () => {
     server.use(
       http.get(apiUrl('/api/intervals/calendar'), () =>
@@ -297,10 +340,8 @@ describe('AgendaList', () => {
   });
 
   it('triggers reload on pull to refresh', async () => {
-    let calendarFetches = 0;
     server.use(
       http.get(apiUrl('/api/intervals/calendar'), () => {
-        calendarFetches += 1;
         return HttpResponse.json([
           {
             id: 'event-refreshed',
@@ -323,14 +364,61 @@ describe('AgendaList', () => {
         </View>
       </TestAppProviders>,
     );
-
     const refreshControl = await screen.findByTestId('agenda-refresh-control');
-    const initialFetches = calendarFetches;
-    refreshControl.props.onRefresh();
+    expect(screen.getByText('Agenda')).toBeOnTheScreen();
+    expect(screen.queryByText('Couldn’t load calendar')).toBeNull();
+
+    await refreshControl.props.onRefresh();
 
     await waitFor(() => {
-      expect(calendarFetches).toBeGreaterThan(initialFetches);
+      expect(refreshControl.props.refreshing).toBe(false);
     });
+    expect(screen.getByText('Agenda')).toBeOnTheScreen();
+    expect(screen.queryByText('Couldn’t load calendar')).toBeNull();
+  });
+
+  it('preserves cached workouts when background calendar revalidation fails', async () => {
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), () =>
+        HttpResponse.json([
+          {
+            id: 'plan-cached',
+            date: isoDay(0),
+            name: 'Cached Offline Workout',
+            type: 'planned',
+            category: 'easy',
+          },
+        ]),
+      ),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <View style={{ width: 390, height: 800 }}>
+          <AgendaGate>
+            <AgendaList />
+          </AgendaGate>
+        </View>
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Agenda')).toBeOnTheScreen();
+    expect(screen.queryByText('Couldn’t load calendar')).toBeNull();
+
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), () =>
+        HttpResponse.json({ error: 'Offline network error' }, { status: 500 }),
+      ),
+    );
+
+    const refreshControl = screen.getByTestId('agenda-refresh-control');
+    await refreshControl.props.onRefresh();
+
+    await waitFor(() => {
+      expect(refreshControl.props.refreshing).toBe(false);
+    });
+    expect(screen.getByText('Agenda')).toBeOnTheScreen();
+    expect(screen.queryByText('Couldn’t load calendar')).toBeNull();
   });
 
   it('prefetches stale cached workouts while skipping fresh cached workouts', async () => {

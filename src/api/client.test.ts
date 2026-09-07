@@ -158,6 +158,18 @@ describe('createApiClient', () => {
     }
   });
 
+  it('accepts ok responses with additive backend properties', async () => {
+    server.use(
+      http.put(apiUrl('/api/settings'), () =>
+        HttpResponse.json({ ok: true, version: 2, timestamp: 123456 }),
+      ),
+    );
+
+    await expect(
+      makeClient().savePlannerConfig(plannerConfig),
+    ).resolves.toEqual({ ok: true });
+  });
+
   it('populates code and details on structured API error responses', async () => {
     server.use(
       http.post(apiUrl('/api/planner/apply'), () =>

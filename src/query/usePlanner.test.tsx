@@ -94,6 +94,31 @@ describe('Planner query boundary', () => {
     expect(await screen.findByText('Planner: ready')).toBeOnTheScreen();
   });
 
+  it('runs save, preview, and apply mutations with their own lifecycle', async () => {
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}><Probe /></TestAppProviders>);
+    await screen.findByText('Planner: ready');
+    const user = userEvent.setup();
+
+    await user.press(screen.getByRole('button', { name: 'Save planner' }));
+    await waitFor(() => expect(screen.getByText('Save: done')).toBeOnTheScreen());
+    await user.press(screen.getByRole('button', { name: 'Preview planner' }));
+    await waitFor(() => expect(screen.getByText('Preview: done')).toBeOnTheScreen());
+    await user.press(screen.getByRole('button', { name: 'Apply planner' }));
+    await waitFor(() => expect(screen.getByText('Apply: done')).toBeOnTheScreen());
+  });
+
+  it('keeps apply errors visible without automatic mutation retry', async () => {
+    server.use(http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json({
+      error: 'Workouts could not be updated',
+      code: 'INTERVALS_UPSTREAM_ERROR',
+    }, { status: 502 })));
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}><Probe /></TestAppProviders>);
+    await screen.findByText('Planner: ready');
+    const user = userEvent.setup();
+    await user.press(screen.getByRole('button', { name: 'Apply planner' }));
+    await waitFor(() => expect(screen.getByText('Apply: error')).toBeOnTheScreen());
+  });
+
   it('refreshes Planner and Settings after saving config', async () => {
     let plannerState = activePlannerState();
     let settingsState = {

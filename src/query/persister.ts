@@ -7,18 +7,16 @@ export const PERSIST_MAX_AGE = 1000 * 60 * 60 * 24 * 14; // 14 days (safe for 32
 // ponytail: @tanstack/query-async-storage-persister asyncThrottle cannot be cancelled; gate writes on signout
 let writeGated = false;
 
-export function allowPersistedQueryWrites(): void {
+export function resetCacheEvicted(): void {
   writeGated = false;
 }
 
-export function resetCacheEvicted(): void {
-  allowPersistedQueryWrites();
-}
-
-export async function evictPersistedQueryCache(): Promise<void> {
+export async function evictPersistedQueryCache(
+  storage: { removeItem: (key: string) => Promise<unknown> } = AsyncStorage,
+): Promise<void> {
   writeGated = true;
   try {
-    await AsyncStorage.removeItem(QUERY_CACHE_KEY);
+    await storage.removeItem(QUERY_CACHE_KEY);
   } catch {
     // ignore removal errors
   }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatFitnessTime,
   plannerConfigAffectsPlan,
-  plannerSummaryParts,
+  plannerSummaryItems,
   setClubDay,
   setClubEnabled,
   setClubType,
@@ -99,15 +99,18 @@ describe('Planner draft rules', () => {
     expect(plannerConfigAffectsPlan(config, { ...config, startKm: 10 })).toBe(true);
   });
 
-  it('calculates speed label and ordered summary segments', () => {
+  it('calculates speed label and ordered summary items', () => {
     expect(speedDayLabel(config)).toMatch(/^Speed auto-assigned to /);
-    expect(plannerSummaryParts(config, true, 13)).toEqual([
-      '3 days/wk',
-      'Long: Sun',
-      'Stockholm Half 21.1km',
-      '13 wks to go',
+    expect(plannerSummaryItems(config, true, 13)).toEqual([
+      { key: 'days', text: '3 days/wk' },
+      { key: 'long', text: 'Long: Sun' },
+      { key: 'race', text: 'Stockholm Half 21.1km' },
+      { key: 'weeks', text: '13 wks to go' },
     ]);
-    expect(plannerSummaryParts(config, true, 1)).toContain('Race week!');
+    expect(plannerSummaryItems(config, true, 1)).toContainEqual({
+      key: 'weeks',
+      text: 'Race week!',
+    });
   });
 
   it('rejects invalid selected day changes', () => {

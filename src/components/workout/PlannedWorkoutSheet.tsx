@@ -463,7 +463,7 @@ function DetailBody({
 
   const openMove = useCallback(() => {
     setMovePickerValue(detailDate);
-    setMovePickerMode(Platform.OS === 'android' ? 'date' : 'datetime');
+    setMovePickerMode('date');
     setActionMessage(null);
   }, [detailDate]);
 
@@ -472,7 +472,7 @@ function DetailBody({
       setMovePickerMode(null);
       return;
     }
-    if (Platform.OS === 'android' && movePickerMode === 'date') {
+    if (movePickerMode === 'date') {
       const next = new Date(movePickerValue);
       next.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       setMovePickerValue(next);
@@ -480,11 +480,7 @@ function DetailBody({
       return;
     }
     const next = new Date(movePickerValue);
-    if (Platform.OS === 'android') {
-      next.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
-    } else {
-      next.setTime(selectedDate.getTime());
-    }
+    next.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
     setMovePickerMode(null);
     void saveMove(next);
   };
@@ -664,6 +660,7 @@ export function PlannedWorkoutSheet({
 
   return (
     <DetailBody
+      key={event.id}
       detail={data}
       event={event}
       eventId={event.id}

@@ -172,12 +172,22 @@ describe('Planner response parsers', () => {
     { clubDay: 2, clubType: null },
     { longRunDay: 1 },
     { clubDay: 1, clubType: 'varies' },
-    { clubDay: 2, clubType: 'long', longRunDay: 0 },
     { clubDay: 0, clubType: 'speed', longRunDay: 0 },
+    { clubDay: 0, clubType: 'varies', longRunDay: 0 },
   ])('rejects inconsistent schedule config %j', (schedule) => {
     expect(() => parsePlannerState({
       ...state,
       currentConfig: { ...config, ...schedule },
     })).toThrowError(ApiError);
+  });
+
+  it('accepts clubType === "long" when clubDay !== longRunDay', () => {
+    const parsed = parsePlannerState({
+      ...state,
+      currentConfig: { ...config, clubDay: 2, clubType: 'long', longRunDay: 0 },
+    });
+    expect(parsed.currentConfig?.clubDay).toBe(2);
+    expect(parsed.currentConfig?.clubType).toBe('long');
+    expect(parsed.currentConfig?.longRunDay).toBe(0);
   });
 });

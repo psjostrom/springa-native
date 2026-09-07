@@ -44,20 +44,22 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   } = useCalendarEvents();
 
   const { earlier, upcoming } = useMemo(() => splitAgendaEvents(events), [events]);
-  const plannedUpcomingIds = useMemo(
+  const plannedUpcomingKey = useMemo(
     () =>
       upcoming
         .filter((event) => event.type === 'planned')
         .slice(0, 10)
-        .map((event) => event.id),
+        .map((event) => event.id)
+        .join(','),
     [upcoming],
   );
-  const completedEarlierActivityIds = useMemo(
+  const completedEarlierKey = useMemo(
     () =>
       earlier
         .filter((event) => event.type === 'completed' && event.activityId != null)
         .slice(-10)
-        .map((event) => event.activityId as string),
+        .map((event) => event.activityId as string)
+        .join(','),
     [earlier],
   );
   const sessionEmail = session?.email;
@@ -67,9 +69,12 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
     if (authStatus !== 'signedIn' || sessionEmail == null) return;
 
     let cancelled = false;
+    const upcomingIds = plannedUpcomingKey ? plannedUpcomingKey.split(',') : [];
+    const earlierIds = completedEarlierKey ? completedEarlierKey.split(',') : [];
+
     const runPrefetch = async () => {
       await Promise.all([
-        ...plannedUpcomingIds.map(async (eventId) => {
+        ...upcomingIds.map(async (eventId) => {
           if (cancelled) return;
           await prefetchPlannedWorkoutDetail(
             queryClient,
@@ -78,7 +83,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
             eventId,
           ).catch(() => {});
         }),
-        ...completedEarlierActivityIds.map(async (activityId) => {
+        ...earlierIds.map(async (activityId) => {
           if (cancelled) return;
           await prefetchCompletedWorkoutOverview(
             queryClient,
@@ -97,8 +102,8 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   }, [
     apiClient,
     authStatus,
-    completedEarlierActivityIds,
-    plannedUpcomingIds,
+    completedEarlierKey,
+    plannedUpcomingKey,
     queryClient,
     sessionEmail,
   ]);
@@ -134,7 +139,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
     );
   }
 
-  if (isError) {
+  if (isError && events.length === 0) {
     return (
       <StateView
         title="Couldn’t load calendar"

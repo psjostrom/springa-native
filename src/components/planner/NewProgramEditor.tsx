@@ -142,9 +142,11 @@ export function NewProgramEditor({
               onChangeText={(text) => {
                 setStartKmText(text);
                 const normalized = text.replace(',', '.').trim();
-                if (!normalized || normalized.endsWith('.')) return;
+                if (normalized.endsWith('.')) return;
                 const next = Number(normalized);
-                if (Number.isFinite(next) && next > 0) onChange({ ...value, startKm: next });
+                if (Number.isFinite(next) && next > 0) {
+                  onChange({ ...value, startKm: next });
+                }
               }}
               onBlur={() => {
                 const normalized = startKmText.replace(',', '.').trim();

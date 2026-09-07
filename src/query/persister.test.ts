@@ -40,6 +40,26 @@ describe('persister and queryClient configuration', () => {
     resetCacheEvicted();
   });
 
+  it('restores write capability when resetCacheEvicted is called after eviction', async () => {
+    await evictPersistedQueryCache();
+
+    await asyncStoragePersister.persistClient({
+      timestamp: Date.now(),
+      buster: '',
+      clientState: { mutations: [], queries: [] },
+    });
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+
+    resetCacheEvicted();
+
+    await asyncStoragePersister.persistClient({
+      timestamp: Date.now(),
+      buster: '',
+      clientState: { mutations: [], queries: [] },
+    });
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).not.toBeNull();
+  });
+
   it('persists fresh query data after removeClient is called for expired data', async () => {
     resetCacheEvicted();
     await asyncStoragePersister.removeClient();
