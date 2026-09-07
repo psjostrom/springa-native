@@ -105,6 +105,7 @@ export function CompletedWorkoutSheet({
         accessibilityLabel="Completed workout details"
         refreshControl={
           <RefreshControl
+            testID="completed-workout-refresh-control"
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
             tintColor={SpringaColors.brand}

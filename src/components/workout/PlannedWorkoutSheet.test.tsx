@@ -699,4 +699,26 @@ describe('PlannedWorkoutSheet', () => {
     expect(await screen.findByText('Thursday, 13 August 2026 at 12:00')).toBeOnTheScreen();
     expect(screen.queryByText('Thursday, 13 August 2026 at 14:00')).toBeNull();
   });
+
+  it('triggers pull-to-refresh on planned workout sheet', async () => {
+    let calls = 0;
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () => {
+        calls++;
+        return HttpResponse.json(futureDetail());
+      }),
+    );
+    renderSheet();
+    await screen.findByText('Workout structure');
+    const initialCalls = calls;
+
+    const refreshControl = screen.getByTestId('planned-workout-refresh-control');
+    await act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    await waitFor(() => {
+      expect(calls).toBeGreaterThan(initialCalls);
+    });
+  });
 });

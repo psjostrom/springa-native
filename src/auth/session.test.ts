@@ -326,5 +326,15 @@ describe('default session api and cache eviction', () => {
 
     expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
   });
+
+  it('purges query cache even when getStore rejects in clearSession', async () => {
+    await AsyncStorage.setItem(QUERY_CACHE_KEY, 'cached-workouts');
+    const { clearSession } = createSessionApi(async () => {
+      throw new Error('Module import failed');
+    });
+    await expect(clearSession()).rejects.toThrow('Module import failed');
+
+    expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+  });
 });
 

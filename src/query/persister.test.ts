@@ -127,4 +127,14 @@ describe('persister and queryClient configuration', () => {
       AsyncStorage.removeItem = originalRemoveItem;
     }
   });
+
+  it('clears storage and returns undefined when cached JSON is not a valid clientState object', async () => {
+    resetCacheEvicted();
+    for (const invalidPayload of ['null', '123', '[]', '{"timestamp": 123}']) {
+      await AsyncStorage.setItem(QUERY_CACHE_KEY, invalidPayload);
+      const restored = await asyncStoragePersister.restoreClient();
+      expect(restored).toBeUndefined();
+      expect(await AsyncStorage.getItem(QUERY_CACHE_KEY)).toBeNull();
+    }
+  });
 });

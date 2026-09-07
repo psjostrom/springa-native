@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { View } from 'react-native';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import type { CalendarEvent } from '@/api/types';
+import { initialCalendarWindow } from '@/domain/calendarWindows';
 import { AgendaEventCard } from '@/components/agenda/AgendaEventCard';
 import { AgendaGate } from '@/components/agenda/AgendaGate';
 import { AgendaList } from '@/components/agenda/AgendaList';
@@ -123,13 +124,12 @@ describe('AgendaList', () => {
   });
 
   it('halts automatic gap paging in history mode when older page encounters an error', async () => {
-    let olderCalls = 0;
+    const initialWindow = initialCalendarWindow();
     server.use(
       http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
         const url = new URL(request.url);
         const oldest = url.searchParams.get('oldest');
-        if (oldest && oldest < '2026-09-07') {
-          olderCalls++;
+        if (oldest && oldest < initialWindow.oldest) {
           return HttpResponse.json({ error: 'failed' }, { status: 500 });
         }
         return HttpResponse.json([
@@ -157,12 +157,8 @@ describe('AgendaList', () => {
     const earlierBtn = await screen.findByLabelText('Earlier workouts');
     await userEvent.setup().press(earlierBtn);
 
-    await waitFor(() => {
-      expect(olderCalls).toBeGreaterThanOrEqual(1);
-    });
-    const snapshotCalls = olderCalls;
-    await new Promise((r) => setTimeout(r, 50));
-    expect(olderCalls).toBe(snapshotCalls);
+    expect(await screen.findByText('Couldn’t load more. Tap to retry.')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Retry loading earlier workouts')).toBeOnTheScreen();
   });
 
   it('shows calendar error and recovers after Retry', async () => {

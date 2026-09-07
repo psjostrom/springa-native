@@ -100,7 +100,7 @@ export function useCalendarEvents() {
         if (hasPreviousPage && !cancelled) await fetchPreviousPage();
         if (hasNextPage && !cancelled) {
           let currentRes = await fetchNextPage();
-          while (!cancelled) {
+          while (!cancelled && currentRes.isSuccess) {
             const params = currentRes.data?.pageParams as DateWindow[] | undefined;
             const last = params?.[params.length - 1];
             if (!last || last.newest >= formatIsoDay(new Date()) || !currentRes.hasNextPage) {
@@ -108,9 +108,12 @@ export function useCalendarEvents() {
             }
             currentRes = await fetchNextPage();
           }
+          if (!currentRes.isSuccess) {
+            warmedIdentityRef.current = null;
+          }
         }
       } catch {
-        // ignore background warming errors
+        warmedIdentityRef.current = null;
       }
     })();
     return () => {
@@ -139,7 +142,10 @@ export function useCalendarEvents() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const { refetch } = query;
-  const reload = useCallback(() => refetch(), [refetch]);
+  const reload = useCallback(() => {
+    warmedIdentityRef.current = null;
+    return refetch();
+  }, [refetch]);
 
   return {
     events,

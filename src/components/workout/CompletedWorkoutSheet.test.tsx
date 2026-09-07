@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
-import { render, screen, userEvent } from '@testing-library/react-native';
+import { act, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import type { CalendarEvent } from '@/api/types';
 import { ApiClientProvider } from '@/api/ApiClientProvider';
@@ -167,5 +167,27 @@ describe('CompletedWorkoutSheet', () => {
 
     expect(await screen.findByText('feedback failed')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+  });
+
+  it('triggers pull-to-refresh on completed workout sheet', async () => {
+    let gets = 0;
+    server.use(
+      http.get(apiUrl('/api/intervals/activity/:id/overview'), () => {
+        gets++;
+        return HttpResponse.json(defaultCompletedOverview());
+      }),
+    );
+    await renderWithApp(<CompletedWorkoutSheet event={completedEvent} />);
+    expect(await screen.findByLabelText('Run report')).toBeOnTheScreen();
+    const initialGets = gets;
+
+    const refreshControl = screen.getByTestId('completed-workout-refresh-control');
+    await act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    await waitFor(() => {
+      expect(gets).toBeGreaterThan(initialGets);
+    });
   });
 });

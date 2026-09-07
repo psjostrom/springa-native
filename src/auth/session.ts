@@ -107,8 +107,8 @@ export function createSessionApi(
 
   async function clearSession(): Promise<void> {
     return enqueue(async () => {
-      const store = await getStore();
       try {
+        const store = await getStore();
         try {
           await store.deleteItemAsync(SESSION_KEY);
         } catch {

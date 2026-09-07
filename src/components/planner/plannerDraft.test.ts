@@ -91,6 +91,10 @@ describe('Planner draft rules', () => {
     expect(validatePlannerDraft({ ...config, currentAbilitySecs: 5000 }, options, constraints, NOW)).toHaveProperty('currentAbilitySecs');
     expect(validatePlannerDraft({ ...config, clubDay: 2, clubType: 'long', longRunDay: 0 }, options, constraints, NOW)).toHaveProperty('clubDay');
     expect(validatePlannerDraft({ ...config, clubDay: 0, clubType: 'speed', longRunDay: 0 }, options, constraints, NOW)).toHaveProperty('clubDay');
+    expect(validatePlannerDraft({ ...config, includeBasePhase: true, totalWeeks: 10 }, options, { ...constraints, basePhaseMinimumWeeks: 11 }, NOW)).toHaveProperty(
+      'includeBasePhase',
+      'Base phase requires 11 weeks.',
+    );
   });
 
   it('ignores race-name and day-order changes when comparing plan inputs', () => {

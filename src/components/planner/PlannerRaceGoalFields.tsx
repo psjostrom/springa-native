@@ -91,7 +91,7 @@ export function PlannerRaceGoalFields({
           mode="date"
           display="default"
           onChange={(_event, selectedDate) => {
-            // ponytail: iOS not officially supported; toggle via trigger button since onDismiss is Android-only
+            // On Android, modal picker dismisses on selection; iOS inline picker toggles via trigger button.
             if (Platform.OS === 'android') {
               setPickerVisible(false);
             }

@@ -215,4 +215,47 @@ describe('useCalendarEvents', () => {
       expect(screen.getByText('fresh-today')).toBeOnTheScreen();
     });
   });
+
+  it('terminates warming loop and resets warmed state if fetchNextPage fails', async () => {
+    const session = makeTestSession();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+
+    const oldPage0 = { oldest: '2026-08-01', newest: '2026-08-12' };
+    const oldPage1 = { oldest: '2026-08-13', newest: '2026-08-24' };
+
+    queryClient.setQueryData(queryKeys.calendar(session.email), {
+      pageParams: [oldPage0, oldPage1],
+      pages: [
+        [{ id: 'old-1', date: '2026-08-05T12:00:00.000Z', name: 'Old 1', type: 'completed' }],
+        [{ id: 'old-2', date: '2026-08-15T12:00:00.000Z', name: 'Old 2', type: 'completed' }],
+      ],
+    });
+
+    let calls = 0;
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), () => {
+        calls++;
+        return HttpResponse.json({ error: 'failed' }, { status: 500 });
+      }),
+      http.get(apiUrl('/api/intervals/settings'), () =>
+        HttpResponse.json({ intervalsConnected: true }),
+      ),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(session)} queryClient={queryClient}>
+        <CalendarProbe />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('old-1')).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(calls).toBeGreaterThanOrEqual(1);
+    });
+    const snapshotCalls = calls;
+    await new Promise((r) => setTimeout(r, 50));
+    expect(calls).toBe(snapshotCalls);
+  });
 });

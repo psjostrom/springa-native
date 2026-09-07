@@ -461,10 +461,9 @@ function DetailBody({
     mutations.savePreRunCarbs.isPending ||
     mutations.changeEffortMetric.isPending;
 
-  // ponytail: iOS not officially supported; two-step date->time flow targets Android modal dialogs
   const openMove = useCallback(() => {
     setMovePickerValue(detailDate);
-    setMovePickerMode('date');
+    setMovePickerMode(Platform.OS === 'android' ? 'date' : 'datetime');
     setActionMessage(null);
   }, [detailDate]);
 
@@ -473,7 +472,7 @@ function DetailBody({
       setMovePickerMode(null);
       return;
     }
-    if (movePickerMode === 'date') {
+    if (Platform.OS === 'android' && movePickerMode === 'date') {
       const next = new Date(movePickerValue);
       next.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       setMovePickerValue(next);
@@ -481,7 +480,11 @@ function DetailBody({
       return;
     }
     const next = new Date(movePickerValue);
-    next.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+    if (Platform.OS === 'android') {
+      next.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+    } else {
+      next.setTime(selectedDate.getTime());
+    }
     setMovePickerMode(null);
     void saveMove(next);
   };
@@ -561,6 +564,7 @@ function DetailBody({
           refreshControl={
             onRefresh ? (
               <RefreshControl
+                testID="planned-workout-refresh-control"
                 refreshing={isRefreshing}
                 onRefresh={handleRefresh}
                 tintColor={SpringaColors.brand}
