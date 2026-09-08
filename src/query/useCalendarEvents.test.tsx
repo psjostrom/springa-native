@@ -233,10 +233,17 @@ describe('useCalendarEvents', () => {
       ],
     });
 
-    let calls = 0;
+    let previousCalls = 0;
+    let newerCalls = 0;
     server.use(
-      http.get(apiUrl('/api/intervals/calendar'), () => {
-        calls++;
+      http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
+        const url = new URL(request.url);
+        const oldest = url.searchParams.get('oldest') ?? '';
+        if (oldest < oldPage0.oldest) {
+          previousCalls++;
+          return HttpResponse.json([]);
+        }
+        newerCalls++;
         return HttpResponse.json({ error: 'failed' }, { status: 500 });
       }),
       http.get(apiUrl('/api/intervals/settings'), () =>
@@ -252,10 +259,10 @@ describe('useCalendarEvents', () => {
 
     expect(await screen.findByText('old-1')).toBeOnTheScreen();
     await waitFor(() => {
-      expect(calls).toBeGreaterThanOrEqual(1);
+      expect(previousCalls).toBe(1);
+      expect(newerCalls).toBe(1);
     });
-    const snapshotCalls = calls;
     await new Promise((r) => setTimeout(r, 50));
-    expect(calls).toBe(snapshotCalls);
+    expect(newerCalls).toBe(1);
   });
 });
