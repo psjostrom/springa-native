@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { ApiError, createApiClient, parseUserSettings } from './client';
-import { formatIsoDay } from '@/domain/calendarWindows';
 import { apiUrl } from '@/test/msw/helpers';
 import { degradedCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
+import { isoDaysFromToday } from '@/test/msw/handlers/calendar';
 import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
 import { server } from '@/test/msw/server';
 import type { PlannerConfig } from './types';
@@ -117,8 +117,7 @@ describe('createApiClient', () => {
   });
 
   it('returns calendar events on 200', async () => {
-    const day = formatIsoDay(new Date());
-    const events = await makeClient().getCalendar(day, day);
+    const events = await makeClient().getCalendar(isoDaysFromToday(-7), isoDaysFromToday(7));
     expect(events.length).toBeGreaterThan(0);
     expect(events[0]?.date).toBeInstanceOf(Date);
     expect(events.some((e) => e.name === 'Threshold intervals')).toBe(true);
@@ -156,6 +155,48 @@ describe('createApiClient', () => {
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).status).toBe(500);
+    }
+  });
+
+  it('accepts ok responses with additive backend properties', async () => {
+    server.use(
+      http.put(apiUrl('/api/settings'), () =>
+        HttpResponse.json({ ok: true, version: 2, timestamp: 123456 }),
+      ),
+    );
+
+    await expect(
+      makeClient().savePlannerConfig(plannerConfig),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it('populates code and details on structured API error responses', async () => {
+    server.use(
+      http.post(apiUrl('/api/planner/apply'), () =>
+        HttpResponse.json(
+          {
+            error: 'Plan preview has changed',
+            code: 'PLAN_PREVIEW_STALE',
+            appliedWorkoutCount: 2,
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    try {
+      await makeClient().applyPlanner({
+        intent: 'start',
+        config: plannerConfig,
+        previewHash: 'hash',
+      });
+      expect.unreachable('expected applyPlanner to throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as ApiError;
+      expect(apiErr.status).toBe(409);
+      expect(apiErr.code).toBe('PLAN_PREVIEW_STALE');
+      expect(apiErr.details?.code).toBe('PLAN_PREVIEW_STALE');
+      expect(apiErr.details?.appliedWorkoutCount).toBe(2);
     }
   });
 
@@ -236,7 +277,7 @@ describe('createApiClient', () => {
     });
   });
 
-  it('preserves Planner field error details', async () => {
+  it('preserves Planner field and partial-apply error details', async () => {
     server.use(
       http.post(apiUrl('/api/planner/preview'), () =>
         HttpResponse.json({
@@ -253,6 +294,25 @@ describe('createApiClient', () => {
       details: { fields: { raceDate: 'Choose a valid date.' } },
     });
 
+    server.use(
+      http.post(apiUrl('/api/planner/apply'), () =>
+        HttpResponse.json({
+          error: 'Some workouts could not be updated',
+          code: 'PLANNER_APPLY_PARTIAL',
+          appliedWorkoutCount: 2,
+          failures: [{ id: 'event-3', name: 'W03 Tempo', error: 'upstream 502' }],
+        }, { status: 502 })),
+    );
+    await expect(
+      makeClient().applyPlanner({ intent: 'start', config: plannerConfig, previewHash: 'a'.repeat(64) }),
+    ).rejects.toMatchObject({
+      status: 502,
+      code: 'PLANNER_APPLY_PARTIAL',
+      details: {
+        appliedWorkoutCount: 2,
+        failures: [{ id: 'event-3', name: 'W03 Tempo', error: 'upstream 502' }],
+      },
+    });
   });
 
   it('treats missing token as unauthorized', async () => {

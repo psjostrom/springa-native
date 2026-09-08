@@ -42,6 +42,7 @@ export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
   const planned = status === 'planned' || status === 'race';
   const completed = status === 'completed';
 
+
   const durationLabel =
     event.duration == null
       ? null

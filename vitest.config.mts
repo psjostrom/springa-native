@@ -26,6 +26,14 @@ export default defineConfig({
         find: '@react-native-community/datetimepicker',
         replacement: path.join(root, 'src/test/DateTimePickerTestDouble.tsx'),
       },
+      {
+        find: '@react-native-google-signin/google-signin',
+        replacement: path.join(root, 'src/test/GoogleSigninTestDouble.ts'),
+      },
+      {
+        find: /^expo-secure-store$/,
+        replacement: path.join(root, 'src/test/ExpoSecureStoreTestDouble.ts'),
+      },
       { find: '@', replacement: path.join(root, 'src') },
     ],
   },

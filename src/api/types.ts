@@ -43,12 +43,12 @@ export type PlannerState = {
   newProgramDraft: PlannerConfig;
   fitnessOptions: PlannerFitnessOption[];
   constraints: {
-    raceDistanceKm: { min: 1; max: 100 };
-    startDistanceKm: { min: 2; max: 42 };
-    minimumWeeks: 8;
-    minimumNormalWeeks: 10;
-    recommendedWeeks: 12;
-    basePhaseMinimumWeeks: 11;
+    raceDistanceKm: { min: number; max: number };
+    startDistanceKm: { min: number; max: number };
+    minimumWeeks: number;
+    minimumNormalWeeks: number;
+    recommendedWeeks: number;
+    basePhaseMinimumWeeks: number;
   };
   plan: {
     status: 'none' | 'active' | 'complete';

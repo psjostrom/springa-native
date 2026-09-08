@@ -55,6 +55,7 @@ function renderSheet(
   eventOverrides: Partial<CalendarEvent> = {},
   onActionsReady?: (actions: PlannedWorkoutActions | null) => void,
   now = new Date(),
+  onReplace?: (replacedEventId: string) => void,
 ) {
   return render(
     <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
@@ -63,6 +64,7 @@ function renderSheet(
         onClose={onClose}
         onActionsReady={onActionsReady}
         now={now}
+        onReplace={onReplace}
       />
     </TestAppProviders>,
   );
@@ -500,6 +502,7 @@ describe('PlannedWorkoutSheet', () => {
 
   it('replaces a workout from a server-owned category choice', async () => {
     let replacementCategory = '';
+    const onReplace = vi.fn();
     const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
       http.post(apiUrl('/api/intervals/events/replace'), async ({ request }) => {
@@ -509,14 +512,19 @@ describe('PlannedWorkoutSheet', () => {
       }),
     );
 
-    await renderSheet(() => {}, {}, (actions) => {
-      actionsRef.current = actions;
-    });
+    await renderSheet(
+      () => {},
+      {},
+      (actions) => { actionsRef.current = actions; },
+      new Date(),
+      onReplace,
+    );
     await screen.findByText('Workout structure');
     await act(async () => actionsRef.current?.replace('quality'));
 
     expect(await screen.findByText('Workout replaced.')).toBeOnTheScreen();
     expect(replacementCategory).toBe('quality');
+    expect(onReplace).toHaveBeenCalledWith('123');
   });
 
   it('shows selected replacement as pending and hides stale workout content', async () => {
@@ -690,5 +698,27 @@ describe('PlannedWorkoutSheet', () => {
 
     expect(await screen.findByText('Thursday, 13 August 2026 at 12:00')).toBeOnTheScreen();
     expect(screen.queryByText('Thursday, 13 August 2026 at 14:00')).toBeNull();
+  });
+
+  it('triggers pull-to-refresh on planned workout sheet', async () => {
+    let calls = 0;
+    server.use(
+      http.get(apiUrl('/api/intervals/events/:id'), () => {
+        calls++;
+        return HttpResponse.json(futureDetail());
+      }),
+    );
+    renderSheet();
+    await screen.findByText('Workout structure');
+    const initialCalls = calls;
+
+    const refreshControl = screen.getByTestId('planned-workout-refresh-control');
+    await act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    await waitFor(() => {
+      expect(calls).toBeGreaterThan(initialCalls);
+    });
   });
 });

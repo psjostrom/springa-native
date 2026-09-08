@@ -93,7 +93,6 @@ function parseOk(data: unknown): { ok: true } {
     data !== null &&
     typeof data === 'object' &&
     !Array.isArray(data) &&
-    Object.keys(data).length === 1 &&
     (data as Record<string, unknown>).ok === true
   ) {
     return { ok: true };
@@ -105,6 +104,9 @@ function parseApiErrorDetails(value: unknown): ApiErrorDetails | undefined {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const record = value as Record<string, unknown>;
   const details: ApiErrorDetails = {};
+  if (typeof record.code === 'string') {
+    details.code = record.code;
+  }
   if (
     record.fields !== null &&
     typeof record.fields === 'object' &&
@@ -117,6 +119,25 @@ function parseApiErrorDetails(value: unknown): ApiErrorDetails | undefined {
         return result;
       }, {});
     if (Object.keys(fields).length > 0) details.fields = fields;
+  }
+  if (
+    typeof record.appliedWorkoutCount === 'number' &&
+    Number.isSafeInteger(record.appliedWorkoutCount) &&
+    record.appliedWorkoutCount >= 0
+  ) {
+    details.appliedWorkoutCount = record.appliedWorkoutCount;
+  }
+  if (Array.isArray(record.failures)) {
+    const failures = record.failures.filter(
+      (failure): failure is { id: string; name: string; error: string } =>
+        failure !== null &&
+        typeof failure === 'object' &&
+        !Array.isArray(failure) &&
+        typeof (failure as Record<string, unknown>).id === 'string' &&
+        typeof (failure as Record<string, unknown>).name === 'string' &&
+        typeof (failure as Record<string, unknown>).error === 'string',
+    );
+    if (failures.length > 0) details.failures = failures;
   }
   return Object.keys(details).length > 0 ? details : undefined;
 }

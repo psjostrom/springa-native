@@ -36,6 +36,8 @@ function newerPageParam(currentNewest: string, now = new Date()): DateWindow | u
   return next;
 }
 
+export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
+
 export function useCalendarEvents() {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
@@ -57,11 +59,11 @@ export function useCalendarEvents() {
     getPreviousPageParam: (_firstPage, _pages, firstPageParam) =>
       olderPageParam(firstPageParam.oldest),
     enabled: calendarEnabled,
+    staleTime: CALENDAR_STALE_TIME,
   });
 
   const pages = query.data?.pages;
   const events = useMemo(() => mergeCalendarEvents(pages ?? []), [pages]);
-  const prefetchedFor = useRef<string | null>(null);
   const {
     isSuccess,
     data,
@@ -73,25 +75,60 @@ export function useCalendarEvents() {
     isFetchingNextPage,
   } = query;
 
+  const warmedIdentityRef = useRef<string | null>(null);
+  const pageCount = data?.pages.length ?? 0;
+
+  const pageParams = data?.pageParams as DateWindow[] | undefined;
+  const newestIso = pageParams?.reduce(
+    (max, p) => (!max || p.newest > max ? p.newest : max),
+    '',
+  );
+  const isCacheBehindToday = Boolean(
+    newestIso && newestIso < formatIsoDay(new Date()),
+  );
+
   // After the first (today→future) page paints, warm older (history) then newer.
+  // Gated on pageCount === 1 so components mounting with existing cache never refire warming,
+  // unless the hydrated cache is behind today due to multi-day inactivity.
   useEffect(() => {
     if (!calendarEnabled || !isSuccess) return;
-    if (prefetchedFor.current === identity) return;
-    if ((data?.pages.length ?? 0) < 1) return;
-    prefetchedFor.current = identity;
+    if (warmedIdentityRef.current === identity || (pageCount !== 1 && !isCacheBehindToday)) return;
+    warmedIdentityRef.current = identity;
+    let cancelled = false;
     void (async () => {
-      if (hasPreviousPage) await fetchPreviousPage();
-      if (hasNextPage) await fetchNextPage();
+      try {
+        if (hasPreviousPage && !cancelled) await fetchPreviousPage();
+        if (hasNextPage && !cancelled) {
+          let currentRes = await fetchNextPage();
+          while (!cancelled && currentRes.isSuccess) {
+            const params = currentRes.data?.pageParams as DateWindow[] | undefined;
+            const last = params?.[params.length - 1];
+            if (!last || last.newest >= formatIsoDay(new Date()) || !currentRes.hasNextPage) {
+              break;
+            }
+            currentRes = await fetchNextPage();
+          }
+          if (!currentRes.isSuccess) {
+            warmedIdentityRef.current = null;
+          }
+        }
+      } catch {
+        warmedIdentityRef.current = null;
+      }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [
     calendarEnabled,
-    identity,
-    isSuccess,
-    data?.pages.length,
-    hasPreviousPage,
-    hasNextPage,
-    fetchPreviousPage,
     fetchNextPage,
+    fetchPreviousPage,
+    hasNextPage,
+    hasPreviousPage,
+    identity,
+    isCacheBehindToday,
+    isSuccess,
+    pageCount,
   ]);
 
   const fetchOlder = useCallback(() => {
@@ -104,17 +141,25 @@ export function useCalendarEvents() {
     return fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const { refetch } = query;
+  const reload = useCallback(() => {
+    warmedIdentityRef.current = null;
+    return refetch();
+  }, [refetch]);
+
   return {
     events,
     isLoading: calendarEnabled && query.isPending,
     isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
-    reload: () => {
-      void query.refetch();
-    },
+    reload,
+
+
+
     fetchOlder,
     fetchNewer,
     hasOlder: Boolean(hasPreviousPage),
+    hasNewer: Boolean(hasNextPage),
     isFetchingOlder: isFetchingPreviousPage,
     isFetchingNewer: isFetchingNextPage,
     olderError: query.isFetchPreviousPageError,

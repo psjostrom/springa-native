@@ -1,10 +1,12 @@
 import {
   ActivityIndicator,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
@@ -50,6 +52,7 @@ type PlannedWorkoutSheetProps = {
   onClose: () => void;
   now?: Date;
   onActionsReady?: (actions: PlannedWorkoutActions | null) => void;
+  onReplace?: (newId: string) => void;
 };
 
 export type PlannedWorkoutActions = {
@@ -138,7 +141,7 @@ function ClothingSection({
   );
 }
 
-function MetricValues({ detail }: { detail: PlannedWorkoutDetail }) {
+function getMetricValues(detail: PlannedWorkoutDetail) {
   const metrics = [
     detail.metrics.duration
       ? {
@@ -163,7 +166,7 @@ function MetricValues({ detail }: { detail: PlannedWorkoutDetail }) {
 }
 
 function WorkoutSummary({ detail }: { detail: PlannedWorkoutDetail }) {
-  const metrics = MetricValues({ detail });
+  const metrics = getMetricValues(detail);
   if (metrics.length === 0) return null;
 
   const labels: Record<string, string> = {
@@ -265,9 +268,9 @@ function PlannedWorkoutHeader({
   event: CalendarEvent;
   name?: string;
   date?: Date;
-  now: Date;
+  now?: Date;
 }) {
-  const badge = getWorkoutStatusBadge(event, now);
+  const badge = getWorkoutStatusBadge(event, now ?? new Date());
 
   return (
     <View style={styles.plannedHeader}>
@@ -357,17 +360,33 @@ function DetailBody({
   onClose,
   onActionsReady,
   now,
+  onRefresh,
+  onReplace,
 }: {
   detail: PlannedWorkoutDetail;
   event: CalendarEvent;
   eventId: string;
   onClose: () => void;
   onActionsReady?: (actions: PlannedWorkoutActions | null) => void;
-  now: Date;
+  now?: Date;
+  onRefresh?: () => Promise<unknown> | void;
+  onReplace?: (newId: string) => void;
 }) {
   const mutations = usePlannedWorkoutMutations(eventId);
   const detailDate = parseLocalDateTime(detail.event.startDateLocal);
+  const effectiveNow = useMemo(() => now ?? new Date(), [now]);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    if (!onRefresh) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [onRefresh]);
+
   const [movePickerMode, setMovePickerMode] = useState<'date' | 'time' | 'datetime' | null>(null);
   const [movePickerValue, setMovePickerValue] = useState(detailDate);
   const [replacementPending, setReplacementPending] =
@@ -392,14 +411,17 @@ function DetailBody({
     setActionMessage(null);
     setReplacementPending(category);
     try {
-      await mutations.replace.mutateAsync(category);
+      const result = await mutations.replace.mutateAsync(category);
       setActionMessage('Workout replaced.');
+      if (result?.detail?.event?.id) {
+        onReplace?.(result.detail.event.id);
+      }
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : 'Failed to replace workout.');
     } finally {
       setReplacementPending(null);
     }
-  }, [mutations.replace]);
+  }, [mutations.replace, onReplace]);
 
   const deleteWorkout = useCallback(async () => {
     setActionMessage(null);
@@ -445,7 +467,11 @@ function DetailBody({
     setActionMessage(null);
   }, [detailDate]);
 
-  const handleMovePickerChange = (_pickerEvent: unknown, selectedDate: Date) => {
+  const handleMovePickerChange = (_pickerEvent: unknown, selectedDate?: Date) => {
+    if (selectedDate == null) {
+      setMovePickerMode(null);
+      return;
+    }
     if (Platform.OS === 'android' && movePickerMode === 'date') {
       const next = new Date(movePickerValue);
       next.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
@@ -465,7 +491,7 @@ function DetailBody({
 
   const actions = useMemo<PlannedWorkoutActions>(() => ({
     pending: actionPending,
-    effortMetric: isEffortMetricEditable(event, detail, now)
+    effortMetric: isEffortMetricEditable(event, detail, effectiveNow)
       ? {
           value: detail.effortMetric,
           heartRateAvailable: detail.heartRateMetricAvailable,
@@ -480,8 +506,8 @@ function DetailBody({
     changeEffortMetric,
     deleteWorkout,
     detail,
+    effectiveNow,
     event,
-    now,
     openMove,
     replaceWorkout,
   ]);
@@ -496,10 +522,14 @@ function DetailBody({
   }, []);
 
   useEffect(() => {
-    if (onActionsReady == null) return;
-    onActionsReady(actions);
-    return () => onActionsReady(null);
+    onActionsReady?.(actions);
   }, [actions, onActionsReady]);
+
+  useEffect(() => {
+    return () => {
+      onActionsReady?.(null);
+    };
+  }, [onActionsReady]);
 
   return (
     <View
@@ -509,7 +539,7 @@ function DetailBody({
       {movePickerMode ? (
         <DateTimePicker
           value={movePickerValue}
-          onValueChange={handleMovePickerChange}
+          onChange={handleMovePickerChange}
           onDismiss={() => setMovePickerMode(null)}
           mode={movePickerMode}
           display="default"
@@ -531,12 +561,23 @@ function DetailBody({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.content}
           accessibilityLabel="Planned workout details"
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                testID="planned-workout-refresh-control"
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={SpringaColors.brand}
+                colors={[SpringaColors.brand]}
+              />
+            ) : undefined
+          }
         >
           <PlannedWorkoutHeader
             event={event}
             name={detail.event.name}
             date={detailDate}
-            now={now}
+            now={effectiveNow}
           />
           {mutations.changeEffortMetric.isPending ? (
             <View style={styles.effortMetricPending} accessibilityLiveRegion="polite">
@@ -576,10 +617,16 @@ export function PlannedWorkoutSheet({
   event,
   onClose,
   onActionsReady,
-  now = new Date(),
+  now,
+  onReplace,
 }: PlannedWorkoutSheetProps) {
   const { data, isDisabled, isLoading, isError, error, reload } =
     usePlannedWorkoutDetail(event.id);
+  const nowMs = now?.getTime();
+  const effectiveNow = useMemo(
+    () => (nowMs != null ? new Date(nowMs) : new Date()),
+    [nowMs],
+  );
 
   if (isDisabled) {
     return (
@@ -595,7 +642,7 @@ export function PlannedWorkoutSheet({
       <View style={styles.screenRoot} accessibilityLabel="Loading planned workout details">
         <PlannedWorkoutHeader
           event={event}
-          now={now}
+          now={effectiveNow}
         />
         <StateView
           loading
@@ -618,12 +665,15 @@ export function PlannedWorkoutSheet({
 
   return (
     <DetailBody
+      key={event.id}
       detail={data}
       event={event}
       eventId={event.id}
       onClose={onClose}
       onActionsReady={onActionsReady}
-      now={now}
+      now={effectiveNow}
+      onRefresh={reload}
+      onReplace={onReplace}
     />
   );
 }

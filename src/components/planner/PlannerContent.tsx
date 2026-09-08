@@ -30,6 +30,7 @@ export function PlannerContent() {
   const [configError, setConfigError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PlannerPreview | null>(null);
   const [previewError, setPreviewError] = useState<Error | null>(null);
+  const previewErrorDetails = previewError instanceof ApiError ? previewError.details ?? null : null;
   const previewRequestId = useRef(0);
   const [result, setResult] = useState<{
     response: PlannerApplyResponse;
@@ -210,13 +211,15 @@ export function PlannerContent() {
     return (
       <PlannerPreviewView
         preview={preview}
-        error={previewError}
+        error={previewError?.message ?? null}
+        errorDetails={previewErrorDetails}
         applying={mutations.apply.isPending}
         onEdit={() => {
           previewRequestId.current += 1;
           setDraft(preview.config);
           setDraftErrors({});
           setConfigError(null);
+          setPreviewError(null);
           setMode(preview.intent === 'start' ? 'new-program' : 'edit-config');
         }}
         onCancel={cancelDraft}

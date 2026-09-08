@@ -3,11 +3,17 @@ import { Pressable, Text } from 'react-native';
 import { describe, expect, it } from 'vitest';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
+import { QueryClient } from '@tanstack/react-query';
 import {
+  COMPLETED_OVERVIEW_STALE_TIME,
+  completedWorkoutOverviewQueryOptions,
+  prefetchCompletedWorkoutOverview,
   useCompletedWorkoutMutations,
   useCompletedWorkoutOverview,
 } from './useCompletedWorkoutOverview';
 import { useCalendarEvents } from './useCalendarEvents';
+import { queryKeys } from './keys';
+import { createApiClient } from '@/api/client';
 import {
   formatIsoDay,
   initialCalendarWindow,
@@ -272,6 +278,48 @@ describe('completed workout overview query', () => {
 
     expect(screen.getByText('Overview: none')).toBeOnTheScreen();
     expect(overviewGets.gets).toBe(0);
+  });
+
+  it('prefetches completed workout overview into QueryClient cache', async () => {
+    const fixture = overviewFixture();
+    server.use(overviewHandler(fixture));
+
+    const queryClient = new QueryClient();
+    const client = createApiClient({
+      getToken: () => 'test-token',
+      onUnauthorized: () => {},
+    });
+
+    await prefetchCompletedWorkoutOverview(
+      queryClient,
+      client,
+      'runner@example.com',
+      'activity-123',
+    );
+
+    const cached = queryClient.getQueryData<CompletedWorkoutOverview>(
+      queryKeys.completedWorkoutOverview('runner@example.com', 'activity-123'),
+    );
+    expect(cached).toEqual(fixture);
+  });
+
+  it('exposes completedWorkoutOverviewQueryOptions with 24h stale time', () => {
+    const client = createApiClient({
+      getToken: () => 'test-token',
+      onUnauthorized: () => {},
+    });
+
+    const options = completedWorkoutOverviewQueryOptions(
+      client,
+      'runner@example.com',
+      'activity-123',
+    );
+
+    expect(options.queryKey).toEqual(
+      queryKeys.completedWorkoutOverview('runner@example.com', 'activity-123'),
+    );
+    expect(options.staleTime).toBe(24 * 60 * 60 * 1000);
+    expect(COMPLETED_OVERVIEW_STALE_TIME).toBe(24 * 60 * 60 * 1000);
   });
 
   it('patches only the matching Calendar events when actual carbs are saved', async () => {
@@ -542,5 +590,49 @@ describe('completed workout overview query', () => {
     });
     expect(putGets.gets).toBe(1);
     expect(screen.getByText('Carbs pending: no')).toBeOnTheScreen();
+  });
+
+  it('rejects mutations when activityId is missing or empty', async () => {
+    const putCalls = { count: 0 };
+    server.use(
+      http.put(apiUrl('/api/intervals/activity/:id'), () => {
+        putCalls.count += 1;
+        return HttpResponse.json({ ok: true });
+      }),
+      http.post(apiUrl('/api/run-feedback'), () => {
+        putCalls.count += 1;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    const emptyActivityEvent: CalendarEvent = {
+      ...selectedEvent(),
+      activityId: '',
+    };
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <MutationProbe event={emptyActivityEvent} />
+      </TestAppProviders>,
+    );
+
+    const user = userEvent.setup();
+
+    await user.press(screen.getByLabelText('Save carbs'));
+    await waitFor(() => {
+      expect(screen.getByText('Carbs error: No activity selected')).toBeOnTheScreen();
+    });
+
+    await user.press(screen.getByLabelText('Save pre-run'));
+    await waitFor(() => {
+      expect(screen.getByText('Pre-run error: No activity selected')).toBeOnTheScreen();
+    });
+
+    await user.press(screen.getByLabelText('Save feedback'));
+    await waitFor(() => {
+      expect(screen.getByText('Feedback error: No activity selected')).toBeOnTheScreen();
+    });
+
+    expect(putCalls.count).toBe(0);
   });
 });

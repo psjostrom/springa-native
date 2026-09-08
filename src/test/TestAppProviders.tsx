@@ -39,19 +39,22 @@ export function makeTestAuthValue(
  */
 export function TestAppProviders({
   auth,
+  queryClient: customQueryClient,
   children,
 }: {
   auth: AuthValue;
+  queryClient?: QueryClient;
   children: ReactNode;
 }) {
   const queryClient = useMemo(
     () =>
+      customQueryClient ??
       new QueryClient({
         defaultOptions: {
           queries: { retry: false, staleTime: 0 },
         },
       }),
-    [],
+    [customQueryClient],
   );
 
   // ApiClientProvider reads useAuth — wrap auth first, then a bridge that still

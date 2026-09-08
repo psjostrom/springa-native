@@ -222,5 +222,7 @@ describe('Planner native control labels', () => {
 
     fireEvent.changeText(screen.getByLabelText('Starting long-run distance (km)'), '');
     await waitFor(() => expect(screen.getByLabelText('Starting long-run distance (km)')).toHaveProp('value', ''));
+    fireEvent(screen.getByLabelText('Starting long-run distance (km)'), 'blur');
+    await waitFor(() => expect(screen.getByLabelText('Starting long-run distance (km)')).toHaveProp('value', '8'));
   });
 });

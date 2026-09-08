@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatFitnessTime,
   plannerConfigAffectsPlan,
-  plannerSummaryParts,
+  plannerSummaryItems,
   setClubDay,
   setClubEnabled,
   setClubType,
@@ -15,7 +15,6 @@ import {
 import type { PlannerConfig, PlannerFitnessOption } from '@/api/types';
 
 const NOW = new Date('2026-08-18T12:00:00');
-const STALE_PLAN_NOW = new Date('2026-08-27T12:00:00');
 const options: PlannerFitnessOption[] = [
   { label: '5K', distanceKm: 5, defaultSeconds: 1500, minSeconds: 1200, maxSeconds: 1800, stepSeconds: 30 },
   { label: '10K', distanceKm: 10, defaultSeconds: 3600, minSeconds: 3000, maxSeconds: 4800, stepSeconds: 60 },
@@ -42,13 +41,6 @@ const config: PlannerConfig = {
   startKm: 8,
   includeBasePhase: true,
   effortMetric: 'pace',
-};
-
-const staleConfig: PlannerConfig = {
-  ...config,
-  raceDate: '2026-10-18',
-  totalWeeks: 9,
-  includeBasePhase: false,
 };
 
 describe('Planner draft rules', () => {
@@ -84,6 +76,12 @@ describe('Planner draft rules', () => {
       totalWeeks: 9,
       includeBasePhase: false,
     });
+    // With dynamic basePhaseMinimumWeeks = 8, 9 weeks allows base phase
+    expect(setRaceDate(config, '2026-10-18', NOW, 8)).toMatchObject({
+      raceDate: '2026-10-18',
+      totalWeeks: 9,
+      includeBasePhase: true,
+    });
   });
 
   it('formats fitness times and reports immediate field errors', () => {
@@ -91,39 +89,78 @@ describe('Planner draft rules', () => {
     expect(validatePlannerDraft({ ...config, startKm: 1.9 }, options, constraints, NOW)).toHaveProperty('startKm');
     expect(validatePlannerDraft({ ...config, raceDate: '2026-02-30' }, options, constraints, NOW)).toHaveProperty('raceDate');
     expect(validatePlannerDraft({ ...config, currentAbilitySecs: 5000 }, options, constraints, NOW)).toHaveProperty('currentAbilitySecs');
+    expect(validatePlannerDraft({ ...config, clubDay: 2, clubType: 'long', longRunDay: 0 }, options, constraints, NOW)).toHaveProperty('clubDay');
+    expect(validatePlannerDraft({ ...config, clubDay: 0, clubType: 'speed', longRunDay: 0 }, options, constraints, NOW)).toHaveProperty('clubDay');
+    expect(validatePlannerDraft({ ...config, includeBasePhase: true, totalWeeks: 10 }, options, { ...constraints, basePhaseMinimumWeeks: 11 }, NOW)).toHaveProperty(
+      'includeBasePhase',
+      'Base phase requires 11 weeks.',
+    );
+  });
+
+  it('ignores race-name and day-order changes when comparing plan inputs', () => {
+    expect(plannerConfigAffectsPlan(config, { ...config, raceName: 'New name' })).toBe(false);
+    expect(plannerConfigAffectsPlan(config, { ...config, runDays: [0, 4, 2] })).toBe(false);
+    expect(plannerConfigAffectsPlan(config, { ...config, startKm: 10 })).toBe(true);
+  });
+
+  it('calculates speed label and ordered summary items', () => {
+    expect(speedDayLabel(config)).toMatch(/^Speed auto-assigned to /);
+    expect(plannerSummaryItems(config, true, 13)).toEqual([
+      { key: 'days', text: '3 days/wk' },
+      { key: 'long', text: 'Long: Sun' },
+      { key: 'race', text: 'Stockholm Half 21.1km' },
+      { key: 'weeks', text: '13 wks to go' },
+    ]);
+    expect(plannerSummaryItems(config, true, 1)).toContainEqual({
+      key: 'weeks',
+      text: 'Race week!',
+    });
+  });
+
+  it('rejects invalid selected day changes', () => {
+    expect(setLongRunDay(config, 1)).toEqual(config);
+    expect(setClubDay(config, 1)).toEqual(config);
+  });
+
+  it('allows active in-flight plans with remaining weeks differing from totalWeeks', () => {
+    // Plan created in the past with totalWeeks: 14, but only 4 weeks remain from now
+    const pastNow = new Date('2026-11-01T12:00:00');
+    const activePlan = { ...config, totalWeeks: 14, raceDate: '2026-11-29' };
+    const errors = validatePlannerDraft(activePlan, options, constraints, pastNow, { skipTimelineMatch: true });
+    expect(errors).toEqual({});
+  });
+
+  it('enforces totalWeeks matching raceDate for new programs', () => {
+    const pastNow = new Date('2026-11-01T12:00:00');
+    const newProgram = { ...config, totalWeeks: 14, raceDate: '2026-11-29' };
+    const errors = validatePlannerDraft(newProgram, options, constraints, pastNow);
+    expect(errors).toHaveProperty('totalWeeks');
   });
 
   it('keeps timeline matching strict by default and only skips stale-plan matching explicitly', () => {
+    const staleConfig: PlannerConfig = {
+      ...config,
+      raceDate: '2026-10-18',
+      totalWeeks: 9,
+      includeBasePhase: false,
+    };
+    const STALE_PLAN_NOW = new Date('2026-08-27T12:00:00');
     expect(validatePlannerDraft(staleConfig, options, constraints, STALE_PLAN_NOW)).toHaveProperty('totalWeeks', 'Plan length must match race date.');
     expect(validatePlannerDraft(staleConfig, options, constraints, STALE_PLAN_NOW, { skipTimelineMatch: true })).not.toHaveProperty('totalWeeks');
     expect(validatePlannerDraft({ ...staleConfig, startKm: 1 }, options, constraints, STALE_PLAN_NOW, { skipTimelineMatch: true })).toHaveProperty('startKm');
   });
 
   it('keeps changed edit race dates on strict timeline validation', () => {
+    const staleConfig: PlannerConfig = {
+      ...config,
+      raceDate: '2026-10-18',
+      totalWeeks: 9,
+      includeBasePhase: false,
+    };
+    const STALE_PLAN_NOW = new Date('2026-08-27T12:00:00');
     const changedRaceDate = { ...staleConfig, raceDate: '2026-11-01' };
     expect(validatePlannerDraft(changedRaceDate, options, constraints, STALE_PLAN_NOW, {
       skipTimelineMatch: changedRaceDate.raceDate === staleConfig.raceDate,
     })).toHaveProperty('totalWeeks', 'Plan length must match race date.');
-  });
-
-  it('compares every plan field while ignoring run-day order', () => {
-    expect(plannerConfigAffectsPlan(config, { ...config, runDays: [0, 4, 2] })).toBe(false);
-    expect(plannerConfigAffectsPlan(config, { ...config, raceName: 'New name' })).toBe(false);
-  });
-
-  it('calculates speed label and ordered summary segments', () => {
-    expect(speedDayLabel(config)).toMatch(/^Speed auto-assigned to /);
-    expect(plannerSummaryParts(config, true, 13)).toEqual([
-      '3 days/wk',
-      'Long: Sun',
-      'Stockholm Half 21.1km',
-      '13 wks to go',
-    ]);
-    expect(plannerSummaryParts(config, true, 1)).toContain('Race week!');
-  });
-
-  it('rejects invalid selected day changes', () => {
-    expect(setLongRunDay(config, 1)).toEqual(config);
-    expect(setClubDay(config, 1)).toEqual(config);
   });
 });

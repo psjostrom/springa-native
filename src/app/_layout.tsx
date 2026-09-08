@@ -1,32 +1,22 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
 import { ApiClientProvider } from '@/api/ApiClientProvider';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { useAuth } from '@/auth/AuthContext';
+import { useQueryHydration } from '@/query/QueryHydrationContext';
 import { QueryProvider } from '@/query/QueryProvider';
+import { SplashScreenController } from '@/components/shell/SplashScreenController';
 import { SpringaColors } from '@/theme/colors';
 
 SplashScreen.preventAutoHideAsync();
 
-function SplashScreenController() {
-  const { status } = useAuth();
-
-  useEffect(() => {
-    if (status !== 'loading') {
-      void SplashScreen.hideAsync();
-    }
-  }, [status]);
-
-  return null;
-}
-
 function RootNavigator() {
   const { status } = useAuth();
+  const { isHydrated } = useQueryHydration();
   // Do not treat "loading" as signed-out — that mounts login under the splash.
-  const signedIn = status === 'signedIn';
-  const signedOut = status === 'signedOut';
+  const signedIn = status === 'signedIn' && isHydrated;
+  const signedOut = status === 'signedOut' && isHydrated;
 
   return (
     <Stack
@@ -60,14 +50,14 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <ApiClientProvider>
-        <QueryProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <ApiClientProvider>
           <StatusBar style="light" />
           <SplashScreenController />
           <RootNavigator />
-        </QueryProvider>
-      </ApiClientProvider>
-    </AuthProvider>
+        </ApiClientProvider>
+      </AuthProvider>
+    </QueryProvider>
   );
 }

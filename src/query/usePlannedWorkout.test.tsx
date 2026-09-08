@@ -1,9 +1,16 @@
 import { Pressable, Text } from 'react-native';
-import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { QueryClient, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
-import { usePlannedWorkoutDetail, usePlannedWorkoutMutations } from './usePlannedWorkout';
+import {
+  PLANNED_WORKOUT_STALE_TIME,
+  plannedWorkoutQueryOptions,
+  prefetchPlannedWorkoutDetail,
+  usePlannedWorkoutDetail,
+  usePlannedWorkoutMutations,
+} from './usePlannedWorkout';
+import { createApiClient } from '@/api/client';
 import { useCalendarEvents } from './useCalendarEvents';
 import { queryKeys } from './keys';
 import type { CalendarEvent, PlannedWorkoutDetail } from '@/api/types';
@@ -106,7 +113,13 @@ function MutationProbe() {
 
 function CalendarProbe() {
   const { events } = useCalendarEvents();
-  return <Text>Calendar: {events[0]?.name ?? 'loading'}</Text>;
+  const event = events[0];
+  return (
+    <>
+      <Text>Calendar: {event?.name ?? 'loading'}</Text>
+      <Text>CalendarCarbs: {event?.preRunCarbsG ?? 'none'}</Text>
+    </>
+  );
 }
 
 function ReplacementCacheProbe() {
@@ -656,12 +669,14 @@ describe('planned workout query hooks', () => {
 
     expect(await screen.findByText('Carbs: none')).toBeOnTheScreen();
     expect(await screen.findByText('Calendar: Before carb save')).toBeOnTheScreen();
+    expect(await screen.findByText('CalendarCarbs: none')).toBeOnTheScreen();
     await waitFor(() => expect(calendarGets).toBeGreaterThan(0));
     const calendarBaseline = calendarGets;
     const user = userEvent.setup();
     await user.press(screen.getByLabelText('Save pre-run carbs'));
 
     expect(await screen.findByText('Carbs: 30')).toBeOnTheScreen();
+    expect(await screen.findByText('CalendarCarbs: 30')).toBeOnTheScreen();
     expect(detailGets).toBe(1);
     expect(calendarGets).toBe(calendarBaseline);
   });
@@ -708,5 +723,48 @@ describe('planned workout query hooks', () => {
     await waitFor(() => expect(calendarGets).toBeGreaterThan(calendarBaseline));
 
     expect(detailGets).toBe(1);
+  });
+
+  describe('plannedWorkoutQueryOptions & prefetchPlannedWorkoutDetail', () => {
+    it('configures 5-minute staleTime and identity query key', () => {
+      const client = createApiClient({
+        getToken: () => 'test-token',
+        onUnauthorized: () => {},
+      });
+      const options = plannedWorkoutQueryOptions(client, 'user@example.com', 'event-123');
+
+      expect(options.queryKey).toEqual(queryKeys.plannedWorkout('user@example.com', 'event-123'));
+      expect(options.staleTime).toBe(PLANNED_WORKOUT_STALE_TIME);
+      expect(PLANNED_WORKOUT_STALE_TIME).toBe(5 * 60 * 1000);
+    });
+
+    it('prefetches planned workout detail into QueryClient cache', async () => {
+      let networkGets = 0;
+      server.use(
+        http.get(apiUrl('/api/intervals/events/event-999'), () => {
+          networkGets += 1;
+          return HttpResponse.json(detail('Prefetched Workout', 'event-999'));
+        }),
+      );
+
+      const client = createApiClient({
+        getToken: () => 'test-token',
+        onUnauthorized: () => {},
+      });
+      const queryClient = new QueryClient();
+
+      await prefetchPlannedWorkoutDetail(
+        queryClient,
+        client,
+        'user@example.com',
+        'event-999',
+      );
+
+      expect(networkGets).toBe(1);
+      const cached = queryClient.getQueryData<PlannedWorkoutDetail>(
+        queryKeys.plannedWorkout('user@example.com', 'event-999'),
+      );
+      expect(cached?.event.name).toBe('Prefetched Workout');
+    });
   });
 });

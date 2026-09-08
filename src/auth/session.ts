@@ -1,3 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { evictPersistedQueryCache, resetCacheEvicted } from '@/query/persister';
+
 export type Session = {
   token: string;
   expiresAt: number;
@@ -8,6 +11,10 @@ export type SessionStore = {
   getItemAsync: (key: string) => Promise<string | null>;
   setItemAsync: (key: string, value: string) => Promise<void>;
   deleteItemAsync: (key: string) => Promise<void>;
+};
+
+export type AsyncStorageLike = {
+  removeItem: (key: string) => Promise<void>;
 };
 
 const SESSION_KEY = 'springa.session.v1';
@@ -56,19 +63,33 @@ function createPersistQueue() {
   };
 }
 
-/** Session load/save/clear with serialized SecureStore mutations. */
-export function createSessionApi(getStore: () => Promise<SessionStore>) {
+/** Session load/save/clear with serialized SecureStore mutations and cache eviction. */
+export function createSessionApi(
+  getStore: () => Promise<SessionStore>,
+  asyncStorage: AsyncStorageLike = AsyncStorage,
+) {
   const enqueue = createPersistQueue();
+
+  const purgeQueryCache = async () => {
+    await evictPersistedQueryCache(asyncStorage);
+  };
 
   async function loadSession(): Promise<Session | null> {
     return enqueue(async () => {
       const store = await getStore();
       const raw = await store.getItemAsync(SESSION_KEY);
-      if (!raw) return null;
+      if (!raw) {
+        await purgeQueryCache();
+        return null;
+      }
 
       const session = parseSessionJson(raw);
       if (!session || !isSessionValid(session)) {
-        await store.deleteItemAsync(SESSION_KEY);
+        try {
+          await store.deleteItemAsync(SESSION_KEY);
+        } finally {
+          await purgeQueryCache();
+        }
         return null;
       }
 
@@ -80,21 +101,21 @@ export function createSessionApi(getStore: () => Promise<SessionStore>) {
     return enqueue(async () => {
       const store = await getStore();
       await store.setItemAsync(SESSION_KEY, JSON.stringify(session));
+      resetCacheEvicted();
     });
   }
 
   async function clearSession(): Promise<void> {
     return enqueue(async () => {
-      const store = await getStore();
       try {
-        await store.deleteItemAsync(SESSION_KEY);
-      } catch {
+        const store = await getStore();
         try {
           await store.deleteItemAsync(SESSION_KEY);
-        } catch (err) {
-          // SecureStore deletion failed after retry; rethrow so caller knows persistence failed.
-          throw err;
+        } catch {
+          await store.deleteItemAsync(SESSION_KEY);
         }
+      } finally {
+        await purgeQueryCache();
       }
     });
   }

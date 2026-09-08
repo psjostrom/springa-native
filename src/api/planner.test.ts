@@ -116,6 +116,32 @@ describe('Planner response parsers', () => {
     expect(parsePlannerApplyResponse(apply).appliedWorkoutCount).toBe(3);
   });
 
+  it('parses dynamic server constraints', () => {
+    const dynamicState = {
+      ...state,
+      constraints: {
+        raceDistanceKm: { min: 2, max: 150 },
+        startDistanceKm: { min: 5, max: 50 },
+        minimumWeeks: 6,
+        minimumNormalWeeks: 8,
+        recommendedWeeks: 10,
+        basePhaseMinimumWeeks: 9,
+      },
+    };
+    const parsed = parsePlannerState(dynamicState);
+    expect(parsed.constraints.raceDistanceKm).toEqual({ min: 2, max: 150 });
+    expect(parsed.constraints.minimumWeeks).toBe(6);
+  });
+
+  it('tolerates additive backend properties on planner payloads', () => {
+    const forwardCompatibleState = {
+      ...state,
+      extraServerField: 'metadata-123',
+      currentConfig: { ...config, newBackendSetting: true },
+    };
+    expect(parsePlannerState(forwardCompatibleState).plan.status).toBe('active');
+  });
+
   it.each([
     ['state', () => parsePlannerState({ ...state, plan: [] })],
     ['state config', () => parsePlannerState({ ...state, currentConfig: { ...config, raceDate: '2026-02-30' } })],
@@ -146,10 +172,23 @@ describe('Planner response parsers', () => {
     { clubDay: 2, clubType: null },
     { longRunDay: 1 },
     { clubDay: 1, clubType: 'varies' },
+    { clubDay: 0, clubType: 'speed', longRunDay: 0 },
+    { clubDay: 0, clubType: 'varies', longRunDay: 0 },
+    { clubDay: 2, clubType: 'long', longRunDay: 0 },
   ])('rejects inconsistent schedule config %j', (schedule) => {
     expect(() => parsePlannerState({
       ...state,
       currentConfig: { ...config, ...schedule },
     })).toThrowError(ApiError);
+  });
+
+  it('accepts clubType === "long" when clubDay === longRunDay', () => {
+    const parsed = parsePlannerState({
+      ...state,
+      currentConfig: { ...config, clubDay: 0, clubType: 'long', longRunDay: 0 },
+    });
+    expect(parsed.currentConfig?.clubDay).toBe(0);
+    expect(parsed.currentConfig?.clubType).toBe('long');
+    expect(parsed.currentConfig?.longRunDay).toBe(0);
   });
 });

@@ -48,4 +48,4 @@ npx tsc --noEmit
 npm run lint
 ```
 
-Stack: Vitest, vitest-native, React Native Testing Library, MSW (`msw/node`). See [`AGENTS.md`](./AGENTS.md) and `docs/superpowers/specs/2026-08-07-vitest-msw-design.md`.
+Stack: Vitest, vitest-native, React Native Testing Library, MSW (`msw/node`). See [`AGENTS.md`](./AGENTS.md).

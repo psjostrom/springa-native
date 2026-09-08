@@ -425,6 +425,29 @@ describe('Planner content', () => {
     expect(screen.getByText('Workouts were saved, but Google Calendar could not be updated.')).toBeOnTheScreen();
   });
 
+  it('shows partial apply failure breakdown with applied count and failure details', async () => {
+    server.use(http.post(apiUrl('/api/planner/apply'), () => HttpResponse.json({
+      error: 'Could not apply all workouts',
+      code: 'PLANNER_APPLY_PARTIAL',
+      appliedWorkoutCount: 2,
+      failures: [{
+        id: 'w1',
+        name: 'Sunday Long Run',
+        error: 'Intervals sync failed',
+      }],
+    }, { status: 500 })));
+
+    await renderPlanner();
+    const user = userEvent.setup();
+    await user.press(await screen.findByRole('button', { name: 'Start New Program' }));
+    await user.press(screen.getByRole('button', { name: 'Preview plan' }));
+    await user.press(await screen.findByRole('button', { name: 'Start Program' }));
+
+    expect(await screen.findByText('Could not apply all workouts')).toBeOnTheScreen();
+    expect(screen.getByText('2 workouts applied before failure.')).toBeOnTheScreen();
+    expect(screen.getByText('Sunday Long Run: Intervals sync failed')).toBeOnTheScreen();
+  });
+
   it('previews active race-date updates without changing plan length', async () => {
     vi.setSystemTime(new Date('2026-07-20T12:00:00'));
     const active = activePlannerState();

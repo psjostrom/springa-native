@@ -12,6 +12,7 @@ type PlannerRaceGoalFieldsProps = {
   onChange: (value: PlannerConfig) => void;
   errors?: Record<string, string>;
   deriveTimeline?: boolean;
+  basePhaseMinimumWeeks?: number;
 };
 
 function dateFromValue(value: string): Date {
@@ -23,7 +24,13 @@ function dateOnly(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function PlannerRaceGoalFields({ value, onChange, errors = {}, deriveTimeline = false }: PlannerRaceGoalFieldsProps) {
+export function PlannerRaceGoalFields({
+  value,
+  onChange,
+  errors = {},
+  deriveTimeline = false,
+  basePhaseMinimumWeeks,
+}: PlannerRaceGoalFieldsProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [raceDistanceText, setRaceDistanceText] = useState(String(value.raceDist));
   return (
@@ -43,10 +50,23 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {}, deriveTime
           keyboardType="decimal-pad"
           onChangeText={(text) => {
             setRaceDistanceText(text);
-            const next = Number(text);
-            if (Number.isFinite(next)) onChange({ ...value, raceDist: next });
+            const normalized = text.replace(',', '.').trim();
+            if (normalized.endsWith('.')) return;
+            const next = Number(normalized);
+            if (Number.isFinite(next) && next > 0) {
+              onChange({ ...value, raceDist: next });
+            }
           }}
-          onBlur={() => setRaceDistanceText(String(value.raceDist))}
+          onBlur={() => {
+            const normalized = raceDistanceText.replace(',', '.').trim();
+            const next = Number(normalized);
+            if (normalized.length > 0 && Number.isFinite(next) && next > 0) {
+              onChange({ ...value, raceDist: next });
+              setRaceDistanceText(String(next));
+            } else {
+              setRaceDistanceText(String(value.raceDist));
+            }
+          }}
           value={raceDistanceText}
           error={errors.raceDist}
         />
@@ -56,7 +76,8 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {}, deriveTime
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Choose race date"
-          onPress={() => setPickerVisible(true)}
+          accessibilityValue={{ text: value.raceDate }}
+          onPress={() => setPickerVisible((prev) => !prev)}
           style={styles.dateButton}
         >
           <AppText>{value.raceDate}</AppText>
@@ -69,12 +90,15 @@ export function PlannerRaceGoalFields({ value, onChange, errors = {}, deriveTime
           value={dateFromValue(value.raceDate)}
           mode="date"
           display="default"
-          onValueChange={(_event, selectedDate) => {
+          onChange={(_event, selectedDate) => {
+            // On Android, modal picker dismisses on selection; iOS inline picker toggles via trigger button.
+            if (Platform.OS === 'android') {
+              setPickerVisible(false);
+            }
             if (selectedDate) {
               const raceDate = dateOnly(selectedDate);
-              onChange(deriveTimeline ? setRaceDate(value, raceDate, new Date()) : { ...value, raceDate });
+              onChange(deriveTimeline ? setRaceDate(value, raceDate, new Date(), basePhaseMinimumWeeks) : { ...value, raceDate });
             }
-            if (Platform.OS === 'android') setPickerVisible(false);
           }}
           onDismiss={() => setPickerVisible(false)}
         />

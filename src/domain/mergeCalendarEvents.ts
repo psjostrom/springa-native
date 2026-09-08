@@ -5,7 +5,11 @@ export function mergeCalendarEvents(pages: CalendarEvent[][]): CalendarEvent[] {
   const byId = new Map<string, CalendarEvent>();
   for (const page of pages) {
     for (const event of page) {
-      byId.set(event.id, event);
+      const normalized =
+        event.date instanceof Date
+          ? event
+          : { ...event, date: new Date(event.date) };
+      byId.set(normalized.id, normalized);
     }
   }
   return [...byId.values()].sort((a, b) => {
@@ -14,3 +18,4 @@ export function mergeCalendarEvents(pages: CalendarEvent[][]): CalendarEvent[] {
     return a.id.localeCompare(b.id);
   });
 }
+

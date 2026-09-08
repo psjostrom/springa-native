@@ -12,7 +12,7 @@ type PlannerConfigEditorProps = {
   requestError?: string | null;
   saving: boolean;
   onChange: (value: PlannerConfig) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
   onDone: () => void;
 };
 
@@ -44,12 +44,17 @@ export function PlannerConfigEditor({
             />
           </View>
           <View style={styles.section}>
-            <PlannerRaceGoalFields value={value} onChange={onChange} errors={errors} />
+            <PlannerRaceGoalFields
+              value={value}
+              onChange={onChange}
+              errors={errors}
+            />
           </View>
           {errors.totalWeeks ? <AppText tone="error" variant="caption">{errors.totalWeeks}</AppText> : null}
+          {errors.includeBasePhase ? <AppText tone="error" variant="caption">{errors.includeBasePhase}</AppText> : null}
           {requestError ? <AppText tone="error" accessibilityRole="alert">{requestError}</AppText> : null}
           <View style={styles.actions}>
-            <Button label="Cancel" variant="secondary" onPress={onCancel} />
+            {onCancel ? <Button label="Cancel" variant="secondary" onPress={onCancel} /> : null}
             <Button
               label="Done"
               accessibilityLabel="Done editing planner"

@@ -1,7 +1,7 @@
 import { LegendList } from '@legendapp/list/react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { useWindowDimensions, StyleSheet, View } from 'react-native';
-import { ApiError } from '@/api/client';
+import type { ApiErrorDetails } from '@/api/errors';
 import type { PlannerPreview as PlannerPreviewDto, PlannerPreviewWorkout } from '@/api/types';
 import { AppText, Button, Card } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -10,7 +10,8 @@ import { PlannerSummaryCard } from './PlannerSummaryCard';
 
 type PlannerPreviewProps = {
   preview: PlannerPreviewDto;
-  error: Error | null;
+  error: string | null;
+  errorDetails?: ApiErrorDetails | null;
   applying: boolean;
   onEdit: () => void;
   onCancel: () => void;
@@ -100,6 +101,7 @@ function buildRows(preview: PlannerPreviewDto): PlannerPreviewRow[] {
 export function PlannerPreviewView({
   preview,
   error,
+  errorDetails,
   applying,
   onEdit,
   onCancel,
@@ -119,6 +121,7 @@ export function PlannerPreviewView({
             <AppText tone="muted" variant="caption">{item.week.distanceKm} km · {item.week.workoutCount} workouts</AppText>
           </View>
         ) : <WorkoutRow workout={item.workout} />}
+        getItemType={(item) => item.kind}
         recycleItems
         estimatedItemSize={84}
         contentInsetAdjustmentBehavior="automatic"
@@ -142,7 +145,17 @@ export function PlannerPreviewView({
             </Card>
             {error ? (
               <View>
-                <AppText accessibilityRole="alert" tone="error">{error.message}</AppText>
+                <AppText accessibilityRole="alert" tone="error">{error}</AppText>
+                {errorDetails?.appliedWorkoutCount != null ? (
+                  <AppText tone="warning" variant="caption">
+                    {errorDetails.appliedWorkoutCount} workouts applied before failure.
+                  </AppText>
+                ) : null}
+                {errorDetails?.failures?.map((failure) => (
+                  <AppText key={failure.id} tone="warning" variant="caption">
+                    {failure.name}: {failure.error}
+                  </AppText>
+                ))}
               </View>
             ) : null}
             <View style={styles.actions}>
@@ -152,7 +165,7 @@ export function PlannerPreviewView({
                 loading={applying}
                 onPress={onApply}
               />
-              {error instanceof ApiError && error.code === 'PLAN_PREVIEW_STALE' ? (
+              {errorDetails?.code === 'PLAN_PREVIEW_STALE' ? (
                 <Button label="Preview again" variant="secondary" onPress={onPreviewAgain} />
               ) : null}
               <View style={styles.secondaryActions}>

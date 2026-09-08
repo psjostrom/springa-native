@@ -124,7 +124,12 @@ export function setClubType(
   };
 }
 
-export function setRaceDate(config: PlannerConfig, raceDate: string, now: Date): PlannerConfig {
+export function setRaceDate(
+  config: PlannerConfig,
+  raceDate: string,
+  now: Date,
+  basePhaseMinimumWeeks = 11,
+): PlannerConfig {
   const date = dateAtNoon(raceDate);
   const totalWeeks = weeksForRaceDate(raceDate, now);
   if (date == null || totalWeeks == null) return config;
@@ -132,7 +137,7 @@ export function setRaceDate(config: PlannerConfig, raceDate: string, now: Date):
     ...config,
     raceDate,
     totalWeeks,
-    includeBasePhase: totalWeeks >= 11 && config.includeBasePhase,
+    includeBasePhase: totalWeeks >= basePhaseMinimumWeeks && config.includeBasePhase,
   };
 }
 
@@ -141,8 +146,9 @@ export function validatePlannerDraft(
   fitnessOptions: PlannerFitnessOption[],
   constraints: PlannerState['constraints'],
   now: Date,
-  { skipTimelineMatch = false }: { skipTimelineMatch?: boolean } = {},
+  options: { skipTimelineMatch?: boolean } = {},
 ): PlannerFieldErrors {
+  const skipTimelineMatch = Boolean(options.skipTimelineMatch);
   const errors: PlannerFieldErrors = {};
   const raceDate = dateAtNoon(config.raceDate);
   if (raceDate == null) errors.raceDate = 'Choose a valid race date.';
@@ -168,6 +174,7 @@ export function validatePlannerDraft(
   if (config.clubDay != null && !config.runDays.includes(config.clubDay)) errors.clubDay = 'Choose a selected run day.';
   if (config.clubDay == null && config.clubType != null) errors.clubType = 'Choose a club day first.';
   if (config.clubDay != null && config.clubType == null) errors.clubType = 'Choose a club type.';
+  if (config.clubType === 'long' && config.clubDay !== config.longRunDay) errors.clubDay = 'Long club run must be on long run day.';
   if (config.clubType !== 'long' && config.clubDay === config.longRunDay) errors.clubDay = 'Club day must differ from long run day.';
   if (!Number.isFinite(config.startKm) || config.startKm < constraints.startDistanceKm.min || config.startKm > constraints.startDistanceKm.max) {
     errors.startKm = `Starting distance must be ${constraints.startDistanceKm.min}-${constraints.startDistanceKm.max} km.`;
@@ -225,16 +232,25 @@ export function speedDayLabel(config: PlannerConfig): string | null {
   return `Speed auto-assigned to ${dayLabel(speedDay)}`;
 }
 
-export function plannerSummaryParts(
+export type PlannerSummaryItem = {
+  key: 'days' | 'long' | 'race' | 'weeks';
+  text: string;
+};
+
+export function plannerSummaryItems(
   config: PlannerConfig,
   hasActivePlan: boolean,
   weeksToGo: number | null,
-): string[] {
-  const parts = [
-    `${config.runDays.length} days/wk`,
-    `Long: ${dayLabel(config.longRunDay) || 'auto'}`,
+): PlannerSummaryItem[] {
+  const items: PlannerSummaryItem[] = [
+    { key: 'days', text: `${config.runDays.length} days/wk` },
+    { key: 'long', text: `Long: ${dayLabel(config.longRunDay) || 'auto'}` },
   ];
-  if (config.raceName.trim()) parts.push(`${config.raceName.trim()} ${config.raceDist}km`);
-  if (hasActivePlan && weeksToGo != null) parts.push(weeksToGo <= 1 ? 'Race week!' : `${weeksToGo} wks to go`);
-  return parts;
+  if (config.raceName.trim()) {
+    items.push({ key: 'race', text: `${config.raceName.trim()} ${config.raceDist}km` });
+  }
+  if (hasActivePlan && weeksToGo != null) {
+    items.push({ key: 'weeks', text: weeksToGo <= 1 ? 'Race week!' : `${weeksToGo} wks to go` });
+  }
+  return items;
 }
