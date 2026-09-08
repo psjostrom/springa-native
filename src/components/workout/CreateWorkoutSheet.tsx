@@ -3,7 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react-nati
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { ApiError } from '@/api/errors';
-import type { PlannedWorkoutReplacementCategory } from '@/api/types';
+import type { PlannedWorkoutReplacementCategory, SingleWorkoutPreview } from '@/api/types';
 import { AppText, Badge, Button, Card, IconButton, StateView } from '@/components/ui';
 import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
 import { formatIsoDay } from '@/domain/calendarWindows';
@@ -14,46 +14,69 @@ import { StructureSections, WorkoutSummary } from './PlannedWorkoutSheet';
 import { extractWorkoutNotes, formatWorkoutDate } from './plannedWorkoutPresentation';
 import { WorkoutCategoryChoices } from './WorkoutCategoryChoices';
 
-type Props = { isPresented: boolean; onDismiss: () => void };
+type Props = { isPresented: boolean; onDismiss: () => void; onSave?: (date: Date) => void };
 
-export function CreateWorkoutSheet({ isPresented, onDismiss }: Props) {
+export function CreateWorkoutSheet({ isPresented, onDismiss, onSave }: Props) {
+  const creation = useCreateWorkout();
+  const [reviewPresented, setReviewPresented] = useState(false);
+  const presented = isPresented || reviewPresented;
+  const dismiss = () => { setReviewPresented(false); onDismiss(); };
   return (
-    <AppBottomSheet isPresented={isPresented} onDismiss={onDismiss}>
-      {isPresented ? <WorkoutGenerator onDismiss={onDismiss} /> : <View />}
-    </AppBottomSheet>
+    <>
+      <AppBottomSheet isPresented={presented} onDismiss={dismiss}>
+        {presented ? (
+          <WorkoutGenerator
+            initialPreview={reviewPresented ? creation.variables : undefined}
+            error={reviewPresented ? creation.error : null}
+            onClearError={creation.reset}
+            onSave={(preview) => {
+              creation.mutate(preview);
+              onSave?.(new Date(preview.workout.startDateLocal));
+              dismiss();
+            }}
+            onDismiss={dismiss}
+          />
+        ) : <View />}
+      </AppBottomSheet>
+      {creation.isError && !presented ? (
+        <Card style={styles.errorCard}>
+          <AppText variant="label" tone="error" accessibilityRole="alert">Couldn’t save workout</AppText>
+          <AppText tone="muted">{creation.error.message}</AppText>
+          <Button label="Review workout" variant="secondary" onPress={() => setReviewPresented(true)} />
+        </Card>
+      ) : null}
+    </>
   );
 }
 
-function WorkoutGenerator({ onDismiss }: Pick<Props, 'onDismiss'>) {
+function WorkoutGenerator({ onDismiss, initialPreview, error, onClearError, onSave }: {
+  onDismiss: () => void;
+  initialPreview?: SingleWorkoutPreview;
+  error: Error | null;
+  onClearError: () => void;
+  onSave: (preview: SingleWorkoutPreview) => void;
+}) {
   const { height } = useWindowDimensions();
-  const [date, setDate] = useState(() => new Date());
+  const [date, setDate] = useState(() => initialPreview ? new Date(initialPreview.workout.startDateLocal) : new Date());
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [category, setCategory] = useState<PlannedWorkoutReplacementCategory>();
+  const [category, setCategory] = useState<PlannedWorkoutReplacementCategory | undefined>(initialPreview?.category);
   const preview = useSingleWorkoutPreview(formatIsoDay(date), category);
-  const creation = useCreateWorkout();
   const workout = preview.data?.workout;
   const notes = workout ? extractWorkoutNotes(workout.description) : null;
-  const stalePreview = creation.error instanceof ApiError && creation.error.code === 'WORKOUT_PREVIEW_STALE';
-  const pending = creation.isPending;
+  const stalePreview = error instanceof ApiError && error.code === 'WORKOUT_PREVIEW_STALE';
 
-  const save = async () => {
-    if (!preview.data || pending || preview.isFetching || stalePreview) return;
-    const { date: previewDate, category: previewCategory, previewHash } = preview.data;
-    try {
-      await creation.mutateAsync({ date: previewDate, category: previewCategory, previewHash });
-      onDismiss();
-    } catch {
-      // The mutation keeps the preview and error visible for retry.
-    }
+  const save = () => {
+    if (!preview.data || preview.isFetching || stalePreview) return;
+    onSave(preview.data);
   };
 
   return (
     <View style={[styles.sheet, { maxHeight: height * 0.8 }]}>
       <View style={styles.heading}>
         {category ? (
-          <IconButton accessibilityLabel="Back to workout choices" disabled={pending} onPress={() => {
+          <IconButton accessibilityLabel="Back to workout choices" onPress={() => {
             setCategory(undefined);
-            creation.reset();
+            onClearError();
           }}>
             <ChevronLeft color={SpringaColors.muted} size={IconSize.md} />
           </IconButton>
@@ -72,10 +95,8 @@ function WorkoutGenerator({ onDismiss }: Pick<Props, 'onDismiss'>) {
           accessibilityRole="button"
           accessibilityLabel="Change workout date"
           accessibilityValue={{ text: formatIsoDay(date) }}
-          accessibilityState={{ disabled: pending }}
-          disabled={pending}
           onPress={() => setPickerVisible(!pickerVisible)}
-          style={({ pressed }) => (pressed || pending) && styles.dimmed}
+          style={({ pressed }) => pressed && styles.dimmed}
         >
           <Card tone="subtle" style={styles.dateRow}>
             <CalendarDays size={IconSize.md} color={SpringaColors.brandText} />
@@ -89,7 +110,7 @@ function WorkoutGenerator({ onDismiss }: Pick<Props, 'onDismiss'>) {
             <ChevronRight size={IconSize.sm} color={SpringaColors.muted} />
           </Card>
         </Pressable>
-        {pickerVisible && !pending ? (
+        {pickerVisible ? (
           <DateTimePicker
             accessibilityLabel="Choose workout date"
             value={date}
@@ -97,12 +118,11 @@ function WorkoutGenerator({ onDismiss }: Pick<Props, 'onDismiss'>) {
             display={Platform.OS === 'ios' ? 'inline' : 'default'}
             themeVariant="dark"
             onValueChange={(_event, selectedDate) => {
-              if (pending) return;
               if (Platform.OS === 'android') setPickerVisible(false);
               if (!selectedDate) return;
               setDate(selectedDate);
               setCategory(undefined);
-              creation.reset();
+              onClearError();
             }}
             onDismiss={() => setPickerVisible(false)}
           />
@@ -126,26 +146,27 @@ function WorkoutGenerator({ onDismiss }: Pick<Props, 'onDismiss'>) {
             />
           </>
         )}
-        {creation.isError ? (
-          <AppText tone="error" accessibilityRole="alert" selectable>{creation.error.message}</AppText>
+        {error ? (
+          <AppText tone="error" accessibilityRole="alert" selectable>{error.message}</AppText>
         ) : null}
       </ScrollView>
       {category && workout && !preview.isError ? (
         stalePreview ? (
           <Button label="Refresh preview" loading={preview.isFetching} onPress={async () => {
             const result = await preview.refetch();
-            if (result.isSuccess) creation.reset();
+            if (result.isSuccess) onClearError();
           }} />
         ) : (
-          <Button label={pending ? 'Saving workout…' : 'Save workout'} loading={pending} disabled={preview.isFetching} onPress={() => { void save(); }} />
+          <Button label="Save workout" disabled={preview.isFetching} onPress={save} />
         )
       ) : null}
-      <Button label="Cancel" variant="secondary" disabled={pending} onPress={onDismiss} />
+      <Button label="Cancel" variant="secondary" onPress={onDismiss} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  errorCard: { gap: Spacing.sm, marginTop: Spacing.sm },
   sheet: { gap: Spacing.md },
   heading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingBottom: Spacing.xs },
   headingCopy: { flex: 1, gap: Spacing.xxs },

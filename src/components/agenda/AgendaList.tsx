@@ -9,6 +9,7 @@ import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { AppText, Card, IconButton, StateView } from '@/components/ui';
+import { startOfLocalDay } from '@/domain/eventStatus';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 
@@ -32,6 +33,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   const { status: authStatus, session } = useAuth();
   const {
     events,
+    pendingEventIds,
     isLoading,
     isError,
     error,
@@ -49,11 +51,11 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   const plannedUpcomingKey = useMemo(
     () =>
       upcoming
-        .filter((event) => event.type === 'planned')
+        .filter((event) => event.type === 'planned' && !pendingEventIds.includes(event.id))
         .slice(0, 10)
         .map((event) => event.id)
         .join(','),
-    [upcoming],
+    [upcoming, pendingEventIds],
   );
   const completedEarlierKey = useMemo(
     () =>
@@ -189,7 +191,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
         <View style={styles.header}>
           <Card style={styles.titleRow}>
             <AppText variant="subheading">Agenda</AppText>
-            <IconButton accessibilityLabel="Add workout" onPress={() => setCreatePresented(true)}>
+            <IconButton accessibilityLabel="Add workout" disabled={pendingEventIds.length > 0} onPress={() => setCreatePresented(true)}>
               <Plus size={IconSize.md} color={SpringaColors.brandText} />
             </IconButton>
           </Card>
@@ -264,13 +266,18 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       renderItem={({ item }: { item: CalendarEvent }) => (
         <AgendaEventCard
           event={item}
+          saving={pendingEventIds.includes(item.id)}
           onPress={(event) => {
             onOpenWorkout?.(event.id);
           }}
         />
       )}
     />
-    <CreateWorkoutSheet isPresented={createPresented} onDismiss={() => setCreatePresented(false)} />
+    <CreateWorkoutSheet
+      isPresented={createPresented}
+      onDismiss={() => setCreatePresented(false)}
+      onSave={(date) => setView(date < startOfLocalDay() ? 'history' : 'upcoming')}
+    />
     </>
   );
 }

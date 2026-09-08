@@ -8,6 +8,7 @@ import { Radius, Spacing, Typography } from '@/theme/tokens';
 
 type AgendaEventCardProps = {
   event: CalendarEvent;
+  saving?: boolean;
   onPress?: (event: CalendarEvent) => void;
 };
 
@@ -31,7 +32,7 @@ function statusBorderColor(status: ReturnType<typeof getCardStatus>): string {
   }
 }
 
-export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
+export function AgendaEventCard({ event, onPress, saving = false }: AgendaEventCardProps) {
   const status = getCardStatus(event);
   const weekday = event.date
     .toLocaleDateString('en-GB', { weekday: 'short' })
@@ -62,6 +63,8 @@ export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
       onPress={() => {
         onPress?.(event);
       }}
+      disabled={saving}
+      accessibilityState={{ disabled: saving, busy: saving }}
       accessibilityRole="button"
       accessibilityLabel={`Open workout ${event.name}`}
       style={styles.pressable}
@@ -90,6 +93,8 @@ export function AgendaEventCard({ event, onPress }: AgendaEventCardProps) {
               {event.name}
             </AppText>
           </View>
+
+          {saving ? <AppText variant="caption" tone="muted">Saving…</AppText> : null}
 
           {planned && (hasMetrics || hasFuel) ? (
             <View style={styles.chips}>
