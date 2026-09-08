@@ -1,13 +1,14 @@
 import { LegendList } from '@legendapp/list/react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, History } from 'lucide-react-native';
+import { ChevronLeft, History, Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { CreateWorkoutSheet } from '@/components/workout/CreateWorkoutSheet';
 import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
-import { AppText, Card, StateView } from '@/components/ui';
+import { AppText, Card, IconButton, StateView } from '@/components/ui';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 
@@ -24,6 +25,7 @@ type AgendaListProps = {
 };
 
 export function AgendaList({ onOpenWorkout }: AgendaListProps) {
+  const [createPresented, setCreatePresented] = useState(false);
   const [view, setView] = useState<AgendaViewMode>('upcoming');
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
@@ -152,6 +154,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   }
 
   return (
+    <>
     <LegendList
       // Remount when flipping modes — LegendList can stick on an empty frame
       // after upcoming ↔ history swaps.
@@ -184,8 +187,11 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       onEndReachedThreshold={0.5}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Card>
+          <Card style={styles.titleRow}>
             <AppText variant="subheading">Agenda</AppText>
+            <IconButton accessibilityLabel="Add workout" onPress={() => setCreatePresented(true)}>
+              <Plus size={IconSize.md} color={SpringaColors.brandText} />
+            </IconButton>
           </Card>
           {historyMode ? (
             <Pressable
@@ -264,11 +270,14 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
         />
       )}
     />
+    <CreateWorkoutSheet isPresented={createPresented} onDismiss={() => setCreatePresented(false)} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   list: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   header: { gap: Spacing.sm, marginBottom: Spacing.sm },
   earlierButton: {
     flexDirection: 'row',

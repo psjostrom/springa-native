@@ -3,15 +3,11 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Footprints,
   Gauge,
   HeartPulse,
   Move,
   Repeat2,
-  Route,
   Trash2,
-  Users,
-  Zap,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useRef, useState } from 'react';
@@ -26,6 +22,7 @@ import { AppText, Button, Card, IconButton } from '@/components/ui';
 import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
 import { HrZoneColors, SpringaColors } from '@/theme/colors';
 import { IconSize, Radius, Spacing } from '@/theme/tokens';
+import { WorkoutCategoryChoices } from './WorkoutCategoryChoices';
 import type { PlannedWorkoutActions } from './PlannedWorkoutSheet';
 
 type SheetMode = 'actions' | 'replace' | 'runBy' | 'delete';
@@ -42,43 +39,6 @@ type Props = {
   actions: PlannedWorkoutActions;
   workoutName: string;
 };
-
-const replacementChoices: Record<
-  PlannedWorkoutReplacementCategory,
-  { label: string; description: string; icon: LucideIcon; color: string }
-> = {
-  easy: {
-    label: 'Easy',
-    description: 'Keep it comfortable',
-    icon: Footprints,
-    color: HrZoneColors[2],
-  },
-  quality: {
-    label: 'Quality',
-    description: 'Keep some intensity',
-    icon: Zap,
-    color: HrZoneColors[4],
-  },
-  long: {
-    label: 'Long',
-    description: 'Build endurance',
-    icon: Route,
-    color: HrZoneColors[3],
-  },
-  club: {
-    label: 'Club Run',
-    description: 'Run with others',
-    icon: Users,
-    color: SpringaColors.brand,
-  },
-};
-
-const replacementCategories: PlannedWorkoutReplacementCategory[] = [
-  'easy',
-  'quality',
-  'long',
-  'club',
-];
 
 const runByChoices: Record<
   EffortMetric,
@@ -270,30 +230,10 @@ export function WorkoutActionsSheet({ isPresented, onDismiss, actions, workoutNa
             </View>
             <AppText variant="heading">Replace workout</AppText>
             <AppText variant="label" tone="muted">Choose a different workout</AppText>
-            <View style={styles.replacementGrid}>
-              {replacementCategories.map((category) => {
-                const choice = replacementChoices[category];
-                const Icon = choice.icon;
-                return (
-                  <Pressable
-                    key={category}
-                    onPress={() => dismissFor({ type: 'replace', category })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Replace with ${choice.label}`}
-                    style={({ pressed }) => [
-                      styles.replacementChoice,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Card tone="subtle" style={styles.replacementCard}>
-                      <Icon color={choice.color} size={IconSize.lg} />
-                      <AppText variant="subheading">{choice.label}</AppText>
-                      <AppText variant="caption" tone="muted">{choice.description}</AppText>
-                    </Card>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <WorkoutCategoryChoices
+              action="Replace with"
+              onSelect={(category) => dismissFor({ type: 'replace', category })}
+            />
           </>
         ) : mode === 'runBy' && actions.effortMetric ? (
           <>
@@ -371,17 +311,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-  },
-  replacementGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  replacementChoice: {
-    minWidth: 132,
-    flexBasis: 140,
-    flexGrow: 1,
-  },
-  replacementCard: {
-    flex: 1,
-    minHeight: 112,
-    gap: Spacing.sm,
   },
   runByGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   runByChoice: {

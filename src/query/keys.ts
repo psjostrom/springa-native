@@ -1,4 +1,6 @@
 export const queryKeys = {
+  singleWorkoutPreview: (identity: string, date: string, category?: string) =>
+    ['single-workout-preview', identity, date, category ?? 'suggested'] as const,
   settings: (identity: string) => ['settings', identity] as const,
   planner: (identity: string) => ['planner', identity] as const,
   calendar: (identity: string) => ['calendar', identity] as const,

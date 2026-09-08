@@ -141,7 +141,7 @@ function ClothingSection({
   );
 }
 
-function getMetricValues(detail: PlannedWorkoutDetail) {
+function getMetricValues(detail: Pick<PlannedWorkoutDetail, 'metrics'>) {
   const metrics = [
     detail.metrics.duration
       ? {
@@ -165,7 +165,7 @@ function getMetricValues(detail: PlannedWorkoutDetail) {
   return metrics.filter((metric): metric is NonNullable<typeof metric> => metric != null);
 }
 
-function WorkoutSummary({ detail }: { detail: PlannedWorkoutDetail }) {
+export function WorkoutSummary({ detail }: { detail: Pick<PlannedWorkoutDetail, 'metrics'> }) {
   const metrics = getMetricValues(detail);
   if (metrics.length === 0) return null;
 
@@ -194,7 +194,7 @@ function WorkoutSummary({ detail }: { detail: PlannedWorkoutDetail }) {
   );
 }
 
-function StructureSections({ detail }: { detail: PlannedWorkoutDetail }) {
+export function StructureSections({ detail }: { detail: Pick<PlannedWorkoutDetail, 'structure'> }) {
   const timeline = detail.structure.timeline;
   return (
     <Section title="Workout structure" accessibilityLabel="Workout structure">

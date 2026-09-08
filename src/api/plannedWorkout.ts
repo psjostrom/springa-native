@@ -204,6 +204,18 @@ function parseClothing(value: unknown): PlannedWorkoutClothing {
   return invalid();
 }
 
+export function parseWorkoutPresentation(data: unknown): Pick<PlannedWorkoutDetail, 'structure' | 'metrics'> {
+  if (!isRecord(data) || !isRecord(data.structure) ||
+    !Array.isArray(data.structure.sections) || !Array.isArray(data.structure.timeline)) return invalid();
+  return {
+    structure: {
+      sections: data.structure.sections.map(parseSection),
+      timeline: data.structure.timeline.map(parseTimelineSegment),
+    },
+    metrics: parseMetrics(data.metrics),
+  };
+}
+
 export function parsePlannedWorkoutDetail(data: unknown): PlannedWorkoutDetail {
   if (
     !isRecord(data) ||
@@ -226,11 +238,7 @@ export function parsePlannedWorkoutDetail(data: unknown): PlannedWorkoutDetail {
     replacementCategory: Object.hasOwn(data, 'replacementCategory')
       ? replacementCategory(data.replacementCategory)
       : null,
-    structure: {
-      sections: data.structure.sections.map(parseSection),
-      timeline: data.structure.timeline.map(parseTimelineSegment),
-    },
-    metrics: parseMetrics(data.metrics),
+    ...parseWorkoutPresentation(data),
     preRunCarbsG: nullableNumber(data.preRunCarbsG),
     clothing: parseClothing(data.clothing),
   };
