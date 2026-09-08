@@ -64,12 +64,14 @@ export function useCreateWorkout() {
       // A sign-out may have removed this cache while the request was in flight.
       if (!queryClient.getQueryState(calendarKey)) return;
       const event = previewCalendarEvent(preview, `event-${newId}`);
+      let expandedWindow = false;
       queryClient.setQueryData<InfiniteData<CalendarEvent[], DateWindow>>(calendarKey, (current) => {
         const pages = current?.pages.map((page) => page.filter((item) => item.id !== event.id)) ?? [[]];
         const pageParams = current?.pageParams.map((window) => ({ ...window })) ?? [initialCalendarWindow(event.date)];
         const day = formatIsoDay(event.date);
         let index = pageParams.findIndex((window) => window.oldest <= day && window.newest >= day);
         if (index === -1) {
+          expandedWindow = true;
           index = day < pageParams[0].oldest ? 0 : pageParams.length - 1;
           pageParams[index].oldest = day < pageParams[index].oldest ? day : pageParams[index].oldest;
           pageParams[index].newest = day > pageParams[index].newest ? day : pageParams[index].newest;
@@ -78,7 +80,7 @@ export function useCreateWorkout() {
         return { pages, pageParams };
       });
       void queryClient.invalidateQueries({ queryKey: queryKeys.plannedWorkout(identity, event.id) });
-      void queryClient.invalidateQueries({ queryKey: calendarKey, refetchType: 'none' });
+      void queryClient.invalidateQueries({ queryKey: calendarKey, refetchType: expandedWindow ? 'all' : 'none' });
       void queryClient.invalidateQueries({ queryKey: queryKeys.planner(identity) });
     },
   });

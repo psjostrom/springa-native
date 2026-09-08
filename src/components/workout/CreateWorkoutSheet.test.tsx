@@ -185,38 +185,47 @@ describe('CreateWorkoutSheet', () => {
     } finally { release(); }
   });
 
-  it.each(['2026-04-08', '2026-09-08'])('keeps an upsert outside loaded windows after refresh when today is %s', async (today) => {
+  it.each(['2026-04-08', '2026-09-08'])('loads intervening workouts after an outside-window save when today is %s', async (today) => {
     vi.setSystemTime(new Date(`${today}T09:00:00`));
     const targetDate = '2026-08-14';
     let saved = false;
+    let releaseRefresh: () => void = () => {};
+    const refreshWaiting = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+    const gap = { id: 'event-88', name: 'Run in the gap', type: 'planned', category: 'easy', date: today < targetDate ? '2026-06-01T12:00:00' : '2026-08-20T12:00:00' };
     const other = { id: 'event-99', name: 'Another run', type: 'planned', category: 'easy', date: new Date().toISOString() };
     server.use(
-      http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
+      http.get(apiUrl('/api/intervals/calendar'), async ({ request }) => {
+        if (saved) await refreshWaiting;
         const url = new URL(request.url);
         const workout = saved
           ? { id: 'event-42', name: 'Long run', type: 'planned', category: 'long', date: `${targetDate}T12:00:00` }
           : { id: 'event-42', name: 'Old workout', type: 'planned', category: 'easy', date: new Date().toISOString() };
-        return HttpResponse.json([other, workout].filter((event) => {
+        return HttpResponse.json([other, workout, gap].filter((event) => {
           const day = event.date.slice(0, 10);
           return day >= url.searchParams.get('oldest')! && day <= url.searchParams.get('newest')!;
         }));
       }),
       http.post(apiUrl('/api/intervals/events'), () => { saved = true; return HttpResponse.json({ newId: 42 }); }),
     );
-    const { client } = await setup();
-    await screen.findByLabelText('Open workout Old workout');
-    await fireEvent.press(screen.getByLabelText('Change workout date'));
-    await fireEvent.press(screen.getByLabelText('Choose workout date'));
-    await fireEvent.press(await screen.findByLabelText('Create Long workout'));
-    await screen.findByText('Long run');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save workout' }));
-    await waitFor(() => expect(screen.getByLabelText('Open workout Long run')).toBeEnabled());
-    await fireEvent.press(screen.getByRole('button', { name: 'Load earlier' }));
-    await waitFor(() => expect(client.isFetching({ queryKey: queryKeys.calendar('runner@example.com') })).toBe(0));
-    await act(() => client.invalidateQueries({ queryKey: queryKeys.calendar('runner@example.com') }));
-    expect(screen.getAllByLabelText('Open workout Long run')).toHaveLength(1);
-    expect(screen.queryByLabelText('Open workout Old workout')).toBeNull();
-    expect(screen.getByLabelText('Open workout Another run')).toBeOnTheScreen();
+    try {
+      const { client } = await setup();
+      await screen.findByLabelText('Open workout Old workout');
+      await fireEvent.press(screen.getByLabelText('Change workout date'));
+      await fireEvent.press(screen.getByLabelText('Choose workout date'));
+      await fireEvent.press(await screen.findByLabelText('Create Long workout'));
+      await screen.findByText('Long run');
+      expect(screen.queryByLabelText('Open workout Run in the gap')).toBeNull();
+      await fireEvent.press(screen.getByRole('button', { name: 'Save workout' }));
+      await waitFor(() => expect(screen.getByLabelText('Open workout Long run')).toBeEnabled());
+      releaseRefresh();
+      expect(await screen.findByLabelText('Open workout Run in the gap')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Load earlier' }));
+      await waitFor(() => expect(client.isFetching({ queryKey: queryKeys.calendar('runner@example.com') })).toBe(0));
+      await act(() => client.invalidateQueries({ queryKey: queryKeys.calendar('runner@example.com') }));
+      expect(screen.getAllByLabelText('Open workout Long run')).toHaveLength(1);
+      expect(screen.queryByLabelText('Open workout Old workout')).toBeNull();
+      expect(screen.getByLabelText('Open workout Another run')).toBeOnTheScreen();
+    } finally { releaseRefresh(); }
   });
 
   it('shows plan errors without offering a save', async () => {
