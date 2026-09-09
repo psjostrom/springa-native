@@ -19,7 +19,8 @@ export function getEventIcon(event: CalendarEvent): string {
   if (event.category === 'long') return '🏃';
   if (event.category === 'interval') return '⚡';
   if (event.name.toLowerCase().includes('club')) return '👥';
-  return '✓';
+  if (event.category === 'easy') return '👟';
+  return '🏃';
 }
 
 export type CardStatus = 'planned' | 'completed' | 'missed' | 'race';

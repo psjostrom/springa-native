@@ -66,6 +66,17 @@ describe('AgendaEventCard', () => {
 });
 
 describe('AgendaList', () => {
+  it('opens workout creation from the Agenda header', async () => {
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <View style={{ width: 390, height: 800 }}><AgendaList /></View>
+      </TestAppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.press(await screen.findByRole('button', { name: 'Add workout' }));
+    expect(await screen.findByText('One run, shaped by your training plan')).toBeOnTheScreen();
+  });
+
   it('shows Agenda without inactive Month or Week actions', async () => {
     await render(
       <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>

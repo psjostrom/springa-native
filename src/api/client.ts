@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '@/auth/config';
+import { parseCreatedWorkout, parseSingleWorkoutPreview } from './singleWorkout';
 import { parseBgPayload } from './bg';
 import { parseCalendarEvents } from './calendar';
 import { parseCompletedWorkoutOverview } from './completedWorkoutOverview';
@@ -11,6 +12,8 @@ import {
 } from './planner';
 import type { ApiErrorDetails } from './errors';
 import type {
+  CreateWorkoutRequest,
+  SingleWorkoutPreview,
   BgPayload,
   CalendarEvent,
   CompletedWorkoutOverview,
@@ -39,6 +42,8 @@ export type ApiClientOptions = {
 
 export type ApiClient = {
   apiFetch: <T>(path: string, init?: RequestInit) => Promise<T>;
+  previewWorkout: (date: string, category?: PlannedWorkoutReplacementCategory) => Promise<SingleWorkoutPreview>;
+  createWorkout: (request: CreateWorkoutRequest) => Promise<{ newId: number }>;
   getSettings: () => Promise<UserSettings>;
   getPlanner: () => Promise<PlannerState>;
   savePlannerConfig: (config: PlannerConfig) => Promise<{ ok: true }>;
@@ -242,6 +247,18 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       );
     },
     getBg: async () => parseBgPayload(await apiFetch<unknown>('/api/bg')),
+    previewWorkout: async (date, category) => {
+      const params = new URLSearchParams({ date });
+      if (category) params.set('category', category);
+      const preview = parseSingleWorkoutPreview(await apiFetch<unknown>(`/api/intervals/events/preview?${params}`));
+      if (preview.date !== date || (category != null && preview.category !== category)) {
+        throw new ApiError(200, 'Workout preview did not match the requested date and category');
+      }
+      return preview;
+    },
+    createWorkout: async (request) => parseCreatedWorkout(await apiFetch<unknown>('/api/intervals/events', {
+      method: 'POST', body: JSON.stringify(request),
+    })),
     getPlannedWorkoutDetail: async (eventId: string) =>
       parsePlannedWorkoutDetail(
         await apiFetch<unknown>(

@@ -1,13 +1,15 @@
 import { LegendList } from '@legendapp/list/react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, History } from 'lucide-react-native';
+import { ChevronLeft, History, Plus } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { CreateWorkoutSheet } from '@/components/workout/CreateWorkoutSheet';
 import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
-import { AppText, Card, StateView } from '@/components/ui';
+import { AppText, Card, IconButton, StateView } from '@/components/ui';
+import { startOfLocalDay } from '@/domain/eventStatus';
 import { splitAgendaEvents } from '@/domain/agendaAnchor';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 
@@ -24,12 +26,14 @@ type AgendaListProps = {
 };
 
 export function AgendaList({ onOpenWorkout }: AgendaListProps) {
+  const [createPresented, setCreatePresented] = useState(false);
   const [view, setView] = useState<AgendaViewMode>('upcoming');
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
   const { status: authStatus, session } = useAuth();
   const {
     events,
+    pendingEventIds,
     isLoading,
     isError,
     error,
@@ -47,11 +51,11 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   const plannedUpcomingKey = useMemo(
     () =>
       upcoming
-        .filter((event) => event.type === 'planned')
+        .filter((event) => event.type === 'planned' && !pendingEventIds.includes(event.id))
         .slice(0, 10)
         .map((event) => event.id)
         .join(','),
-    [upcoming],
+    [upcoming, pendingEventIds],
   );
   const completedEarlierKey = useMemo(
     () =>
@@ -152,6 +156,7 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
   }
 
   return (
+    <>
     <LegendList
       // Remount when flipping modes — LegendList can stick on an empty frame
       // after upcoming ↔ history swaps.
@@ -184,8 +189,11 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       onEndReachedThreshold={0.5}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Card>
+          <Card style={styles.titleRow}>
             <AppText variant="subheading">Agenda</AppText>
+            <IconButton accessibilityLabel="Add workout" disabled={pendingEventIds.length > 0} onPress={() => setCreatePresented(true)}>
+              <Plus size={IconSize.md} color={SpringaColors.brandText} />
+            </IconButton>
           </Card>
           {historyMode ? (
             <Pressable
@@ -258,17 +266,25 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       renderItem={({ item }: { item: CalendarEvent }) => (
         <AgendaEventCard
           event={item}
+          saving={pendingEventIds.includes(item.id)}
           onPress={(event) => {
             onOpenWorkout?.(event.id);
           }}
         />
       )}
     />
+    <CreateWorkoutSheet
+      isPresented={createPresented}
+      onDismiss={() => setCreatePresented(false)}
+      onSave={(date) => setView(date < startOfLocalDay() ? 'history' : 'upcoming')}
+    />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   list: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   header: { gap: Spacing.sm, marginBottom: Spacing.sm },
   earlierButton: {
     flexDirection: 'row',

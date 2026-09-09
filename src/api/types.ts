@@ -340,3 +340,14 @@ export type BgPayload = {
     direction?: string;
   } | null;
 };
+
+export type SingleWorkoutPreview = {
+  date: string;
+  category: PlannedWorkoutReplacementCategory;
+  suggestedCategory: PlannedWorkoutReplacementCategory;
+  previewHash: string;
+  workout: Pick<PlannedWorkoutDetail['event'], 'name' | 'description' | 'startDateLocal'> &
+    Pick<PlannedWorkoutDetail, 'structure' | 'metrics'>;
+};
+
+export type CreateWorkoutRequest = Pick<SingleWorkoutPreview, 'date' | 'category' | 'previewHash'>;

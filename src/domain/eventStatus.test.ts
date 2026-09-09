@@ -123,6 +123,10 @@ describe('eventStatus', () => {
     expect(getCardStatus(e, today)).toBe('completed');
   });
 
+  it('uses a shoe icon for easy workouts', () => {
+    expect(getEventIcon(event({ id: 'easy', date: today, name: 'Easy run' }))).toBe('👟');
+  });
+
   it('returns race flag icon for races', () => {
     expect(
       getEventIcon(

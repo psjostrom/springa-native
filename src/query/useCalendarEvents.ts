@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import {
@@ -11,6 +12,7 @@ import {
 } from '@/domain/calendarWindows';
 import { mergeCalendarEvents } from '@/domain/mergeCalendarEvents';
 import { queryKeys } from './keys';
+import { usePendingWorkoutCreations } from './useSingleWorkout';
 import { useSettingsQuery } from './useSettingsQuery';
 
 /** Stop paging once windows fall entirely outside this horizon (empty gaps must not). */
@@ -40,6 +42,7 @@ export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 export function useCalendarEvents() {
   const client = useApiClient();
+  const queryClient = useQueryClient();
   const { status: authStatus, session } = useAuth();
   const settings = useSettingsQuery();
   const identity = session?.email ?? '';
@@ -54,8 +57,13 @@ export function useCalendarEvents() {
     initialPageParam: initialCalendarWindow() as DateWindow,
     queryFn: ({ pageParam }) => client.getCalendar(pageParam.oldest, pageParam.newest),
     // Empty windows are gaps, not boundaries — keep contiguous pages within the horizon.
-    getNextPageParam: (_lastPage, _pages, lastPageParam) =>
-      newerPageParam(lastPageParam.newest),
+    getNextPageParam: (_lastPage, _pages, lastPageParam) => {
+      const next = newerPageParam(lastPageParam.newest);
+      if (!next) return undefined;
+      // Refetch must preserve windows expanded to include a newly created workout.
+      const cached = queryClient.getQueryData<InfiniteData<CalendarEvent[], DateWindow>>(queryKeys.calendar(identity));
+      return cached?.pageParams.find((window) => window.oldest === next.oldest) ?? next;
+    },
     getPreviousPageParam: (_firstPage, _pages, firstPageParam) =>
       olderPageParam(firstPageParam.oldest),
     enabled: calendarEnabled,
@@ -63,7 +71,9 @@ export function useCalendarEvents() {
   });
 
   const pages = query.data?.pages;
-  const events = useMemo(() => mergeCalendarEvents(pages ?? []), [pages]);
+  const pendingEvents = usePendingWorkoutCreations();
+  const pendingEventIds = useMemo(() => pendingEvents.map((event) => event.id), [pendingEvents]);
+  const events = useMemo(() => mergeCalendarEvents([...(pages ?? []), pendingEvents]), [pages, pendingEvents]);
   const {
     isSuccess,
     data,
@@ -149,6 +159,7 @@ export function useCalendarEvents() {
 
   return {
     events,
+    pendingEventIds,
     isLoading: calendarEnabled && query.isPending,
     isError: calendarEnabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
