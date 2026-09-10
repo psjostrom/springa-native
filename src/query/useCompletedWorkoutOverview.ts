@@ -12,21 +12,12 @@ import { useAuth } from '@/auth/AuthContext';
 import type { ApiClient } from '@/api/client';
 import type { CalendarEvent, CompletedWorkoutOverview } from '@/api/types';
 import { queryKeys } from './keys';
+import { applyWorkoutUpdates, beginWorkoutUpdate, usePendingWorkoutUpdates } from './usePendingWorkoutUpdates';
 
 export const COMPLETED_OVERVIEW_STALE_TIME = 1000 * 60 * 60 * 24; // 24 hours
 
 const PRE_RUN_CLEANUP_WARNING =
   'Pre-run saved, but the old fallback value could not be cleared.';
-
-function matchesSelectedActivity(
-  event: CalendarEvent,
-  selected: CalendarEvent,
-): boolean {
-  return (
-    event.id === selected.id ||
-    (selected.activityId != null && event.activityId === selected.activityId)
-  );
-}
 
 function nextPreRunState(
   current: CompletedWorkoutOverview['preRunCarbs'],
@@ -75,8 +66,14 @@ export function useCompletedWorkoutOverview(activityId: string) {
     enabled,
   });
 
+  const pendingUpdates = usePendingWorkoutUpdates(identity);
+  const data = pendingUpdates.reduce((current, update) => {
+    if (current == null || update?.activityId !== activityId || update.patch?.preRunCarbsG === undefined) return current;
+    return { ...current, preRunCarbs: nextPreRunState(current.preRunCarbs, update.patch.preRunCarbsG, true) };
+  }, query.data);
+
   return {
-    data: query.data ?? null,
+    data: data ?? null,
     isEnabled: enabled,
     isLoading: enabled && query.isPending,
     isError: enabled && query.isError,
@@ -126,11 +123,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           : {
               ...current,
               pages: current.pages.map((page) =>
-                page.map((candidate) =>
-                  matchesSelectedActivity(candidate, event)
-                    ? { ...candidate, ...patch }
-                    : candidate,
-                ),
+                applyWorkoutUpdates(page, [{ eventId: event.id, activityId, patch }]),
               ),
             },
     );
@@ -138,6 +131,10 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
 
   return {
     saveCarbs: useMutation<{ ok: true }, Error, number>({
+      mutationKey: queryKeys.updateWorkout(identity),
+      networkMode: 'always',
+      retry: false,
+      onMutate: (carbsG) => beginWorkoutUpdate(queryClient, identity, { eventId: event.id, activityId, patch: { carbsIngested: carbsG } }),
       mutationFn: async (carbsG) => {
         if (carbsInFlight.current) {
           throw new Error('Save already in progress');
@@ -152,7 +149,8 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           carbsInFlight.current = false;
         }
       },
-      onSuccess: (_result, carbsG) => {
+      onSuccess: async (_result, carbsG) => {
+        await queryClient.cancelQueries({ queryKey: calendarKey });
         patchCalendar({ carbsIngested: carbsG });
       },
     }),
@@ -161,6 +159,10 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       Error,
       number | null
     >({
+      mutationKey: queryKeys.updateWorkout(identity),
+      networkMode: 'always',
+      retry: false,
+      onMutate: (carbsG) => beginWorkoutUpdate(queryClient, identity, { eventId: event.id, activityId, patch: { preRunCarbsG: carbsG } }),
       mutationFn: async (carbsG) => {
         if (preRunInFlight.current) {
           throw new Error('Save already in progress');
@@ -189,8 +191,14 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           preRunInFlight.current = false;
         }
       },
-      onSuccess: (result, carbsG) => {
-        patchCalendar({ preRunCarbsG: carbsG });
+      onSuccess: async (result, carbsG) => {
+        await Promise.all([
+          queryClient.cancelQueries({ queryKey: calendarKey }),
+          queryClient.cancelQueries({ queryKey: overviewKey }),
+        ]);
+        const previous = queryClient.getQueryData<CompletedWorkoutOverview>(overviewKey)?.preRunCarbs;
+        const preRunCarbs = nextPreRunState(previous ?? { grams: null, source: 'none', fallbackEventId: null }, carbsG, result.cleanupWarning == null);
+        patchCalendar({ preRunCarbsG: preRunCarbs.grams });
         queryClient.setQueryData<CompletedWorkoutOverview>(
           overviewKey,
           (current) =>
@@ -198,11 +206,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
               ? current
               : {
                   ...current,
-                  preRunCarbs: nextPreRunState(
-                    current.preRunCarbs,
-                    carbsG,
-                    result.cleanupWarning == null,
-                  ),
+                  preRunCarbs,
                 },
         );
       },
@@ -212,6 +216,12 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       Error,
       { rating: 'good' | 'bad'; comment: string }
     >({
+      mutationKey: queryKeys.updateWorkout(identity),
+      networkMode: 'always',
+      retry: false,
+      onMutate: ({ rating, comment }) => beginWorkoutUpdate(queryClient, identity, {
+        eventId: event.id, activityId, patch: { rating, feedbackComment: comment },
+      }),
       mutationFn: async ({ rating, comment }) => {
         if (feedbackInFlight.current) {
           throw new Error('Save already in progress');
@@ -226,7 +236,8 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           feedbackInFlight.current = false;
         }
       },
-      onSuccess: (_result, input) => {
+      onSuccess: async (_result, input) => {
+        await queryClient.cancelQueries({ queryKey: calendarKey });
         patchCalendar({ rating: input.rating, feedbackComment: input.comment });
       },
     }),

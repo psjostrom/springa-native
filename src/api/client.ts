@@ -49,7 +49,7 @@ export type ApiClient = {
   savePlannerConfig: (config: PlannerConfig) => Promise<{ ok: true }>;
   previewPlanner: (request: PlannerPreviewRequest) => Promise<PlannerPreview>;
   applyPlanner: (request: PlannerApplyRequest) => Promise<PlannerApplyResponse>;
-  getCalendar: (oldest: string, newest: string) => Promise<CalendarEvent[]>;
+  getCalendar: (oldest: string, newest: string, signal?: AbortSignal) => Promise<CalendarEvent[]>;
   getBg: () => Promise<BgPayload>;
   getPlannedWorkoutDetail: (eventId: string) => Promise<PlannedWorkoutDetail>;
   changeWorkoutEffortMetric: (
@@ -240,10 +240,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         method: 'POST',
         body: JSON.stringify(request),
       })),
-    getCalendar: async (oldest: string, newest: string) => {
+    getCalendar: async (oldest: string, newest: string, signal?: AbortSignal) => {
       const params = new URLSearchParams({ oldest, newest });
       return parseCalendarEvents(
-        await apiFetch<unknown>(`/api/intervals/calendar?${params.toString()}`),
+        await apiFetch<unknown>(`/api/intervals/calendar?${params.toString()}`, { signal }),
       );
     },
     getBg: async () => parseBgPayload(await apiFetch<unknown>('/api/bg')),

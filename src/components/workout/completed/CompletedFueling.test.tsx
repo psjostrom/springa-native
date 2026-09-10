@@ -214,7 +214,7 @@ describe('CompletedFueling', () => {
     expect(await screen.findByText('Failed to save pre-run carbs.')).toBeOnTheScreen();
   });
 
-  it('disables editors while a save is in flight', async () => {
+  it('closes the editor and disables editing while a save is in flight', async () => {
     const saveCarbs = vi.fn(() => new Promise<void>(() => {}));
     await renderFueling({}, preRun, saveCarbs);
 
@@ -223,6 +223,7 @@ describe('CompletedFueling', () => {
     await fireEvent.changeText(input, '50');
     await fireEvent(input, 'blur');
 
-    await waitFor(() => expect(screen.getByLabelText('Carbs ingested grams')).toBeDisabled());
+    expect(screen.queryByLabelText('Carbs ingested grams')).toBeNull();
+    expect(screen.getByLabelText('Edit carbs ingested')).toBeDisabled();
   });
 });

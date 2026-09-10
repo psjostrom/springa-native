@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
+import { Alert } from 'react-native';
 import type { CalendarEvent, EffortMetric, PlannedWorkoutDetail } from '@/api/types';
 import {
   PlannedWorkoutSheet,
@@ -388,6 +389,8 @@ describe('PlannedWorkoutSheet', () => {
 
   it('saves pre-run carbs when the inline editor blurs', async () => {
     let carbsG: number | null = 25;
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
     let savedBody: { carbsG: number | null } | null = null;
     server.use(
       http.get(apiUrl('/api/intervals/events/:id'), () =>
@@ -397,6 +400,7 @@ describe('PlannedWorkoutSheet', () => {
         const body = (await request.json()) as { carbsG: number | null };
         savedBody = body;
         carbsG = body.carbsG;
+        await response;
         return HttpResponse.json({ ok: true });
       }),
     );
@@ -410,7 +414,13 @@ describe('PlannedWorkoutSheet', () => {
     await fireEvent(input, 'blur');
     await waitFor(() => expect(savedBody).not.toBeNull());
     expect(savedBody).toMatchObject({ carbsG: 30 });
-    expect(await screen.findByText('30 g')).toBeOnTheScreen();
+    try {
+      expect(await screen.findByText('30 g')).toBeOnTheScreen();
+      expect(screen.queryByLabelText('Pre-run carbs grams')).toBeNull();
+      expect(screen.getByLabelText('Edit pre-run carbs')).toBeDisabled();
+    } finally {
+      await act(async () => finish());
+    }
     expect(screen.queryByLabelText('Save pre-run carbs')).toBeNull();
     expect(screen.queryByLabelText('Cancel pre-run carbs')).toBeNull();
     expect(screen.queryByLabelText('Clear pre-run carbs')).toBeNull();
@@ -562,12 +572,15 @@ describe('PlannedWorkoutSheet', () => {
     expect(screen.getByText('Workout structure')).toBeOnTheScreen();
   });
 
-  it('closes after a successful registered delete action', async () => {
+  it('closes before a registered delete action finishes', async () => {
     let deleted = false;
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
     const close = vi.fn();
     const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
-      http.delete(apiUrl('/api/intervals/events/:id'), () => {
+      http.delete(apiUrl('/api/intervals/events/:id'), async () => {
+        await response;
         deleted = true;
         return HttpResponse.json({ ok: true });
       }),
@@ -579,27 +592,41 @@ describe('PlannedWorkoutSheet', () => {
     await screen.findByText('Workout structure');
     await act(async () => actionsRef.current?.deleteWorkout());
 
+    try {
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(deleted).toBe(false);
+    } finally {
+      await act(async () => finish());
+    }
     await waitFor(() => expect(deleted).toBe(true));
-    expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('shows mutation error without closing the sheet', async () => {
+  it('reports a failed delete after the sheet unmounts', async () => {
+    const alert = vi.spyOn(Alert, 'alert');
     const close = vi.fn();
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
     const actionsRef = { current: null as PlannedWorkoutActions | null };
     server.use(
-      http.delete(apiUrl('/api/intervals/events/:id'), () =>
-        HttpResponse.json({ error: 'Failed to delete event' }, { status: 502 }),
-      ),
+      http.delete(apiUrl('/api/intervals/events/:id'), async () => {
+        await response;
+        return HttpResponse.json({ error: 'Failed to delete event' }, { status: 502 });
+      }),
     );
 
-    await renderSheet(close, {}, (actions) => {
+    const view = await renderSheet(close, {}, (actions) => {
       actionsRef.current = actions;
     });
     await screen.findByText('Workout structure');
     await act(async () => actionsRef.current?.deleteWorkout());
-
-    expect(await screen.findByText('Failed to delete event')).toBeOnTheScreen();
-    expect(close).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledTimes(1);
+    await view.unmount();
+    await act(async () => finish());
+    try {
+      await waitFor(() => expect(alert).toHaveBeenCalledWith('Couldn’t delete workout', 'Failed to delete event'));
+    } finally {
+      alert.mockRestore();
+    }
   });
 
   it('uses one native presentation for easy workouts with rounded values', async () => {

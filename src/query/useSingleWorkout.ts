@@ -3,8 +3,9 @@ import { useMemo } from 'react';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import type { CalendarEvent, SingleWorkoutPreview, PlannedWorkoutReplacementCategory } from '@/api/types';
-import { formatIsoDay, initialCalendarWindow, type DateWindow } from '@/domain/calendarWindows';
+import type { DateWindow } from '@/domain/calendarWindows';
 import { queryKeys } from './keys';
+import { upsertCalendarEvent } from './calendarCache';
 
 function previewCalendarEvent(preview: SingleWorkoutPreview, id: string): CalendarEvent {
   const { workout, category } = preview;
@@ -66,18 +67,9 @@ export function useCreateWorkout() {
       const event = previewCalendarEvent(preview, `event-${newId}`);
       let expandedWindow = false;
       queryClient.setQueryData<InfiniteData<CalendarEvent[], DateWindow>>(calendarKey, (current) => {
-        const pages = current?.pages.map((page) => page.filter((item) => item.id !== event.id)) ?? [[]];
-        const pageParams = current?.pageParams.map((window) => ({ ...window })) ?? [initialCalendarWindow(event.date)];
-        const day = formatIsoDay(event.date);
-        let index = pageParams.findIndex((window) => window.oldest <= day && window.newest >= day);
-        if (index === -1) {
-          expandedWindow = true;
-          index = day < pageParams[0].oldest ? 0 : pageParams.length - 1;
-          pageParams[index].oldest = day < pageParams[index].oldest ? day : pageParams[index].oldest;
-          pageParams[index].newest = day > pageParams[index].newest ? day : pageParams[index].newest;
-        }
-        pages[index].push(event);
-        return { pages, pageParams };
+        const result = upsertCalendarEvent(current, event);
+        expandedWindow = result.expandedWindow;
+        return result.data;
       });
       void queryClient.invalidateQueries({ queryKey: queryKeys.plannedWorkout(identity, event.id) });
       void queryClient.invalidateQueries({ queryKey: calendarKey, refetchType: expandedWindow ? 'all' : 'none' });
