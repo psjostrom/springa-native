@@ -1,4 +1,5 @@
 export const queryKeys = {
+  updateWorkout: (identity: string) => ['update-workout', identity] as const,
   createWorkout: (identity: string) => ['create-workout', identity] as const,
   singleWorkoutPreview: (identity: string, date: string, category?: string) =>
     ['single-workout-preview', identity, date, category ?? 'suggested'] as const,

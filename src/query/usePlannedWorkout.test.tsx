@@ -1,7 +1,7 @@
 import { Pressable, Text } from 'react-native';
 import { QueryClient, useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import { describe, expect, it } from 'vitest';
-import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { describe, expect, it, vi } from 'vitest';
+import { act, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import {
   PLANNED_WORKOUT_STALE_TIME,
@@ -13,6 +13,7 @@ import {
 import { createApiClient } from '@/api/client';
 import { useCalendarEvents } from './useCalendarEvents';
 import { queryKeys } from './keys';
+import type { DateWindow } from '@/domain/calendarWindows';
 import type { CalendarEvent, PlannedWorkoutDetail } from '@/api/types';
 import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
@@ -57,7 +58,7 @@ function DetailStateProbe() {
   return <Text>{isDisabled ? 'disabled' : isError ? 'error' : 'enabled'}</Text>;
 }
 
-function MutationProbe() {
+function MutationProbe({ moveTo = '2026-08-14T15:30:00' }: { moveTo?: string }) {
   const { data } = usePlannedWorkoutDetail('event-123');
   const { move, replace, savePreRunCarbs, deleteWorkout } =
     usePlannedWorkoutMutations('event-123');
@@ -67,6 +68,10 @@ function MutationProbe() {
       <Text>Carbs: {data?.preRunCarbsG ?? 'none'}</Text>
       <Text>Starts: {data?.event.startDateLocal ?? 'loading'}</Text>
       <Text>Move pending: {move.isPending ? 'yes' : 'no'}</Text>
+      <Text>Move success: {move.isSuccess ? 'yes' : 'no'}</Text>
+      <Text>Delete pending: {deleteWorkout.isPending ? 'yes' : 'no'}</Text>
+      <Text>Delete error: {deleteWorkout.error?.message ?? 'none'}</Text>
+      <Text>Carbs error: {savePreRunCarbs.error?.message ?? 'none'}</Text>
       <Text>Replacement error: {replace.isError ? 'yes' : 'no'}</Text>
       <Text>
         Replacement error message: {replace.error instanceof Error ? replace.error.message : 'none'}
@@ -75,7 +80,7 @@ function MutationProbe() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Move workout"
-        onPress={() => move.mutate('2026-08-14T15:30:00')}
+        onPress={() => move.mutate(moveTo)}
       >
         <Text>Move</Text>
       </Pressable>
@@ -213,6 +218,140 @@ function readCache(testID: string): string {
 }
 
 describe('planned workout query hooks', () => {
+  it.each(['2026-08-30', '2026-12-10', '2026-06-10'])('keeps a move to %s visible after a calendar refresh', async (day) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-13T12:00:00'));
+    let date = '2026-08-13T12:00:00';
+    const queryClient = new QueryClient();
+    server.use(
+      http.get(apiUrl('/api/intervals/events/event-123'), () => HttpResponse.json({
+        ...detail('Move me'),
+        event: { ...detail('Move me').event, startDateLocal: date },
+      })),
+      http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        const inWindow = params.get('oldest')! <= date.slice(0, 10) && params.get('newest')! >= date.slice(0, 10);
+        return HttpResponse.json(inWindow ? [{ ...staleCalendarEvent(), date }] : []);
+      }),
+      http.put(apiUrl('/api/intervals/events/event-123'), async ({ request }) => {
+        date = ((await request.json()) as { start_date_local: string }).start_date_local;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    try {
+      await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())} queryClient={queryClient}>
+        <MutationProbe moveTo={`${day}T15:30:00`} /><CalendarProbe />
+      </TestAppProviders>);
+      await screen.findByText('Calendar: Pace calendar name');
+      await userEvent.setup().press(screen.getByLabelText('Move workout'));
+      await screen.findByText(`Starts: ${day}T15:30:00`);
+      await screen.findByText('Move success: yes');
+      expect(date).toBe(`${day}T15:30:00`);
+      await waitFor(() => {
+        const cached = queryClient.getQueryData<InfiniteData<CalendarEvent[], DateWindow>>(queryKeys.calendar('runner@example.com'));
+        expect(cached?.pageParams.some((window) => window.oldest <= day && window.newest >= day)).toBe(true);
+      });
+      await act(async () => { await queryClient.refetchQueries({ queryKey: queryKeys.calendar('runner@example.com') }); });
+      expect(screen.getByText('Calendar: Pace calendar name')).toBeOnTheScreen();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([true, false])('hides pending deletion, survives refresh, and reconciles success=%s', async (success) => {
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const calendarKey = queryKeys.calendar('runner@example.com');
+    server.use(
+      http.get(apiUrl('/api/intervals/events/event-123'), () => HttpResponse.json(detail('Delete me'))),
+      http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([staleCalendarEvent()])),
+      http.delete(apiUrl('/api/intervals/events/event-123'), async () => {
+        await response;
+        return success ? HttpResponse.json({ ok: true })
+          : HttpResponse.json({ error: 'delete failed' }, { status: 502 });
+      }),
+    );
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())} queryClient={queryClient}>
+      <MutationProbe /><CalendarProbe />
+    </TestAppProviders>);
+    const user = userEvent.setup();
+    await screen.findByText('Calendar: Pace calendar name');
+    await user.press(screen.getByLabelText('Delete workout'));
+    try {
+      await screen.findByText('Delete pending: yes');
+      expect(screen.queryByText('Calendar: Pace calendar name')).toBeNull();
+      await act(async () => { await queryClient.refetchQueries({ queryKey: calendarKey }); });
+      expect(screen.queryByText('Calendar: Pace calendar name')).toBeNull();
+      // Only confirmed server data belongs in the persisted query cache.
+      expect(queryClient.getQueryData<InfiniteData<CalendarEvent[]>>(calendarKey)?.pages.flat()).not.toHaveLength(0);
+    } finally {
+      await act(async () => finish());
+    }
+    await screen.findByText('Delete pending: no');
+    if (success) {
+      expect(screen.queryByText('Calendar: Pace calendar name')).toBeNull();
+      expect(queryClient.getQueryData<InfiniteData<CalendarEvent[]>>(calendarKey)?.pages.flat()).toHaveLength(0);
+    } else {
+      expect(await screen.findByText('Calendar: Pace calendar name')).toBeOnTheScreen();
+      expect(screen.getByText('Delete error: delete failed')).toBeOnTheScreen();
+    }
+  });
+
+  it('rolls back a failed move without losing concurrently saved carbs', async () => {
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
+    server.use(
+      http.get(apiUrl('/api/intervals/events/event-123'), () => HttpResponse.json(detail('Move me'))),
+      http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([staleCalendarEvent()])),
+      http.put(apiUrl('/api/intervals/events/event-123'), async () => {
+        await response;
+        return HttpResponse.json({ error: 'move failed' }, { status: 502 });
+      }),
+      http.post(apiUrl('/api/prerun-carbs'), () => HttpResponse.json({ ok: true })),
+    );
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+      <MutationProbe /><CalendarProbe />
+    </TestAppProviders>);
+    const user = userEvent.setup();
+    await screen.findByText('Starts: 2026-08-13T12:00:00');
+    await user.press(screen.getByLabelText('Move workout'));
+    await screen.findByText('Starts: 2026-08-14T15:30:00');
+    await user.press(screen.getByLabelText('Save pre-run carbs'));
+    await screen.findByText('CalendarCarbs: 30');
+    await act(async () => finish());
+    await screen.findByText('Starts: 2026-08-13T12:00:00');
+    expect(screen.getByText('Carbs: 30')).toBeOnTheScreen();
+    expect(screen.getByText('CalendarCarbs: 30')).toBeOnTheScreen();
+  });
+
+  it('shows pre-run carbs before the response and restores them on failure', async () => {
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
+    server.use(
+      http.get(apiUrl('/api/intervals/events/event-123'), () => HttpResponse.json(detail('Carbs'))),
+      http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([staleCalendarEvent()])),
+      http.post(apiUrl('/api/prerun-carbs'), async () => {
+        await response;
+        return HttpResponse.json({ error: 'carbs failed' }, { status: 502 });
+      }),
+    );
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+      <MutationProbe /><CalendarProbe />
+    </TestAppProviders>);
+    await screen.findByText('Workout: Carbs');
+    await userEvent.setup().press(screen.getByLabelText('Save pre-run carbs'));
+    try {
+      expect(await screen.findByText('Carbs: 30')).toBeOnTheScreen();
+      expect(screen.getByText('CalendarCarbs: 30')).toBeOnTheScreen();
+    } finally {
+      await act(async () => finish());
+    }
+    await screen.findByText('Carbs error: carbs failed');
+    expect(screen.getByText('Carbs: none')).toBeOnTheScreen();
+    expect(screen.getByText('CalendarCarbs: none')).toBeOnTheScreen();
+  });
+
   it('reports disabled detail queries separately from errors', async () => {
     await render(
       <TestAppProviders auth={makeTestAuthValue(null)}>
@@ -542,44 +681,38 @@ describe('planned workout query hooks', () => {
     expect(await screen.findByText('Starts: 2026-08-13T12:00:00')).toBeOnTheScreen();
   });
 
-  it('settles a move before the Calendar refresh finishes', async () => {
-    let calendarGets = 0;
-    let blockRefresh = false;
-    let releaseRefresh: (() => void) | null = null;
+  it('keeps the moved date while Calendar reconciles with the server', async () => {
+    let date = '2026-08-13T12:00:00';
+    let detailGets = 0;
     server.use(
-      http.get(apiUrl('/api/intervals/events/event-123'), () =>
-        HttpResponse.json(detail('Move me')),
-      ),
-      http.get(apiUrl('/api/intervals/calendar'), async () => {
-        calendarGets += 1;
-        if (blockRefresh) {
-          await new Promise<void>((resolve) => { releaseRefresh = resolve; });
-        }
-        return HttpResponse.json([]);
+      http.get(apiUrl('/api/intervals/events/event-123'), () => {
+        detailGets += 1;
+        return HttpResponse.json({
+          ...detail('Move me'),
+          event: { ...detail('Move me').event, startDateLocal: date },
+        });
       }),
-      http.put(apiUrl('/api/intervals/events/event-123'), () =>
-        HttpResponse.json({ ok: true }),
-      ),
+      http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([{ ...staleCalendarEvent(), date }])),
+      http.put(apiUrl('/api/intervals/events/event-123'), async ({ request }) => {
+        date = ((await request.json()) as { start_date_local: string }).start_date_local;
+        return HttpResponse.json({ ok: true });
+      }),
     );
-
-    await render(
-      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
-        <MutationProbe />
-        <CalendarProbe />
-      </TestAppProviders>,
-    );
-
-    expect(await screen.findByText('Move pending: no')).toBeOnTheScreen();
-    await waitFor(() => expect(calendarGets).toBeGreaterThan(0));
-    const calendarBaseline = calendarGets;
-    blockRefresh = true;
-    const user = userEvent.setup();
-    await user.press(screen.getByLabelText('Move workout'));
-
-    await waitFor(() => expect(calendarGets).toBeGreaterThan(calendarBaseline));
-    expect(screen.getByText('Move pending: no')).toBeOnTheScreen();
-    await waitFor(() => expect(releaseRefresh).not.toBeNull());
-    releaseRefresh!();
+    const queryClient = new QueryClient();
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())} queryClient={queryClient}>
+      <MutationProbe /><CalendarProbe />
+    </TestAppProviders>);
+    await screen.findByText('Calendar: Pace calendar name');
+    await userEvent.setup().press(screen.getByLabelText('Move workout'));
+    await screen.findByText('Starts: 2026-08-14T15:30:00');
+    await screen.findByText('Move success: yes');
+    await waitFor(() => {
+      expect(detailGets).toBe(2);
+      const events = queryClient.getQueryData<InfiniteData<CalendarEvent[]>>(queryKeys.calendar('runner@example.com'))?.pages.flat();
+      expect(events?.find((event) => event.id === 'event-123')?.date.getTime()).toBe(
+        new Date('2026-08-14T15:30:00').getTime(),
+      );
+    });
   });
 
   it('updates Calendar from fresh replacement detail when Calendar is stale', async () => {
@@ -679,50 +812,6 @@ describe('planned workout query hooks', () => {
     expect(await screen.findByText('CalendarCarbs: 30')).toBeOnTheScreen();
     expect(detailGets).toBe(1);
     expect(calendarGets).toBe(calendarBaseline);
-  });
-
-  it('does not refetch deleted detail before Calendar refresh', async () => {
-    let detailGets = 0;
-    let calendarGets = 0;
-    server.use(
-      http.get(apiUrl('/api/intervals/events/event-123'), () => {
-        detailGets += 1;
-        return HttpResponse.json(detail('Delete me'));
-      }),
-      http.get(apiUrl('/api/intervals/calendar'), () => {
-        calendarGets += 1;
-        return HttpResponse.json([
-          {
-            id: 'event-123',
-            date: new Date().toISOString(),
-            name: 'Delete me',
-            description: '',
-            type: 'planned',
-            category: 'easy',
-          },
-        ]);
-      }),
-      http.delete(apiUrl('/api/intervals/events/event-123'), () =>
-        HttpResponse.json({ ok: true }),
-      ),
-    );
-
-    await render(
-      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
-        <MutationProbe />
-        <CalendarProbe />
-      </TestAppProviders>,
-    );
-
-    expect(await screen.findByText('Workout: Delete me')).toBeOnTheScreen();
-    expect(await screen.findByText('Calendar: Delete me')).toBeOnTheScreen();
-    await waitFor(() => expect(calendarGets).toBeGreaterThan(0));
-    const calendarBaseline = calendarGets;
-    const user = userEvent.setup();
-    await user.press(screen.getByLabelText('Delete workout'));
-    await waitFor(() => expect(calendarGets).toBeGreaterThan(calendarBaseline));
-
-    expect(detailGets).toBe(1);
   });
 
   describe('plannedWorkoutQueryOptions & prefetchPlannedWorkoutDetail', () => {

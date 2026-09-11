@@ -14,6 +14,7 @@ import { mergeCalendarEvents } from '@/domain/mergeCalendarEvents';
 import { queryKeys } from './keys';
 import { usePendingWorkoutCreations } from './useSingleWorkout';
 import { useSettingsQuery } from './useSettingsQuery';
+import { applyWorkoutUpdates, usePendingWorkoutUpdates } from './usePendingWorkoutUpdates';
 
 /** Stop paging once windows fall entirely outside this horizon (empty gaps must not). */
 const LOOKBACK_DAYS = 730;
@@ -55,7 +56,7 @@ export function useCalendarEvents() {
   const query = useInfiniteQuery({
     queryKey: queryKeys.calendar(identity),
     initialPageParam: initialCalendarWindow() as DateWindow,
-    queryFn: ({ pageParam }) => client.getCalendar(pageParam.oldest, pageParam.newest),
+    queryFn: ({ pageParam, signal }) => client.getCalendar(pageParam.oldest, pageParam.newest, signal),
     // Empty windows are gaps, not boundaries — keep contiguous pages within the horizon.
     getNextPageParam: (_lastPage, _pages, lastPageParam) => {
       const next = newerPageParam(lastPageParam.newest);
@@ -72,8 +73,11 @@ export function useCalendarEvents() {
 
   const pages = query.data?.pages;
   const pendingEvents = usePendingWorkoutCreations();
+  const pendingUpdates = usePendingWorkoutUpdates(identity);
   const pendingEventIds = useMemo(() => pendingEvents.map((event) => event.id), [pendingEvents]);
-  const events = useMemo(() => mergeCalendarEvents([...(pages ?? []), pendingEvents]), [pages, pendingEvents]);
+  const events = useMemo(() => mergeCalendarEvents([
+    applyWorkoutUpdates((pages ?? []).flat(), pendingUpdates), pendingEvents,
+  ]), [pages, pendingEvents, pendingUpdates]);
   const {
     isSuccess,
     data,

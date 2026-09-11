@@ -1,13 +1,14 @@
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
-import { act, render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import type { CalendarEvent } from '@/api/types';
 import { ApiClientProvider } from '@/api/ApiClientProvider';
 import { AuthProviderForTests } from '@/auth/AuthContext';
 import { CompletedWorkoutSheet } from '@/components/workout/CompletedWorkoutSheet';
 import { queryKeys } from '@/query/keys';
+import { useCalendarEvents } from '@/query/useCalendarEvents';
 import { defaultCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
 import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
@@ -39,7 +40,61 @@ const completedEvent: CalendarEvent = {
   activityId: 'activity-123',
 };
 
+function LiveWorkoutSheet() {
+  const { events } = useCalendarEvents();
+  const event = events.find((candidate) => candidate.id === completedEvent.id);
+  return event ? <CompletedWorkoutSheet event={event} /> : null;
+}
+
 describe('CompletedWorkoutSheet', () => {
+  it.each(['carbs', 'pre-run', 'feedback'] as const)('shows submitted %s immediately and restores the draft on failure', async (kind) => {
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
+    const fail = async () => {
+      await response;
+      return HttpResponse.json({ error: 'save failed' }, { status: 502 });
+    };
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([completedEvent])),
+      http.put(apiUrl('/api/intervals/activity/:id'), fail),
+      http.post(apiUrl('/api/run-feedback'), fail),
+    );
+    await renderWithApp(<LiveWorkoutSheet />);
+    await screen.findByText('Fueling');
+    const user = userEvent.setup();
+    const label = kind === 'carbs' ? 'Carbs ingested' : 'Pre-run carbs';
+    if (kind === 'feedback') {
+      await user.press(screen.getByRole('button', { name: 'Good' }));
+      await fireEvent.changeText(screen.getByLabelText('Feedback comment'), 'Strong finish');
+      await user.press(screen.getByRole('button', { name: 'Save' }));
+    } else {
+      await user.press(screen.getByLabelText(`Edit ${label.toLowerCase()}`));
+      const input = screen.getByLabelText(`${label} grams`);
+      await fireEvent.changeText(input, '55');
+      await fireEvent(input, 'submitEditing');
+    }
+    try {
+      if (kind === 'feedback') {
+        expect(await screen.findByLabelText('Run feedback')).toBeOnTheScreen();
+        expect(screen.getByText('Strong finish')).toBeOnTheScreen();
+      } else {
+        expect(await screen.findByText('55 g')).toBeOnTheScreen();
+        expect(screen.queryByLabelText(`${label} grams`)).toBeNull();
+        expect(screen.getByLabelText(`Edit ${label.toLowerCase()}`)).toBeDisabled();
+      }
+    } finally {
+      await act(async () => finish());
+    }
+    expect(await screen.findByText('save failed')).toBeOnTheScreen();
+    if (kind === 'feedback') {
+      expect(screen.getByDisplayValue('Strong finish')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+    } else {
+      expect(screen.getByDisplayValue('55')).toBeOnTheScreen();
+      expect(screen.getByLabelText(`${label} grams`)).not.toBeDisabled();
+    }
+  });
+
   it('renders the full Overview from the server', async () => {
     await renderWithApp(<CompletedWorkoutSheet event={completedEvent} />);
 

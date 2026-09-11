@@ -49,10 +49,11 @@ export function PreRunCarbsRow({
 
     committingRef.current = input;
     setError(null);
+    setEditing(false);
     try {
       await onSave(carbsG);
-      setEditing(false);
     } catch (saveError) {
+      setEditing(true);
       setError(
         saveError instanceof Error ? saveError.message : 'Failed to save pre-run carbs.',
       );
@@ -100,7 +101,7 @@ export function PreRunCarbsRow({
           <AppText variant="subheading" style={styles.value} selectable>
             {value == null ? 'Add' : `${value} g`}
           </AppText>
-          <IconButton accessibilityLabel="Edit pre-run carbs" onPress={beginEditing}>
+          <IconButton accessibilityLabel="Edit pre-run carbs" onPress={beginEditing} disabled={pending}>
             <Pencil color={SpringaColors.muted} size={16} />
           </IconButton>
         </View>

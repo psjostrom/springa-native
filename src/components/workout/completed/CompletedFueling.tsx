@@ -79,13 +79,14 @@ function useEditor({ value, allowClear, onSave, saveErrorFallback }: {
     committingRef.current = input;
     setSaving(true);
     setError(null);
+    setEditing(false);
     try {
       const result = await onSave(carbsG);
       if (result != null && 'cleanupWarning' in result) {
         setCleanupWarning(result.cleanupWarning ?? null);
       }
-      setEditing(false);
     } catch (saveError) {
+      setEditing(true);
       setError(saveError instanceof Error ? saveError.message : saveErrorFallback);
     } finally {
       setSaving(false);

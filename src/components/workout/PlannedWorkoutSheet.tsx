@@ -1,5 +1,6 @@
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   RefreshControl,
   ScrollView,
@@ -424,12 +425,12 @@ function DetailBody({
   }, [mutations.replace, onReplace]);
 
   const deleteWorkout = useCallback(async () => {
-    setActionMessage(null);
+    const deletion = mutations.deleteWorkout.mutateAsync();
+    onClose();
     try {
-      await mutations.deleteWorkout.mutateAsync();
-      onClose();
+      await deletion;
     } catch (error) {
-      setActionMessage(error instanceof Error ? error.message : 'Failed to delete workout.');
+      Alert.alert('Couldn’t delete workout', error instanceof Error ? error.message : 'Failed to delete workout.');
     }
   }, [mutations.deleteWorkout, onClose]);
 

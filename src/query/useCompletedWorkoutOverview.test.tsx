@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import { describe, expect, it } from 'vitest';
-import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { act, render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import { QueryClient } from '@tanstack/react-query';
 import {
@@ -181,7 +181,7 @@ function CalendarProbe() {
   );
 }
 
-function MutationProbe({ event = selectedEvent() }: { event?: CalendarEvent }) {
+function MutationProbe({ event = selectedEvent(), carbs = 60 }: { event?: CalendarEvent; carbs?: number }) {
   const { saveCarbs, savePreRunCarbs, saveFeedback } =
     useCompletedWorkoutMutations(event);
   return (
@@ -195,7 +195,7 @@ function MutationProbe({ event = selectedEvent() }: { event?: CalendarEvent }) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Save carbs"
-        onPress={() => saveCarbs.mutate(60)}
+        onPress={() => saveCarbs.mutate(carbs)}
       >
         <Text>Save carbs</Text>
       </Pressable>
@@ -239,6 +239,83 @@ function PreRunWarningProbe() {
 }
 
 describe('completed workout overview query', () => {
+  it('blocks a second save of the same field after the workout is reopened', async () => {
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
+    const saved: number[] = [];
+    server.use(
+      calendarHandler({ [calendarPages().initial.oldest]: [rawCompletedEvent()] }, { gets: 0 }),
+      http.put(apiUrl('/api/intervals/activity/:id'), async ({ request }) => {
+        const body = await request.json() as { carbs_ingested: number };
+        saved.push(body.carbs_ingested);
+        if (body.carbs_ingested === 60) await response;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    const queryClient = new QueryClient();
+    const view = await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())} queryClient={queryClient}>
+      <MutationProbe key="first" /><CalendarProbe />
+    </TestAppProviders>);
+    const user = userEvent.setup();
+    await screen.findByText(/event-1: carbs=45/);
+    await user.press(screen.getByLabelText('Save carbs'));
+    await screen.findByText(/event-1: carbs=60/);
+    await view.rerender(<TestAppProviders auth={makeTestAuthValue(makeTestSession())} queryClient={queryClient}>
+      <MutationProbe key="reopened" carbs={75} /><CalendarProbe />
+    </TestAppProviders>);
+    try {
+      await user.press(screen.getByLabelText('Save carbs'));
+      await screen.findByText('Carbs error: Save already in progress');
+      expect(saved).toEqual([60]);
+      expect(screen.getByText(/event-1: carbs=60/)).toBeOnTheScreen();
+    } finally {
+      await act(async () => finish());
+    }
+  });
+
+  it.each(['carbs', 'pre-run', 'feedback'] as const)('shows pending %s and restores only that edit on failure', async (kind) => {
+    let finish!: () => void;
+    const response = new Promise<void>((resolve) => { finish = resolve; });
+    const failedResponse = async () => {
+      await response;
+      return HttpResponse.json({ error: 'save failed' }, { status: 502 });
+    };
+    const pages = calendarPages();
+    server.use(
+      calendarHandler({ [pages.initial.oldest]: [rawCompletedEvent({ rating: null, feedbackComment: null })] }, { gets: 0 }),
+      overviewHandler(overviewFixture({ grams: 20, source: 'paired-event', fallbackEventId: 101 })),
+      http.put(apiUrl('/api/intervals/activity/:id'), failedResponse),
+      http.post(apiUrl('/api/run-feedback'), kind === 'feedback' ? failedResponse : () => HttpResponse.json({ ok: true })),
+    );
+    await render(<TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+      <MutationProbe /><CalendarProbe /><OverviewProbe />
+    </TestAppProviders>);
+    await screen.findByText('Pre-run: 20 (paired-event)');
+    await screen.findByText(/event-1: carbs=45/);
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText(`Save ${kind}`));
+    try {
+      if (kind === 'carbs') await screen.findByText(/event-1: carbs=60/);
+      if (kind === 'pre-run') {
+        await screen.findByText(/event-1: carbs=45 pre=30/);
+        expect(screen.getByText('Pre-run: 30 (activity)')).toBeOnTheScreen();
+      }
+      if (kind === 'feedback') await screen.findByText(/rating=good comment=Strong finish/);
+      else {
+        await user.press(screen.getByLabelText('Save feedback'));
+        await screen.findByText(/rating=good comment=Strong finish/);
+        await screen.findByText('Feedback pending: no');
+      }
+    } finally {
+      await act(async () => finish());
+    }
+    await screen.findByText(`${kind === 'carbs' ? 'Carbs' : kind === 'pre-run' ? 'Pre-run' : 'Feedback'} error: save failed`);
+    expect(screen.getByText('Pre-run: 20 (paired-event)')).toBeOnTheScreen();
+    expect(screen.getByText(kind === 'feedback'
+      ? /event-1: carbs=45 pre=25 rating=none comment=none/
+      : /event-1: carbs=45 pre=25 rating=good comment=Strong finish/)).toBeOnTheScreen();
+  });
+
   it('loads the selected overview for a signed-in user', async () => {
     server.use(overviewHandler(overviewFixture()));
 
