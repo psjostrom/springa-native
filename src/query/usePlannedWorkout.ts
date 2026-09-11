@@ -167,7 +167,7 @@ export function usePlannedWorkoutMutations(eventId: string) {
           },
         );
         void queryClient.invalidateQueries({ queryKey: calendarKey, refetchType: 'all' });
-        void queryClient.invalidateQueries({ queryKey: plannedWorkoutKey, refetchType: 'none' });
+        void queryClient.invalidateQueries({ queryKey: plannedWorkoutKey });
       },
     }),
     replace: useMutation({

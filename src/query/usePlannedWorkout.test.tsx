@@ -224,7 +224,10 @@ describe('planned workout query hooks', () => {
     let date = '2026-08-13T12:00:00';
     const queryClient = new QueryClient();
     server.use(
-      http.get(apiUrl('/api/intervals/events/event-123'), () => HttpResponse.json(detail('Move me'))),
+      http.get(apiUrl('/api/intervals/events/event-123'), () => HttpResponse.json({
+        ...detail('Move me'),
+        event: { ...detail('Move me').event, startDateLocal: date },
+      })),
       http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
         const params = new URL(request.url).searchParams;
         const inWindow = params.get('oldest')! <= date.slice(0, 10) && params.get('newest')! >= date.slice(0, 10);
@@ -680,8 +683,15 @@ describe('planned workout query hooks', () => {
 
   it('keeps the moved date while Calendar reconciles with the server', async () => {
     let date = '2026-08-13T12:00:00';
+    let detailGets = 0;
     server.use(
-      http.get(apiUrl('/api/intervals/events/event-123'), () => HttpResponse.json(detail('Move me'))),
+      http.get(apiUrl('/api/intervals/events/event-123'), () => {
+        detailGets += 1;
+        return HttpResponse.json({
+          ...detail('Move me'),
+          event: { ...detail('Move me').event, startDateLocal: date },
+        });
+      }),
       http.get(apiUrl('/api/intervals/calendar'), () => HttpResponse.json([{ ...staleCalendarEvent(), date }])),
       http.put(apiUrl('/api/intervals/events/event-123'), async ({ request }) => {
         date = ((await request.json()) as { start_date_local: string }).start_date_local;
@@ -697,6 +707,7 @@ describe('planned workout query hooks', () => {
     await screen.findByText('Starts: 2026-08-14T15:30:00');
     await screen.findByText('Move success: yes');
     await waitFor(() => {
+      expect(detailGets).toBe(2);
       const events = queryClient.getQueryData<InfiniteData<CalendarEvent[]>>(queryKeys.calendar('runner@example.com'))?.pages.flat();
       expect(events?.find((event) => event.id === 'event-123')?.date.getTime()).toBe(
         new Date('2026-08-14T15:30:00').getTime(),

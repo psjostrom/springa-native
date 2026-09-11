@@ -242,8 +242,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       })),
     getCalendar: async (oldest: string, newest: string, signal?: AbortSignal) => {
       const params = new URLSearchParams({ oldest, newest });
+      const timeoutSignal = AbortSignal.timeout(timeoutMs);
       return parseCalendarEvents(
-        await apiFetch<unknown>(`/api/intervals/calendar?${params.toString()}`, { signal }),
+        await apiFetch<unknown>(`/api/intervals/calendar?${params.toString()}`, {
+          signal: signal == null
+            ? timeoutSignal
+            : AbortSignal.any([signal, timeoutSignal]),
+        }),
       );
     },
     getBg: async () => parseBgPayload(await apiFetch<unknown>('/api/bg')),

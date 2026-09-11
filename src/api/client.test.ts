@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { ApiError, createApiClient, parseUserSettings } from './client';
 import { apiUrl } from '@/test/msw/helpers';
@@ -121,6 +121,32 @@ describe('createApiClient', () => {
     expect(events.length).toBeGreaterThan(0);
     expect(events[0]?.date).toBeInstanceOf(Date);
     expect(events.some((e) => e.name === 'Threshold intervals')).toBe(true);
+  });
+
+  it('combines calendar cancellation with the configured timeout', async () => {
+    const caller = new AbortController();
+    const anySpy = vi.spyOn(AbortSignal, 'any');
+
+    try {
+      const request = createApiClient({
+        getToken: () => 'test-token',
+        onUnauthorized: () => {},
+        baseUrl,
+        timeoutMs: 1_000,
+      }).getCalendar(isoDaysFromToday(-7), isoDaysFromToday(7), caller.signal);
+
+      const signals = anySpy.mock.calls[0]?.[0];
+      expect(signals).toHaveLength(2);
+      expect(signals?.[0]).toBe(caller.signal);
+      expect(signals?.[1]).toBeInstanceOf(AbortSignal);
+      caller.abort();
+      await expect(request).rejects.toMatchObject({
+        name: 'ApiError',
+        message: 'Request timed out. Check your connection and try again.',
+      });
+    } finally {
+      anySpy.mockRestore();
+    }
   });
 
   it('returns bg payload on 200', async () => {
