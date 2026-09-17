@@ -620,7 +620,7 @@ export function FeedbackForm({
           label="Save"
           variant="primary"
           loading={pending}
-          disabled={pending}
+          disabled={pending || (!hasGarminMetrics && selectedFeel == null)}
           onPress={handleSave}
           style={styles.actionButton}
         />

@@ -72,7 +72,6 @@ export default function FeedbackScreen() {
         ref={scrollRef}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        automaticallyAdjustKeyboardInsets
         keyboardDismissMode="on-drag"
         style={styles.scroll}
         contentContainerStyle={styles.content}
