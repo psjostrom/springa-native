@@ -304,7 +304,12 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           input.preRunCarbsG !== undefined
             ? input.preRunCarbsG
             : input.protocol?.preRunCarbsG;
-        if (input.protocol || resolvedPreRunCarbsG !== undefined || input.feel !== undefined) {
+        if (
+          input.protocol !== undefined ||
+          resolvedPreRunCarbsG !== undefined ||
+          input.feel !== undefined ||
+          input.rpe !== undefined
+        ) {
           queryClient.setQueryData<CompletedWorkoutOverview>(
             overviewKey,
             (current) =>
@@ -314,7 +319,8 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
                     ...current,
                     feel: input.feel !== undefined ? input.feel : current.feel,
                     rpe: input.rpe !== undefined ? input.rpe : current.rpe,
-                    protocol: input.protocol ?? current.protocol,
+                    protocol:
+                      input.protocol !== undefined ? input.protocol : current.protocol,
                     preRunCarbs:
                       resolvedPreRunCarbsG !== undefined
                         ? nextPreRunState(current.preRunCarbs, resolvedPreRunCarbsG, true)
