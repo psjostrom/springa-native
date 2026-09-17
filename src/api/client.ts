@@ -27,6 +27,7 @@ import type {
   PlannerPreviewRequest,
   PlannerState,
   UserSettings,
+  WorkoutProtocol,
 } from './types';
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -80,8 +81,20 @@ export type ApiClient = {
   deletePreRunCarbs: (eventId: number) => Promise<void>;
   saveRunFeedback: (
     activityId: string,
-    rating: 'good' | 'bad',
-    comment: string,
+    ratingOrOptions:
+      | 'good'
+      | 'bad'
+      | 'skipped'
+      | string
+      | {
+          rating?: 'good' | 'bad' | 'skipped' | string | null;
+          comment?: string | null;
+          protocol?: WorkoutProtocol | null;
+          carbsG?: number | null;
+          preRunCarbsG?: number | null;
+        },
+    comment?: string,
+    protocol?: WorkoutProtocol | null,
   ) => Promise<{ ok: true }>;
 };
 
@@ -344,12 +357,43 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     },
     saveRunFeedback: (
       activityId: string,
-      rating: 'good' | 'bad',
-      comment: string,
-    ) =>
-      apiFetch<{ ok: true }>('/api/run-feedback', {
+      ratingOrOptions:
+        | 'good'
+        | 'bad'
+        | 'skipped'
+        | string
+        | {
+            rating?: 'good' | 'bad' | 'skipped' | string | null;
+            comment?: string | null;
+            protocol?: WorkoutProtocol | null;
+            carbsG?: number | null;
+            preRunCarbsG?: number | null;
+          },
+      comment?: string,
+      protocol?: WorkoutProtocol | null,
+    ) => {
+      let body: Record<string, unknown>;
+      if (typeof ratingOrOptions === 'object' && ratingOrOptions !== null) {
+        body = {
+          activityId,
+          rating: ratingOrOptions.rating ?? undefined,
+          comment: ratingOrOptions.comment ?? undefined,
+          protocol: ratingOrOptions.protocol ?? undefined,
+          carbsG: ratingOrOptions.carbsG ?? undefined,
+          preRunCarbsG: ratingOrOptions.preRunCarbsG ?? undefined,
+        };
+      } else {
+        body = {
+          activityId,
+          rating: ratingOrOptions,
+          comment,
+          protocol: protocol ?? undefined,
+        };
+      }
+      return apiFetch<{ ok: true }>('/api/run-feedback', {
         method: 'POST',
-        body: JSON.stringify({ activityId, rating, comment }),
-      }),
+        body: JSON.stringify(body),
+      });
+    },
   };
 }

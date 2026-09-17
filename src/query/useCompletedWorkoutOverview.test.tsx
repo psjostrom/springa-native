@@ -104,6 +104,9 @@ function overviewFixture(
     },
     splits: null,
     preRunCarbs,
+    protocol: null,
+    feel: null,
+    rpe: null,
   };
 }
 

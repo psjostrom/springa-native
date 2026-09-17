@@ -1,0 +1,167 @@
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, userEvent } from '@testing-library/react-native';
+import type { CalendarEvent } from '@/api/types';
+import { FeedbackForm } from './FeedbackForm';
+
+const baseEvent: CalendarEvent = {
+  id: 'evt-1',
+  activityId: 'act-1',
+  date: new Date('2026-09-12T10:00:00Z'),
+  name: 'Morning Easy Run',
+  description: '',
+  type: 'completed',
+  category: 'easy',
+  distance: 7200,
+  duration: 2400,
+  avgHr: 144,
+  rating: null,
+  feedbackComment: null,
+};
+
+describe('FeedbackForm', () => {
+  it('renders header, stats tiles, and Garmin receipt when telemetry present', async () => {
+    const onDone = vi.fn();
+    const saveFeedback = vi.fn();
+
+    await render(
+      <FeedbackForm
+        event={baseEvent}
+        feel={4}
+        rpe={6}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    expect(screen.getByText('How was the run?')).toBeOnTheScreen();
+    expect(screen.getByText('7.2 km')).toBeOnTheScreen();
+    expect(screen.getByText('40m')).toBeOnTheScreen();
+    expect(screen.getByText('144 bpm')).toBeOnTheScreen();
+    expect(screen.getByTestId('garmin-receipt')).toBeOnTheScreen();
+    expect(screen.getByText(/Garmin Receipt: Good · RPE 6\/10/)).toBeOnTheScreen();
+  });
+
+  it('renders rating buttons when Garmin telemetry is absent', async () => {
+    const onDone = vi.fn();
+    const saveFeedback = vi.fn();
+
+    await render(
+      <FeedbackForm
+        event={baseEvent}
+        feel={null}
+        rpe={null}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    expect(screen.getByTestId('rate-good-button')).toBeOnTheScreen();
+    expect(screen.getByTestId('rate-bad-button')).toBeOnTheScreen();
+  });
+
+  it('saves protocol and rating when Save is pressed', async () => {
+    const onDone = vi.fn();
+    const saveFeedback = vi.fn(async () => ({ ok: true }));
+    const user = userEvent.setup();
+
+    await render(
+      <FeedbackForm
+        event={baseEvent}
+        feel={4}
+        rpe={6}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    // Toggle submode to boost
+    await user.press(screen.getByText('Boost'));
+
+    // Type a note
+    fireEvent.changeText(
+      screen.getByLabelText('Feedback comment'),
+      'Felt strong on hills',
+    );
+
+    // Press save
+    await user.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(saveFeedback).toHaveBeenCalledOnce();
+    expect(saveFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rating: 'good',
+        comment: 'Felt strong on hills',
+        protocol: expect.objectContaining({
+          beforeAutoSubmode: 'boost',
+        }),
+      }),
+    );
+    expect(onDone).toHaveBeenCalledOnce();
+  });
+
+  it('calls saveFeedback with skipped when Skip is pressed', async () => {
+    const onDone = vi.fn();
+    const saveFeedback = vi.fn(async () => ({ ok: true }));
+    const user = userEvent.setup();
+
+    await render(
+      <FeedbackForm
+        event={baseEvent}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    await user.press(screen.getByRole('button', { name: 'Skip' }));
+    expect(saveFeedback).toHaveBeenCalledWith({ rating: 'skipped' });
+    expect(onDone).toHaveBeenCalledOnce();
+  });
+
+  it('prefills and saves fueling carbs with prescribed carbs shortcut', async () => {
+    const onDone = vi.fn();
+    const saveFeedback = vi.fn(async () => ({ ok: true }));
+    const user = userEvent.setup();
+
+    const eventWithPrescription: CalendarEvent = {
+      ...baseEvent,
+      prescribedCarbsG: 45,
+      preRunCarbsG: 20,
+    };
+
+    await render(
+      <FeedbackForm
+        event={eventWithPrescription}
+        feel={4}
+        rpe={6}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    expect(screen.getByLabelText('Pre-run carbs').props.value).toBe('20');
+
+    await user.press(screen.getByTestId('use-prescribed-carbs-button'));
+    expect(screen.getByLabelText('Carbs ingested').props.value).toBe('45');
+
+    fireEvent.changeText(screen.getByLabelText('Pre-run carbs'), '30');
+
+    await user.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(saveFeedback).toHaveBeenCalledOnce();
+    expect(saveFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preRunCarbsG: 30,
+        carbsG: 45,
+        protocol: expect.objectContaining({
+          preRunCarbsG: 30,
+        }),
+      }),
+    );
+    expect(onDone).toHaveBeenCalledOnce();
+  });
+});

@@ -154,6 +154,9 @@ export function CompletedWorkoutSheet({
             />
             <CompletedFeedback
               event={event}
+              protocol={data?.protocol}
+              feel={data?.feel ?? event.feel}
+              rpe={data?.rpe ?? event.rpe}
               saveFeedback={mutations.saveFeedback.mutate}
               pending={mutations.saveFeedback.isPending}
               error={feedbackError}

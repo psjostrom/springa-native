@@ -6,6 +6,7 @@ import type {
   CompletedRecoveryScore,
   CompletedSplit,
   CompletedWorkoutOverview,
+  WorkoutProtocol,
 } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -132,6 +133,61 @@ function parsePreRunCarbs(value: unknown): CompletedWorkoutOverview['preRunCarbs
   };
 }
 
+function parseWorkoutProtocol(value: unknown): WorkoutProtocol | null {
+  if (!isRecord(value)) return null;
+  const beforeMode = value.beforeMode;
+  if (beforeMode !== 'disconnected' && beforeMode !== 'auto' && beforeMode !== 'manual') {
+    return null;
+  }
+  const beforeTiming = value.beforeTiming;
+  if (
+    beforeTiming !== '>2h' &&
+    beforeTiming !== '1-2h' &&
+    beforeTiming !== '<30m' &&
+    beforeTiming !== 'at_start'
+  ) {
+    return null;
+  }
+  const beforeAutoSubmode =
+    value.beforeAutoSubmode === 'ease_off' ||
+    value.beforeAutoSubmode === 'normal' ||
+    value.beforeAutoSubmode === 'boost'
+      ? value.beforeAutoSubmode
+      : null;
+
+  const duringSame = Boolean(value.duringSame);
+  const duringMode =
+    value.duringMode === 'disconnected' ||
+    value.duringMode === 'auto' ||
+    value.duringMode === 'manual'
+      ? value.duringMode
+      : null;
+  const duringAutoSubmode =
+    value.duringAutoSubmode === 'ease_off' ||
+    value.duringAutoSubmode === 'normal' ||
+    value.duringAutoSubmode === 'boost'
+      ? value.duringAutoSubmode
+      : null;
+
+  return {
+    activityId: scoreString(value.activityId) ?? undefined,
+    beforeMode,
+    beforeAutoSubmode,
+    beforeTargetBg: scoreNumber(value.beforeTargetBg),
+    beforeManualUh: scoreNumber(value.beforeManualUh),
+    beforeTiming,
+    duringSame,
+    duringMode,
+    duringAutoSubmode,
+    duringTargetBg: scoreNumber(value.duringTargetBg),
+    duringManualUh: scoreNumber(value.duringManualUh),
+    preRunCarbsG: scoreNumber(value.preRunCarbsG),
+    rescueCarbsG: scoreNumber(value.rescueCarbsG),
+    note: scoreString(value.note),
+    updatedAt: scoreNumber(value.updatedAt) ?? undefined,
+  };
+}
+
 export function parseCompletedWorkoutOverview(data: unknown): CompletedWorkoutOverview {
   if (!isRecord(data)) return invalid();
   const activityId = data.activityId;
@@ -148,5 +204,8 @@ export function parseCompletedWorkoutOverview(data: unknown): CompletedWorkoutOv
     },
     splits: parseSplits(data.splits),
     preRunCarbs: parsePreRunCarbs(data.preRunCarbs),
+    protocol: parseWorkoutProtocol(data.protocol),
+    feel: scoreNumber(data.feel),
+    rpe: scoreNumber(data.rpe),
   };
 }

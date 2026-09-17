@@ -47,7 +47,7 @@ function LiveWorkoutSheet() {
 }
 
 describe('CompletedWorkoutSheet', () => {
-  it.each(['carbs', 'pre-run', 'feedback'] as const)('shows submitted %s immediately and restores the draft on failure', async (kind) => {
+  it.each(['carbs', 'pre-run'] as const)('shows submitted %s immediately and restores the draft on failure', async (kind) => {
     let finish!: () => void;
     const response = new Promise<void>((resolve) => { finish = resolve; });
     const fail = async () => {
@@ -63,36 +63,20 @@ describe('CompletedWorkoutSheet', () => {
     await screen.findByText('Fueling');
     const user = userEvent.setup();
     const label = kind === 'carbs' ? 'Carbs ingested' : 'Pre-run carbs';
-    if (kind === 'feedback') {
-      await user.press(screen.getByRole('button', { name: 'Good' }));
-      await fireEvent.changeText(screen.getByLabelText('Feedback comment'), 'Strong finish');
-      await user.press(screen.getByRole('button', { name: 'Save' }));
-    } else {
-      await user.press(screen.getByLabelText(`Edit ${label.toLowerCase()}`));
-      const input = screen.getByLabelText(`${label} grams`);
-      await fireEvent.changeText(input, '55');
-      await fireEvent(input, 'submitEditing');
-    }
+    await user.press(screen.getByLabelText(`Edit ${label.toLowerCase()}`));
+    const input = screen.getByLabelText(`${label} grams`);
+    await fireEvent.changeText(input, '55');
+    await fireEvent(input, 'submitEditing');
     try {
-      if (kind === 'feedback') {
-        expect(await screen.findByLabelText('Run feedback')).toBeOnTheScreen();
-        expect(screen.getByText('Strong finish')).toBeOnTheScreen();
-      } else {
-        expect(await screen.findByText('55 g')).toBeOnTheScreen();
-        expect(screen.queryByLabelText(`${label} grams`)).toBeNull();
-        expect(screen.getByLabelText(`Edit ${label.toLowerCase()}`)).toBeDisabled();
-      }
+      expect(await screen.findByText('55 g')).toBeOnTheScreen();
+      expect(screen.queryByLabelText(`${label} grams`)).toBeNull();
+      expect(screen.getByLabelText(`Edit ${label.toLowerCase()}`)).toBeDisabled();
     } finally {
       await act(async () => finish());
     }
     expect(await screen.findByText('save failed')).toBeOnTheScreen();
-    if (kind === 'feedback') {
-      expect(screen.getByDisplayValue('Strong finish')).toBeOnTheScreen();
-      expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
-    } else {
-      expect(screen.getByDisplayValue('55')).toBeOnTheScreen();
-      expect(screen.getByLabelText(`${label} grams`)).not.toBeDisabled();
-    }
+    expect(screen.getByDisplayValue('55')).toBeOnTheScreen();
+    expect(screen.getByLabelText(`${label} grams`)).not.toBeDisabled();
   });
 
   it('renders the full Overview from the server', async () => {
@@ -208,20 +192,10 @@ describe('CompletedWorkoutSheet', () => {
     expect(gets.count).toBe(0);
   });
 
-  it('re-enables feedback after a failed save', async () => {
-    server.use(
-      http.post(apiUrl('/api/run-feedback'), () =>
-        HttpResponse.json({ error: 'feedback failed' }, { status: 502 }),
-      ),
-    );
+  it('renders unrated feedback section with Rate button', async () => {
     await renderWithApp(<CompletedWorkoutSheet event={completedEvent} />);
-    const user = userEvent.setup();
-
-    await user.press(await screen.findByRole('button', { name: 'Good' }));
-    await user.press(screen.getByRole('button', { name: 'Save' }));
-
-    expect(await screen.findByText('feedback failed')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+    expect(await screen.findByText('Run not yet rated')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Rate run' })).toBeOnTheScreen();
   });
 
   it('triggers pull-to-refresh on completed workout sheet', async () => {

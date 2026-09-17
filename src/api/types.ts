@@ -187,6 +187,8 @@ export type CalendarEvent = {
   preRunCarbsG?: number | null;
   rating?: string | null;
   feedbackComment?: string | null;
+  feel?: number | null;
+  rpe?: number | null;
   activityId?: string;
   pairedEventId?: number;
 };
@@ -271,6 +273,28 @@ export type PlannedWorkoutDetail = {
   clothing: PlannedWorkoutClothing;
 };
 
+export type CamAPSMode = 'disconnected' | 'auto' | 'manual';
+export type CamAPSAutoSubmode = 'ease_off' | 'normal' | 'boost';
+export type ProtocolTiming = '>2h' | '1-2h' | '<30m' | 'at_start';
+
+export type WorkoutProtocol = {
+  activityId?: string;
+  beforeMode: CamAPSMode;
+  beforeAutoSubmode?: CamAPSAutoSubmode | null;
+  beforeTargetBg?: number | null;
+  beforeManualUh?: number | null;
+  beforeTiming: ProtocolTiming;
+  duringSame: boolean;
+  duringMode?: CamAPSMode | null;
+  duringAutoSubmode?: CamAPSAutoSubmode | null;
+  duringTargetBg?: number | null;
+  duringManualUh?: number | null;
+  preRunCarbsG?: number | null;
+  rescueCarbsG?: number | null;
+  note?: string | null;
+  updatedAt?: number;
+};
+
 /** Completed workout overview from Springa GET /api/intervals/activity/[id]/overview. */
 export type CompletedWorkoutOverview = {
   activityId: string;
@@ -286,6 +310,9 @@ export type CompletedWorkoutOverview = {
     source: 'activity' | 'paired-event' | 'none';
     fallbackEventId: number | null;
   };
+  protocol?: WorkoutProtocol | null;
+  feel?: number | null;
+  rpe?: number | null;
 };
 
 export type CompletedBgScore = {
