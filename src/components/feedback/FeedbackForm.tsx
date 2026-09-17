@@ -132,9 +132,9 @@ export function FeedbackForm({
     event.feedbackComment ?? initialProtocol?.note ?? '',
   );
 
-  const hasGarminMetrics = feel != null || rpe != null || event.feel != null || event.rpe != null;
   const displayFeel = feel ?? event.feel;
   const displayRpe = rpe ?? event.rpe;
+  const hasGarminMetrics = displayFeel != null;
 
   const handleSave = async () => {
     const parsedTargetBg = parseFloat(beforeTargetBg);
@@ -163,21 +163,29 @@ export function FeedbackForm({
       note: comment.trim() || null,
     };
 
-    await saveFeedback({
-      feel: resolvedFeel,
-      rpe: displayRpe ?? null,
-      comment: comment.trim() || null,
-      protocol: protocolToSave,
-      carbsG: Number.isFinite(parsedCarbsG) ? parsedCarbsG : null,
-      preRunCarbsG: Number.isFinite(parsedPreRunG) ? parsedPreRunG : null,
-    });
+    try {
+      await saveFeedback({
+        feel: resolvedFeel,
+        rpe: displayRpe ?? null,
+        comment: comment.trim() || null,
+        protocol: protocolToSave,
+        carbsG: Number.isFinite(parsedCarbsG) ? parsedCarbsG : null,
+        preRunCarbsG: Number.isFinite(parsedPreRunG) ? parsedPreRunG : null,
+      });
+    } catch {
+      return;
+    }
     onDone();
   };
 
   const handleSkip = async () => {
-    await saveFeedback({
-      rating: 'skipped',
-    });
+    try {
+      await saveFeedback({
+        rating: 'skipped',
+      });
+    } catch {
+      return;
+    }
     onDone();
   };
 
@@ -620,7 +628,7 @@ export function FeedbackForm({
           label="Save"
           variant="primary"
           loading={pending}
-          disabled={pending || (!hasGarminMetrics && selectedFeel == null)}
+          disabled={pending || (selectedFeel == null && displayFeel == null)}
           onPress={handleSave}
           style={styles.actionButton}
         />

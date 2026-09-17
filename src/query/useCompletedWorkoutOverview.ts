@@ -94,6 +94,8 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
     { ok: true },
     Error,
     {
+      feel?: number | null;
+      rpe?: number | null;
       rating?: 'good' | 'bad' | 'skipped' | string | null;
       comment?: string | null;
       protocol?: WorkoutProtocol | null;
@@ -117,7 +119,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
     patch: Partial<
       Pick<
         CalendarEvent,
-        'carbsIngested' | 'preRunCarbsG' | 'rating' | 'feedbackComment'
+        'carbsIngested' | 'preRunCarbsG' | 'rating' | 'feedbackComment' | 'feel' | 'rpe'
       >
     >,
   ) => {
@@ -298,7 +300,10 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           calendarPatch.carbsIngested = input.carbsG;
         }
         patchCalendar(calendarPatch);
-        const resolvedPreRunCarbsG = input.preRunCarbsG ?? input.protocol?.preRunCarbsG;
+        const resolvedPreRunCarbsG =
+          input.preRunCarbsG !== undefined
+            ? input.preRunCarbsG
+            : input.protocol?.preRunCarbsG;
         if (input.protocol || resolvedPreRunCarbsG !== undefined || input.feel !== undefined) {
           queryClient.setQueryData<CompletedWorkoutOverview>(
             overviewKey,
@@ -312,11 +317,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
                     protocol: input.protocol ?? current.protocol,
                     preRunCarbs:
                       resolvedPreRunCarbsG !== undefined
-                        ? {
-                            grams: resolvedPreRunCarbsG,
-                            source: 'activity',
-                            fallbackEventId: null,
-                          }
+                        ? nextPreRunState(current.preRunCarbs, resolvedPreRunCarbsG, true)
                         : current.preRunCarbs,
                   },
           );

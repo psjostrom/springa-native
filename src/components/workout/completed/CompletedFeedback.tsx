@@ -65,7 +65,7 @@ export function CompletedFeedback({
                       {rpe != null ? ` · RPE ${rpe}/10` : ''}
                     </AppText>
                   </View>
-                ) : event.rating ? (
+                ) : event.rating === 'good' || event.rating === 'bad' ? (
                   <View style={styles.ratingBadge}>
                     {event.rating === 'good' ? (
                       <ThumbsUp size={16} color={SpringaColors.success} />

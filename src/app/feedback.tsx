@@ -79,6 +79,13 @@ export default function FeedbackScreen() {
         showsVerticalScrollIndicator={false}
       >
         <FeedbackForm
+          key={
+            overview?.protocol
+              ? `protocol-${overview.activityId}-${overview.protocol.updatedAt ?? 'static'}`
+              : overview
+                ? `loaded-${overview.activityId}`
+                : 'pending'
+          }
           event={event}
           protocol={overview?.protocol}
           feel={overview?.feel ?? event.feel}

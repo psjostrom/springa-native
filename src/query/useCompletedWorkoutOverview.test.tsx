@@ -497,6 +497,57 @@ describe('completed workout overview query', () => {
     });
   });
 
+  it('resets preRunCarbs to none when feedback clears preRunCarbs', async () => {
+    const pages = calendarPages();
+    const calendarGets = { gets: 0 };
+    server.use(
+      calendarHandler(
+        {
+          [pages.initial.oldest]: [rawCompletedEvent()],
+        },
+        calendarGets,
+      ),
+      overviewHandler(overviewFixture({ grams: 25, source: 'activity', fallbackEventId: null })),
+      http.post(apiUrl('/api/run-feedback'), async () => {
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    function ClearPreRunProbe() {
+      const { saveFeedback } = useCompletedWorkoutMutations(selectedEvent());
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Clear pre-run via feedback"
+          onPress={() =>
+            saveFeedback.mutate({
+              feel: 4,
+              rpe: 7,
+              preRunCarbsG: null,
+            })
+          }
+        >
+          <Text>Clear pre-run</Text>
+        </Pressable>
+      );
+    }
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <ClearPreRunProbe />
+        <OverviewProbe />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Pre-run: 25 (activity)')).toBeOnTheScreen();
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Clear pre-run via feedback'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Pre-run: none (none)')).toBeOnTheScreen();
+    });
+  });
+
   it('patches Calendar and Overview pre-run state after the activity write, then cleans the fallback row', async () => {
     const pages = calendarPages();
     const calendarGets = { gets: 0 };

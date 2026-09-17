@@ -48,6 +48,18 @@ describe('unratedRun', () => {
     expect(findUnratedRun([run], now)).toBeNull();
   });
 
+  it('ignores runs with existing feel', () => {
+    const run = makeCompleted({ feel: 4 });
+    expect(findUnratedRun([run], now)).toBeNull();
+  });
+
+  it('ignores future-dated completed runs', () => {
+    const futureRun = makeCompleted({
+      date: new Date(now + 1000),
+    });
+    expect(findUnratedRun([futureRun], now)).toBeNull();
+  });
+
   it('ignores runs older than 7 days', () => {
     const oldRun = makeCompleted({
       date: new Date(now - SEVEN_DAYS_MS - 1000),

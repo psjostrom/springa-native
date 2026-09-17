@@ -155,7 +155,10 @@ function parseWorkoutProtocol(value: unknown): WorkoutProtocol | null {
       ? value.beforeAutoSubmode
       : null;
 
-  const duringSame = Boolean(value.duringSame);
+  if (typeof value.duringSame !== 'boolean') {
+    return null;
+  }
+  const duringSame = value.duringSame;
   const duringMode =
     value.duringMode === 'disconnected' ||
     value.duringMode === 'auto' ||
@@ -183,6 +186,8 @@ function parseWorkoutProtocol(value: unknown): WorkoutProtocol | null {
     duringManualUh: scoreNumber(value.duringManualUh),
     preRunCarbsG: scoreNumber(value.preRunCarbsG),
     rescueCarbsG: scoreNumber(value.rescueCarbsG),
+    feel: scoreNumber(value.feel),
+    rpe: scoreNumber(value.rpe),
     note: scoreString(value.note),
     updatedAt: scoreNumber(value.updatedAt) ?? undefined,
   };

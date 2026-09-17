@@ -16,7 +16,8 @@ export function isUnratedCompletedRun(
     event.type === 'completed' &&
     typeof event.activityId === 'string' &&
     event.activityId.length > 0 &&
-    !event.rating
+    !event.rating &&
+    event.feel == null
   );
 }
 
@@ -29,11 +30,12 @@ export function findUnratedRun(
 ): UnratedRun | null {
   const cutoff = now - SEVEN_DAYS_MS;
   const match = events
-    .filter(
-      (event): event is CalendarEvent & { activityId: string } =>
-        isUnratedCompletedRun(event) &&
-        (event.date instanceof Date ? event.date.getTime() : new Date(event.date).getTime()) >= cutoff,
-    )
+    .filter((event): event is CalendarEvent & { activityId: string } => {
+      if (!isUnratedCompletedRun(event)) return false;
+      const time =
+        event.date instanceof Date ? event.date.getTime() : new Date(event.date).getTime();
+      return time >= cutoff && time <= now;
+    })
     .sort((a, b) => {
       const timeA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
       const timeB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();

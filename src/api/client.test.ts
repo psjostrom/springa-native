@@ -573,6 +573,13 @@ describe('createApiClient', () => {
         carbsG: 20,
       }),
     ).resolves.toEqual({ ok: true });
+    await expect(
+      client.saveRunFeedback('activity-789', {
+        feel: null,
+        rpe: null,
+        comment: null,
+      }),
+    ).resolves.toEqual({ ok: true });
 
     expect(putBodies).toEqual([
       { carbs_ingested: 60 },
@@ -600,6 +607,12 @@ describe('createApiClient', () => {
           preRunCarbsG: 20,
           rescueCarbsG: null,
         },
+      },
+      {
+        activityId: 'activity-789',
+        feel: null,
+        rpe: null,
+        comment: null,
       },
     ]);
   });

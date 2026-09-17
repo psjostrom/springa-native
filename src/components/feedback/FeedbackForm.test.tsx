@@ -42,9 +42,10 @@ describe('FeedbackForm', () => {
     expect(screen.getByText(/Garmin Receipt: Good · RPE 6\/10/)).toBeOnTheScreen();
   });
 
-  it('renders 1–5 scale picker when Garmin telemetry is absent', async () => {
+  it('renders 1–5 scale picker when Garmin telemetry is absent and validates Save button', async () => {
     const onDone = vi.fn();
     const saveFeedback = vi.fn();
+    const user = userEvent.setup();
 
     await render(
       <FeedbackForm
@@ -59,6 +60,28 @@ describe('FeedbackForm', () => {
 
     expect(screen.getByTestId('feel-scale-picker')).toBeOnTheScreen();
     expect(screen.getByTestId('feel-button-4')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    await user.press(screen.getByTestId('feel-button-4'));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  it('keeps Save disabled when only rpe is set and feel is null', async () => {
+    const onDone = vi.fn();
+    const saveFeedback = vi.fn();
+
+    await render(
+      <FeedbackForm
+        event={baseEvent}
+        feel={null}
+        rpe={7}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
   it('saves protocol and feel when Save is pressed', async () => {
@@ -166,5 +189,48 @@ describe('FeedbackForm', () => {
       }),
     );
     expect(onDone).toHaveBeenCalledOnce();
+  });
+
+  it('does not call onDone when saveFeedback fails on save', async () => {
+    const onDone = vi.fn();
+    const saveFeedback = vi.fn(async () => {
+      throw new Error('Save failed');
+    });
+    const user = userEvent.setup();
+
+    await render(
+      <FeedbackForm
+        event={baseEvent}
+        feel={4}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    await user.press(screen.getByRole('button', { name: 'Save' }));
+    expect(saveFeedback).toHaveBeenCalledOnce();
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it('does not call onDone when saveFeedback fails on skip', async () => {
+    const onDone = vi.fn();
+    const saveFeedback = vi.fn(async () => {
+      throw new Error('Skip failed');
+    });
+    const user = userEvent.setup();
+
+    await render(
+      <FeedbackForm
+        event={baseEvent}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    await user.press(screen.getByRole('button', { name: 'Skip' }));
+    expect(saveFeedback).toHaveBeenCalledOnce();
+    expect(onDone).not.toHaveBeenCalled();
   });
 });

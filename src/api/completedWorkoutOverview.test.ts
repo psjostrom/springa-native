@@ -98,6 +98,8 @@ describe('parseCompletedWorkoutOverview', () => {
         duringManualUh: null,
         preRunCarbsG: 25,
         rescueCarbsG: 15,
+        feel: 4,
+        rpe: 7,
         note: 'Solid easy run',
         updatedAt: 1700000000000,
       },
@@ -119,6 +121,8 @@ describe('parseCompletedWorkoutOverview', () => {
       duringManualUh: null,
       preRunCarbsG: 25,
       rescueCarbsG: 15,
+      feel: 4,
+      rpe: 7,
       note: 'Solid easy run',
       updatedAt: 1700000000000,
     });
@@ -138,6 +142,16 @@ describe('parseCompletedWorkoutOverview', () => {
     expect(parsed.feel).toBeNull();
     expect(parsed.rpe).toBeNull();
     expect(parsed.protocol).toBeNull();
+
+    const parsedNonBooleanDuringSame = parseCompletedWorkoutOverview({
+      ...richOverview,
+      protocol: {
+        beforeMode: 'auto',
+        beforeTiming: '1-2h',
+        duringSame: 'true',
+      },
+    });
+    expect(parsedNonBooleanDuringSame.protocol).toBeNull();
   });
 
   it('preserves all-null report-card fields and a null splits field', () => {

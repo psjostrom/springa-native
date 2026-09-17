@@ -20,7 +20,7 @@ function makeCompleted(overrides: Record<string, any> = {}) {
     activityId: 'act-1',
     name: 'Morning Easy Run',
     description: '',
-    date: new Date().toISOString(),
+    date: new Date(Date.now() - 60_000).toISOString(),
     type: 'completed',
     category: 'easy',
     distance: 8000,

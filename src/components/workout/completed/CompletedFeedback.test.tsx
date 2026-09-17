@@ -75,6 +75,18 @@ describe('CompletedFeedback', () => {
     expect(screen.getByText('Good')).toBeOnTheScreen();
   });
 
+  it('does not render bad rating badge when rating is skipped', async () => {
+    await render(
+      <CompletedFeedback
+        event={{ ...baseEvent, rating: 'skipped' }}
+        feel={null}
+        rpe={null}
+      />,
+    );
+
+    expect(screen.queryByText('Bad')).toBeNull();
+  });
+
   it('renders protocol pills when protocol is saved', async () => {
     const protocol: WorkoutProtocol = {
       beforeMode: 'auto',
