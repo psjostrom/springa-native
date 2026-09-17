@@ -221,6 +221,8 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       { ok: true },
       Error,
       {
+        feel?: number | null;
+        rpe?: number | null;
         rating?: 'good' | 'bad' | 'skipped' | string | null;
         comment?: string | null;
         protocol?: WorkoutProtocol | null;
@@ -231,13 +233,15 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       mutationKey: queryKeys.updateWorkout(identity),
       networkMode: 'always',
       retry: false,
-      onMutate: ({ rating, comment, protocol, carbsG, preRunCarbsG }) => {
+      onMutate: ({ feel, rpe, rating, comment, protocol, carbsG, preRunCarbsG }) => {
         const patch: Partial<
           Pick<
             CalendarEvent,
-            'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
+            'feel' | 'rpe' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
           >
         > = {};
+        if (feel !== undefined) patch.feel = feel;
+        if (rpe !== undefined) patch.rpe = rpe;
         if (rating !== undefined) patch.rating = rating;
         const note = comment ?? protocol?.note;
         if (note !== undefined) patch.feedbackComment = note;
@@ -277,9 +281,11 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         const calendarPatch: Partial<
           Pick<
             CalendarEvent,
-            'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
+            'feel' | 'rpe' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
           >
         > = {};
+        if (input.feel !== undefined) calendarPatch.feel = input.feel;
+        if (input.rpe !== undefined) calendarPatch.rpe = input.rpe;
         if (input.rating !== undefined) calendarPatch.rating = input.rating;
         const note = input.comment ?? input.protocol?.note;
         if (note !== undefined) calendarPatch.feedbackComment = note;
@@ -293,7 +299,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         }
         patchCalendar(calendarPatch);
         const resolvedPreRunCarbsG = input.preRunCarbsG ?? input.protocol?.preRunCarbsG;
-        if (input.protocol || resolvedPreRunCarbsG !== undefined) {
+        if (input.protocol || resolvedPreRunCarbsG !== undefined || input.feel !== undefined) {
           queryClient.setQueryData<CompletedWorkoutOverview>(
             overviewKey,
             (current) =>
@@ -301,6 +307,8 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
                 ? current
                 : {
                     ...current,
+                    feel: input.feel !== undefined ? input.feel : current.feel,
+                    rpe: input.rpe !== undefined ? input.rpe : current.rpe,
                     protocol: input.protocol ?? current.protocol,
                     preRunCarbs:
                       resolvedPreRunCarbsG !== undefined

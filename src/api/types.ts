@@ -291,6 +291,8 @@ export type WorkoutProtocol = {
   duringManualUh?: number | null;
   preRunCarbsG?: number | null;
   rescueCarbsG?: number | null;
+  feel?: number | null;
+  rpe?: number | null;
   note?: string | null;
   updatedAt?: number;
 };

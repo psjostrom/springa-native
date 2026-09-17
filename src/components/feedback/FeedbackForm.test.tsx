@@ -42,7 +42,7 @@ describe('FeedbackForm', () => {
     expect(screen.getByText(/Garmin Receipt: Good · RPE 6\/10/)).toBeOnTheScreen();
   });
 
-  it('renders rating buttons when Garmin telemetry is absent', async () => {
+  it('renders 1–5 scale picker when Garmin telemetry is absent', async () => {
     const onDone = vi.fn();
     const saveFeedback = vi.fn();
 
@@ -57,11 +57,11 @@ describe('FeedbackForm', () => {
       />,
     );
 
-    expect(screen.getByTestId('rate-good-button')).toBeOnTheScreen();
-    expect(screen.getByTestId('rate-bad-button')).toBeOnTheScreen();
+    expect(screen.getByTestId('feel-scale-picker')).toBeOnTheScreen();
+    expect(screen.getByTestId('feel-button-4')).toBeOnTheScreen();
   });
 
-  it('saves protocol and rating when Save is pressed', async () => {
+  it('saves protocol and feel when Save is pressed', async () => {
     const onDone = vi.fn();
     const saveFeedback = vi.fn(async () => ({ ok: true }));
     const user = userEvent.setup();
@@ -92,10 +92,13 @@ describe('FeedbackForm', () => {
     expect(saveFeedback).toHaveBeenCalledOnce();
     expect(saveFeedback).toHaveBeenCalledWith(
       expect.objectContaining({
-        rating: 'good',
+        feel: 4,
+        rpe: 6,
         comment: 'Felt strong on hills',
         protocol: expect.objectContaining({
           beforeAutoSubmode: 'boost',
+          feel: 4,
+          rpe: 6,
         }),
       }),
     );

@@ -363,6 +363,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         | 'skipped'
         | string
         | {
+            feel?: number | null;
+            rpe?: number | null;
             rating?: 'good' | 'bad' | 'skipped' | string | null;
             comment?: string | null;
             protocol?: WorkoutProtocol | null;
@@ -376,6 +378,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       if (typeof ratingOrOptions === 'object' && ratingOrOptions !== null) {
         body = {
           activityId,
+          feel: ratingOrOptions.feel ?? undefined,
+          rpe: ratingOrOptions.rpe ?? undefined,
           rating: ratingOrOptions.rating ?? undefined,
           comment: ratingOrOptions.comment ?? undefined,
           protocol: ratingOrOptions.protocol ?? undefined,

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Smile, ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import { Smile } from 'lucide-react-native';
 import type {
   CalendarEvent,
   CamAPSAutoSubmode,
@@ -23,6 +23,8 @@ export type FeedbackFormProps = {
   feel?: number | null;
   rpe?: number | null;
   saveFeedback: (input: {
+    feel?: number | null;
+    rpe?: number | null;
     rating?: 'good' | 'bad' | 'skipped' | null;
     comment?: string | null;
     protocol?: WorkoutProtocol | null;
@@ -46,8 +48,8 @@ export function FeedbackForm({
   onDone,
   onInputFocus,
 }: FeedbackFormProps) {
-  const [rating, setRating] = useState<'good' | 'bad' | null>(
-    event.rating === 'good' || event.rating === 'bad' ? event.rating : null,
+  const [selectedFeel, setSelectedFeel] = useState<number | null>(
+    feel ?? (event.feel ?? null),
   );
 
   const preRunCarbsRef = useRef<TextInput>(null);
@@ -130,7 +132,9 @@ export function FeedbackForm({
     event.feedbackComment ?? initialProtocol?.note ?? '',
   );
 
-  const hasGarminMetrics = feel != null || rpe != null;
+  const hasGarminMetrics = feel != null || rpe != null || event.feel != null || event.rpe != null;
+  const displayFeel = feel ?? event.feel;
+  const displayRpe = rpe ?? event.rpe;
 
   const handleSave = async () => {
     const parsedTargetBg = parseFloat(beforeTargetBg);
@@ -138,6 +142,8 @@ export function FeedbackForm({
     const parsedRescueG = parseFloat(rescueGrams);
     const parsedPreRunG = parseFloat(preRunCarbs);
     const parsedCarbsG = parseFloat(carbsIngested);
+
+    const resolvedFeel = selectedFeel ?? displayFeel ?? null;
 
     const protocolToSave: WorkoutProtocol = {
       beforeMode,
@@ -152,13 +158,14 @@ export function FeedbackForm({
       duringManualUh: !duringSame && duringMode === 'manual' && Number.isFinite(parseFloat(duringManualUh)) ? parseFloat(duringManualUh) : null,
       preRunCarbsG: Number.isFinite(parsedPreRunG) ? parsedPreRunG : null,
       rescueCarbsG: hadRescue && Number.isFinite(parsedRescueG) ? parsedRescueG : null,
+      feel: resolvedFeel,
+      rpe: displayRpe ?? null,
       note: comment.trim() || null,
     };
 
-    const resolvedRating = rating ?? (feel != null ? (feel >= 3 ? 'good' : 'bad') : null);
-
     await saveFeedback({
-      rating: resolvedRating,
+      feel: resolvedFeel,
+      rpe: displayRpe ?? null,
       comment: comment.trim() || null,
       protocol: protocolToSave,
       carbsG: Number.isFinite(parsedCarbsG) ? parsedCarbsG : null,
@@ -221,60 +228,46 @@ export function FeedbackForm({
             <Smile size={20} color={SpringaColors.brand} />
             <AppText variant="label" tone="primary">
               Garmin Receipt:{' '}
-              {feel != null ? formatFeel(feel) : ''}
-              {feel != null && rpe != null ? ' · ' : ''}
-              {rpe != null ? `RPE ${rpe}/10` : ''}
+              {displayFeel != null ? formatFeel(displayFeel) : ''}
+              {displayFeel != null && displayRpe != null ? ' · ' : ''}
+              {displayRpe != null ? `RPE ${displayRpe}/10` : ''}
             </AppText>
           </View>
         ) : (
-          <View style={styles.ratingButtonsRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Rate good"
-              testID="rate-good-button"
-              onPress={() => setRating('good')}
-              style={[
-                styles.ratingButton,
-                rating === 'good' && styles.ratingButtonSelectedGood,
-              ]}
-            >
-              <ThumbsUp
-                size={24}
-                color={rating === 'good' ? SpringaColors.success : SpringaColors.muted}
-              />
-              <AppText
-                variant="label"
-                style={{
-                  color: rating === 'good' ? SpringaColors.success : SpringaColors.muted,
-                }}
-              >
-                Good
+          <View style={styles.scaleContainer} testID="feel-scale-picker">
+            <AppText variant="caption" tone="muted" style={styles.scaleTitle}>
+              How did it feel?
+            </AppText>
+            <View style={styles.scaleRow}>
+              {[1, 2, 3, 4, 5].map((val) => (
+                <Pressable
+                  key={val}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rate ${val}: ${formatFeel(val)}`}
+                  testID={`feel-button-${val}`}
+                  onPress={() => setSelectedFeel(val)}
+                  style={[
+                    styles.scaleButton,
+                    selectedFeel === val && styles.scaleButtonSelected,
+                  ]}
+                >
+                  <AppText
+                    variant="subheading"
+                    style={[
+                      styles.scaleButtonText,
+                      selectedFeel === val && styles.scaleButtonTextSelected,
+                    ]}
+                  >
+                    {val}
+                  </AppText>
+                </Pressable>
+              ))}
+            </View>
+            {selectedFeel != null ? (
+              <AppText variant="caption" style={styles.scaleLabel}>
+                {formatFeel(selectedFeel)}
               </AppText>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Rate bad"
-              testID="rate-bad-button"
-              onPress={() => setRating('bad')}
-              style={[
-                styles.ratingButton,
-                rating === 'bad' && styles.ratingButtonSelectedBad,
-              ]}
-            >
-              <ThumbsDown
-                size={24}
-                color={rating === 'bad' ? SpringaColors.error : SpringaColors.muted}
-              />
-              <AppText
-                variant="label"
-                style={{
-                  color: rating === 'bad' ? SpringaColors.error : SpringaColors.muted,
-                }}
-              >
-                Bad
-              </AppText>
-            </Pressable>
+            ) : null}
           </View>
         )}
       </View>
@@ -679,29 +672,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
   },
-  ratingButtonsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
+  scaleContainer: {
+    gap: Spacing.sm,
   },
-  ratingButton: {
-    flex: 1,
-    minHeight: 52,
+  scaleTitle: {
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  scaleRow: {
     flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  scaleButton: {
+    flex: 1,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
     backgroundColor: SpringaColors.surface,
     borderColor: SpringaColors.border,
     borderWidth: 1,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
   },
-  ratingButtonSelectedGood: {
-    borderColor: SpringaColors.success,
-    backgroundColor: SpringaColors.tintSuccess,
+  scaleButtonSelected: {
+    borderColor: SpringaColors.brand,
+    backgroundColor: SpringaColors.tintBrand,
   },
-  ratingButtonSelectedBad: {
-    borderColor: SpringaColors.error,
-    backgroundColor: SpringaColors.tintError,
+  scaleButtonText: {
+    color: SpringaColors.text,
+  },
+  scaleButtonTextSelected: {
+    color: SpringaColors.brand,
+    fontWeight: '700',
+  },
+  scaleLabel: {
+    textAlign: 'center',
+    color: SpringaColors.brand,
+    fontWeight: '600',
   },
   strategySection: {
     gap: Spacing.md,
