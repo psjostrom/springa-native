@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { MessageSquare, ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import { MessageSquare, Pencil, ThumbsDown, ThumbsUp } from 'lucide-react-native';
 import type { CalendarEvent, WorkoutProtocol } from '@/api/types';
-import { AppText, Badge, Card, Section } from '@/components/ui';
+import { AppText, Badge, Card, IconButton, Section } from '@/components/ui';
 import { formatFeel, getProtocolPills } from '@/domain/formatProtocol';
 import { SpringaColors } from '@/theme/colors';
 import { Radius, Spacing } from '@/theme/tokens';
@@ -58,7 +58,7 @@ export function CompletedFeedback({
               <View style={styles.ratingRow}>
                 {feel != null ? (
                   <View style={styles.garminBadge} testID="garmin-feel-badge">
-                    <AppText variant="label" tone="primary">
+                    <AppText variant="subheading" tone="primary">
                       Garmin: {formatFeel(feel)}
                       {rpe != null ? ` · RPE ${rpe}/10` : ''}
                     </AppText>
@@ -71,7 +71,7 @@ export function CompletedFeedback({
                       <ThumbsDown size={16} color={SpringaColors.error} />
                     )}
                     <AppText
-                      variant="label"
+                      variant="subheading"
                       style={{
                         color:
                           event.rating === 'good'
@@ -84,17 +84,12 @@ export function CompletedFeedback({
                   </View>
                 ) : null}
 
-                <Pressable
-                  accessibilityRole="button"
+                <IconButton
                   accessibilityLabel="Edit feedback"
                   onPress={navigateToFeedback}
-                  style={styles.editButton}
-                  hitSlop={8}
                 >
-                  <AppText variant="caption" tone="primary" style={styles.editText}>
-                    Edit
-                  </AppText>
-                </Pressable>
+                  <Pencil color={SpringaColors.muted} size={16} />
+                </IconButton>
               </View>
 
               {/* Protocol pills */}
@@ -161,18 +156,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-  },
-  editButton: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xxs,
-    borderRadius: Radius.sm,
-    backgroundColor: SpringaColors.surfaceAlt,
-    borderColor: SpringaColors.border,
-    borderWidth: 1,
-  },
-  editText: {
-    color: SpringaColors.brandText,
-    fontWeight: '600',
   },
   pillsRow: {
     flexDirection: 'row',

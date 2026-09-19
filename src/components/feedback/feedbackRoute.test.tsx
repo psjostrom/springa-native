@@ -77,4 +77,38 @@ describe('FeedbackScreen', () => {
 
     expect(await screen.findByText('Run not found')).toBeOnTheScreen();
   });
+
+  it('prefills basal strategy from lastProtocols for unrated run with category', async () => {
+    setLocalSearchParamsForTests({ activityId: 'act-1', eventId: 'evt-1' });
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), () =>
+        jsonOk([{ ...completedEvent, category: 'long' }]),
+      ),
+      http.get(apiUrl('/api/intervals/activity/:id/overview'), () =>
+        jsonOk({
+          activityId: 'act-1',
+          feel: 2,
+          rpe: 6,
+          reportCard: { bg: null, hrZone: null, entryTrend: null, recovery: null },
+          splits: null,
+          preRunCarbs: { grams: null, source: 'none', fallbackEventId: null },
+          protocol: null,
+          lastProtocols: {
+            long: {
+              category: 'long',
+              beforeMode: 'manual',
+              beforeManualUh: 0.22,
+              beforeTiming: '>2h',
+              duringSame: true,
+            },
+          },
+        }),
+      ),
+    );
+
+    await renderScreen();
+
+    expect(await screen.findByText('How was the run?')).toBeOnTheScreen();
+    expect(screen.getByDisplayValue('0.22')).toBeOnTheScreen();
+  });
 });

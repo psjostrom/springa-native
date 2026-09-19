@@ -1,7 +1,9 @@
+import { useContext } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { FeedbackForm } from '@/components/feedback/FeedbackForm';
-import { AppText, Button, StateView, useScrollAboveKeyboard } from '@/components/ui';
+import { AppText, Button, StateView } from '@/components/ui';
 import {
   useCompletedWorkoutMutations,
   useCompletedWorkoutOverview,
@@ -12,6 +14,7 @@ import { Spacing } from '@/theme/tokens';
 
 export default function FeedbackScreen() {
   const router = useRouter();
+  const headerHeight = useContext(HeaderHeightContext) ?? 0;
   const { activityId, eventId } = useLocalSearchParams<{
     activityId?: string;
     eventId?: string;
@@ -25,9 +28,11 @@ export default function FeedbackScreen() {
       (activityId && e.id === activityId),
   );
 
-  const { data: overview, isLoading: overviewLoading } = useCompletedWorkoutOverview(
-    event?.activityId ?? '',
-  );
+  const {
+    data: overview,
+    isLoading: overviewLoading,
+    isFetching: overviewFetching,
+  } = useCompletedWorkoutOverview(event?.activityId ?? '');
 
   const dummyEvent = {
     id: '',
@@ -39,9 +44,14 @@ export default function FeedbackScreen() {
   } as const;
 
   const mutations = useCompletedWorkoutMutations(event ?? dummyEvent);
-  const { scrollRef, onInputFocus, onScroll } = useScrollAboveKeyboard(Spacing.xl);
 
-  if ((eventsLoading && !event) || (overviewLoading && !overview)) {
+  const isUnrated = !overview?.protocol;
+  const isWaitingForOverview =
+    (eventsLoading && !event) ||
+    (overviewLoading && !overview) ||
+    (isUnrated && !overview?.lastProtocols && overviewFetching);
+
+  if (isWaitingForOverview) {
     return (
       <View style={styles.center}>
         <StateView loading title="Loading run details…" />
@@ -65,19 +75,17 @@ export default function FeedbackScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={headerHeight}
       style={styles.keyboardRoot}
     >
       <ScrollView
-        ref={scrollRef}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
+        contentInsetAdjustmentBehavior="automatic"
         keyboardDismissMode="on-drag"
         style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        automaticallyAdjustKeyboardInsets={true}
       >
         <FeedbackForm
           key={
@@ -100,7 +108,6 @@ export default function FeedbackScreen() {
           onDone={() => {
             if (router.canGoBack()) router.back();
           }}
-          onInputFocus={onInputFocus}
         />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -119,7 +126,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.xxl * 2,
   },
   center: {
     flex: 1,

@@ -2,10 +2,16 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { X } from 'lucide-react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import type { CalendarEvent } from '@/api/types';
+import { useApiClient } from '@/api/ApiClientProvider';
+import { useAuth } from '@/auth/AuthContext';
 import { findUnratedRun, getNextUnratedRunBoundary, type UnratedRun } from '@/domain/unratedRun';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
-import { useCompletedWorkoutMutations } from '@/query/useCompletedWorkoutOverview';
+import {
+  prefetchCompletedWorkoutOverview,
+  useCompletedWorkoutMutations,
+} from '@/query/useCompletedWorkoutOverview';
 import { AppText } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
 import { Radius, Spacing } from '@/theme/tokens';
@@ -75,8 +81,23 @@ function UnratedRunBannerContent({
 export function UnratedRunBanner() {
   const { events } = useCalendarEvents();
   const [now, setNow] = useState(() => Date.now());
+  const queryClient = useQueryClient();
+  const apiClient = useApiClient();
+  const { session } = useAuth();
+  const sessionEmail = session?.email;
 
   const unrated = findUnratedRun(events, now);
+
+  useEffect(() => {
+    if (unrated?.activityId && sessionEmail) {
+      void prefetchCompletedWorkoutOverview(
+        queryClient,
+        apiClient,
+        sessionEmail,
+        unrated.activityId,
+      ).catch(() => {});
+    }
+  }, [unrated?.activityId, sessionEmail, queryClient, apiClient]);
 
   useEffect(() => {
     const nextBoundary = getNextUnratedRunBoundary(events, now);

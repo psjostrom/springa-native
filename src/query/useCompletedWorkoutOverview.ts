@@ -56,7 +56,10 @@ export function prefetchCompletedWorkoutOverview(
   );
 }
 
-export function useCompletedWorkoutOverview(activityId: string) {
+export function useCompletedWorkoutOverview(
+  activityId: string,
+  options?: { refetchOnMount?: boolean | 'always' },
+) {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
   const identity = session?.email ?? '';
@@ -64,6 +67,7 @@ export function useCompletedWorkoutOverview(activityId: string) {
   const query = useQuery({
     ...completedWorkoutOverviewQueryOptions(client, identity, activityId),
     enabled,
+    ...(options?.refetchOnMount != null ? { refetchOnMount: options.refetchOnMount } : {}),
   });
 
   const pendingUpdates = usePendingWorkoutUpdates(identity);
@@ -76,10 +80,10 @@ export function useCompletedWorkoutOverview(activityId: string) {
     data: data ?? null,
     isEnabled: enabled,
     isLoading: enabled && query.isPending,
+    isFetching: query.isFetching,
     isError: enabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
     reload: () => query.refetch(),
-
   };
 }
 
