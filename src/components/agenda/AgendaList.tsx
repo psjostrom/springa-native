@@ -16,7 +16,7 @@ import { useCalendarEvents } from '@/query/useCalendarEvents';
 import { prefetchCompletedWorkoutOverview } from '@/query/useCompletedWorkoutOverview';
 import { prefetchPlannedWorkoutDetail } from '@/query/usePlannedWorkout';
 import { SpringaColors } from '@/theme/colors';
-import { IconSize, Spacing } from '@/theme/tokens';
+import { IconSize, MinTouchTarget, Spacing } from '@/theme/tokens';
 import { AgendaEventCard } from './AgendaEventCard';
 
 type AgendaViewMode = 'upcoming' | 'history';
@@ -190,32 +190,31 @@ export function AgendaList({ onOpenWorkout }: AgendaListProps) {
       ListHeaderComponent={
         <View style={styles.header}>
           <Card style={styles.titleRow}>
-            <AppText variant="subheading">Agenda</AppText>
+            {historyMode ? (
+              <Pressable
+                onPress={() => setView('upcoming')}
+                accessibilityRole="button"
+                accessibilityLabel="Back to upcoming"
+                style={styles.historyNav}
+              >
+                <ChevronLeft size={IconSize.sm} color={SpringaColors.muted} />
+                <AppText variant="label" tone="muted">Back to upcoming</AppText>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => setView('history')}
+                accessibilityRole="button"
+                accessibilityLabel="Earlier workouts"
+                style={styles.earlierButton}
+              >
+                <History size={IconSize.sm} color={SpringaColors.muted} />
+                <AppText variant="label" tone="muted">Earlier workouts</AppText>
+              </Pressable>
+            )}
             <IconButton accessibilityLabel="Add workout" disabled={pendingEventIds.length > 0} onPress={() => setCreatePresented(true)}>
               <Plus size={IconSize.md} color={SpringaColors.brandText} />
             </IconButton>
           </Card>
-          {historyMode ? (
-            <Pressable
-              onPress={() => setView('upcoming')}
-              accessibilityRole="button"
-              accessibilityLabel="Back to upcoming"
-              style={styles.historyNav}
-            >
-              <ChevronLeft size={IconSize.sm} color={SpringaColors.muted} />
-              <AppText variant="label" tone="muted">Back to upcoming</AppText>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={() => setView('history')}
-              accessibilityRole="button"
-              accessibilityLabel="Earlier workouts"
-              style={styles.earlierButton}
-            >
-              <History size={IconSize.sm} color={SpringaColors.muted} />
-              <AppText variant="label" tone="muted">Earlier workouts</AppText>
-            </Pressable>
-          )}
           {historyMode && olderError ? (
             <Pressable
               onPress={() => {
@@ -289,15 +288,14 @@ const styles = StyleSheet.create({
   earlierButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    minHeight: MinTouchTarget,
   },
   historyNav: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
+    minHeight: MinTouchTarget,
   },
   footer: { paddingVertical: Spacing.sm },
   edgeText: {

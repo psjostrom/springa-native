@@ -77,7 +77,7 @@ describe('AgendaList', () => {
     expect(await screen.findByText('One run, shaped by your training plan')).toBeOnTheScreen();
   });
 
-  it('shows Agenda without inactive Month or Week actions', async () => {
+  it('shows header controls without inactive Month or Week actions', async () => {
     await render(
       <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
         <View style={{ width: 390, height: 800 }}>
@@ -88,7 +88,8 @@ describe('AgendaList', () => {
       </TestAppProviders>,
     );
 
-    expect(await screen.findByText('Agenda')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Earlier workouts')).toBeOnTheScreen();
+    expect(screen.queryByText('Agenda')).toBeNull();
     expect(screen.queryByText('Month')).toBeNull();
     expect(screen.queryByText('Week')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Month' })).toBeNull();
@@ -372,7 +373,7 @@ describe('AgendaList', () => {
       </TestAppProviders>,
     );
     const refreshControl = await screen.findByTestId('agenda-refresh-control');
-    expect(screen.getByText('Agenda')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Earlier workouts')).toBeOnTheScreen();
     expect(screen.queryByText('Couldn’t load calendar')).toBeNull();
 
     await refreshControl.props.onRefresh();
@@ -380,7 +381,7 @@ describe('AgendaList', () => {
     await waitFor(() => {
       expect(refreshControl.props.refreshing).toBe(false);
     });
-    expect(screen.getByText('Agenda')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Earlier workouts')).toBeOnTheScreen();
     expect(screen.queryByText('Couldn’t load calendar')).toBeNull();
   });
 
@@ -409,7 +410,7 @@ describe('AgendaList', () => {
       </TestAppProviders>,
     );
 
-    expect(await screen.findByText('Agenda')).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Earlier workouts')).toBeOnTheScreen();
     expect(screen.queryByText('Couldn’t load calendar')).toBeNull();
 
     server.use(
@@ -424,7 +425,7 @@ describe('AgendaList', () => {
     await waitFor(() => {
       expect(refreshControl.props.refreshing).toBe(false);
     });
-    expect(screen.getByText('Agenda')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Earlier workouts')).toBeOnTheScreen();
     expect(screen.queryByText('Couldn’t load calendar')).toBeNull();
   });
 
