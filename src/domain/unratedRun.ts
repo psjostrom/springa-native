@@ -35,7 +35,7 @@ export function findUnratedRun(
       if (!isUnratedCompletedRun(event)) return false;
       const time =
         event.date instanceof Date ? event.date.getTime() : new Date(event.date).getTime();
-      return time > cutoff && time <= now;
+      return time >= cutoff && time <= now;
     })
     .sort((a, b) => {
       const timeA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
