@@ -35,7 +35,7 @@ export function findUnratedRun(
       if (!isUnratedCompletedRun(event)) return false;
       const time =
         event.date instanceof Date ? event.date.getTime() : new Date(event.date).getTime();
-      return time >= cutoff && time <= now;
+      return time > cutoff && time <= now;
     })
     .sort((a, b) => {
       const timeA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
@@ -58,16 +58,16 @@ export function getNextUnratedRunBoundary(
   events: readonly CalendarEvent[],
   now = Date.now(),
 ): number | null {
-  const nextExpiry = events
+  const nextBoundary = events
     .filter(isUnratedCompletedRun)
     .map((event) => {
       const time =
         event.date instanceof Date ? event.date.getTime() : new Date(event.date).getTime();
-      return time + SEVEN_DAYS_MS;
+      return time > now ? time : time + SEVEN_DAYS_MS;
     })
-    .filter((expiry) => expiry > now)
+    .filter((boundary) => boundary > now)
     .sort((a, b) => a - b)
     .at(0);
 
-  return nextExpiry ?? null;
+  return nextBoundary ?? null;
 }

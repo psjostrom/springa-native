@@ -5,6 +5,7 @@ import type {
   CamAPSAutoSubmode,
   CamAPSMode,
   ProtocolTiming,
+  WorkoutCategory,
   WorkoutProtocol,
 } from '@/api/types';
 import { AppText, Button, ChoiceChip, TextField } from '@/components/ui';
@@ -28,7 +29,7 @@ export type FeedbackFormProps = {
     status?: 'rated' | 'skipped';
     rating?: 'good' | 'bad' | 'skipped' | string | null;
     comment?: string | null;
-    category?: 'easy' | 'long' | 'interval' | 'race' | 'other' | null;
+    category?: WorkoutCategory | null;
     protocol?: WorkoutProtocol | null;
     carbsG?: number | null;
     preRunCarbsG?: number | null;
@@ -60,7 +61,7 @@ export function FeedbackForm({
       : null;
 
   const [selectedCategory, setSelectedCategory] = useState<
-    'easy' | 'long' | 'interval' | 'race' | null
+    Exclude<WorkoutCategory, 'other'> | null
   >(initialCategory);
 
   const defaultBasalProtocol =
@@ -185,6 +186,8 @@ export function FeedbackForm({
 
     const resolvedFeel = selectedFeel ?? displayFeel ?? null;
 
+    const parsedDuringTargetBg = parseFloat(duringTargetBg);
+    const parsedDuringManualUh = parseFloat(duringManualUh);
     const protocolToSave: WorkoutProtocol = {
       category: selectedCategory ?? event.category,
       beforeMode,
@@ -195,8 +198,8 @@ export function FeedbackForm({
       duringSame,
       duringMode: duringSame ? null : duringMode,
       duringAutoSubmode: !duringSame && duringMode === 'auto' ? duringAutoSubmode : null,
-      duringTargetBg: !duringSame && duringMode === 'auto' && Number.isFinite(parseFloat(duringTargetBg)) ? parseFloat(duringTargetBg) : null,
-      duringManualUh: !duringSame && duringMode === 'manual' && Number.isFinite(parseFloat(duringManualUh)) ? parseFloat(duringManualUh) : null,
+      duringTargetBg: !duringSame && duringMode === 'auto' && Number.isFinite(parsedDuringTargetBg) ? parsedDuringTargetBg : null,
+      duringManualUh: !duringSame && duringMode === 'manual' && Number.isFinite(parsedDuringManualUh) ? parsedDuringManualUh : null,
       preRunCarbsG: Number.isFinite(parsedPreRunG) ? parsedPreRunG : null,
       rescueCarbsG: hadRescue && Number.isFinite(parsedRescueG) ? parsedRescueG : null,
       feel: resolvedFeel,

@@ -163,6 +163,8 @@ export type UserSettings = {
   demo?: boolean;
 };
 
+export type WorkoutCategory = 'long' | 'interval' | 'easy' | 'race' | 'other';
+
 /** Calendar event from Springa GET /api/intervals/calendar (JSON dates coerced to Date). */
 export type CalendarEvent = {
   id: string;
@@ -170,7 +172,7 @@ export type CalendarEvent = {
   name: string;
   description: string;
   type: 'completed' | 'planned' | 'race';
-  category: 'long' | 'interval' | 'easy' | 'race' | 'other';
+  category: WorkoutCategory;
   distance?: number;
   duration?: number;
   avgHr?: number;
@@ -204,12 +206,7 @@ export type HeartRateZoneTimes = {
 
 export type WorkoutZone = 'z1' | 'z2' | 'z3' | 'z4' | 'z5';
 
-export type PlannedWorkoutCategory =
-  | 'easy'
-  | 'long'
-  | 'interval'
-  | 'race'
-  | 'other';
+export type PlannedWorkoutCategory = WorkoutCategory;
 
 export type PlannedWorkoutReplacementCategory = 'easy' | 'quality' | 'long' | 'club';
 
@@ -280,7 +277,7 @@ export type ProtocolTiming = '>2h' | '1-2h' | '<30m' | 'at_start';
 
 export type WorkoutProtocol = {
   activityId?: string;
-  category?: string | null;
+  category?: WorkoutCategory | null;
   beforeMode: CamAPSMode;
   beforeAutoSubmode?: CamAPSAutoSubmode | null;
   beforeTargetBg?: number | null;

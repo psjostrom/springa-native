@@ -109,4 +109,11 @@ describe('CompletedFeedback', () => {
     expect(screen.getByText('1–2h before')).toBeOnTheScreen();
     expect(screen.getByText('Rescue: 15g')).toBeOnTheScreen();
   });
+
+  it('renders Garmin feel badge when feel exists without rating, comment, or protocol', async () => {
+    await render(<CompletedFeedback event={baseEvent} feel={1} rpe={3} />);
+
+    expect(screen.getByTestId('garmin-feel-badge')).toBeOnTheScreen();
+    expect(screen.getByText(/Garmin: Very Strong · RPE 3\/10/)).toBeOnTheScreen();
+  });
 });

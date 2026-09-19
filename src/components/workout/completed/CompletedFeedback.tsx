@@ -14,10 +14,6 @@ export type CompletedFeedbackProps = {
   protocol?: WorkoutProtocol | null;
   feel?: number | null;
   rpe?: number | null;
-  saveFeedback?: unknown;
-  pending?: boolean;
-  error?: string | null;
-  onInputFocus?: unknown;
   onEdit?: () => void;
 };
 
@@ -33,7 +29,7 @@ export function CompletedFeedback({
   const rpe = rpeProp ?? event.rpe ?? protocol?.rpe;
   const isRated =
     event.isRated ??
-    (event.rating != null || protocol != null || Boolean(event.feedbackComment));
+    (feel != null || event.rating != null || protocol != null || Boolean(event.feedbackComment));
   const protocolPills = protocol ? getProtocolPills(protocol) : [];
   const comment = event.feedbackComment ?? protocol?.note;
 
@@ -81,6 +77,10 @@ export function CompletedFeedback({
                     >
                       {event.rating === 'good' ? 'Good' : 'Bad'}
                     </AppText>
+                  </View>
+                ) : event.rating === 'skipped' ? (
+                  <View style={styles.ratingBadge}>
+                    <Badge label="Rating skipped" tone="neutral" />
                   </View>
                 ) : null}
 

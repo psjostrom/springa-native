@@ -171,10 +171,18 @@ function parseWorkoutProtocol(value: unknown): WorkoutProtocol | null {
     value.duringAutoSubmode === 'boost'
       ? value.duringAutoSubmode
       : null;
+  const category =
+    value.category === 'easy' ||
+    value.category === 'long' ||
+    value.category === 'interval' ||
+    value.category === 'race' ||
+    value.category === 'other'
+      ? value.category
+      : null;
 
   return {
     activityId: scoreString(value.activityId) ?? undefined,
-    category: scoreString(value.category),
+    category,
     beforeMode,
     beforeAutoSubmode,
     beforeTargetBg: scoreNumber(value.beforeTargetBg),

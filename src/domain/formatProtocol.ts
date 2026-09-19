@@ -32,6 +32,8 @@ export function formatTiming(timing: ProtocolTiming): string {
       return '<30m before';
     case 'at_start':
       return 'At start';
+    default:
+      return String(timing);
   }
 }
 
@@ -43,24 +45,35 @@ export function formatMode(
 ): string {
   if (mode === 'disconnected') return 'Disconnected';
   if (mode === 'manual') return manualUh != null ? `Manual ${manualUh} u/h` : 'Manual';
-  const sub = submode === 'boost' ? 'Boost' : submode === 'normal' ? 'Normal' : 'Ease off';
+  const sub =
+    submode === 'boost'
+      ? ' Boost'
+      : submode === 'normal'
+        ? ' Normal'
+        : submode === 'ease_off'
+          ? ' Ease off'
+          : '';
   const target = targetBg != null ? ` (${targetBg} mmol/L)` : '';
-  return `Auto ${sub}${target}`;
+  return `Auto${sub}${target}`;
 }
 
 export function getProtocolPills(protocol: WorkoutProtocol): string[] {
   const pills: string[] = [];
 
-  pills.push(
-    formatMode(
-      protocol.beforeMode,
-      protocol.beforeAutoSubmode,
-      protocol.beforeTargetBg,
-      protocol.beforeManualUh,
-    ),
-  );
+  if (protocol.beforeMode) {
+    pills.push(
+      formatMode(
+        protocol.beforeMode,
+        protocol.beforeAutoSubmode,
+        protocol.beforeTargetBg,
+        protocol.beforeManualUh,
+      ),
+    );
+  }
 
-  pills.push(formatTiming(protocol.beforeTiming));
+  if (protocol.beforeTiming) {
+    pills.push(formatTiming(protocol.beforeTiming));
+  }
 
   if (!protocol.duringSame && protocol.duringMode != null) {
     pills.push(

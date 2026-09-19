@@ -27,6 +27,7 @@ import type {
   PlannerPreviewRequest,
   PlannerState,
   UserSettings,
+  WorkoutCategory,
   WorkoutProtocol,
 } from './types';
 
@@ -39,6 +40,18 @@ export type ApiClientOptions = {
   onUnauthorized: () => void;
   baseUrl?: string;
   timeoutMs?: number;
+};
+
+export type SaveRunFeedbackOptions = {
+  feel?: number | null;
+  rpe?: number | null;
+  status?: 'rated' | 'skipped';
+  rating?: 'good' | 'bad' | 'skipped' | (string & {}) | null;
+  comment?: string | null;
+  category?: WorkoutCategory | null;
+  protocol?: WorkoutProtocol | null;
+  carbsG?: number | null;
+  preRunCarbsG?: number | null;
 };
 
 export type ApiClient = {
@@ -81,22 +94,7 @@ export type ApiClient = {
   deletePreRunCarbs: (eventId: number) => Promise<void>;
   saveRunFeedback: (
     activityId: string,
-    ratingOrOptions:
-      | 'good'
-      | 'bad'
-      | 'skipped'
-      | string
-      | {
-          feel?: number | null;
-          rpe?: number | null;
-          status?: 'rated' | 'skipped';
-          rating?: 'good' | 'bad' | 'skipped' | string | null;
-          comment?: string | null;
-          category?: 'easy' | 'long' | 'interval' | 'race' | 'other' | null;
-          protocol?: WorkoutProtocol | null;
-          carbsG?: number | null;
-          preRunCarbsG?: number | null;
-        },
+    ratingOrOptions: 'good' | 'bad' | 'skipped' | (string & {}) | SaveRunFeedbackOptions,
     comment?: string,
     protocol?: WorkoutProtocol | null,
   ) => Promise<{ ok: true }>;
@@ -361,22 +359,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     },
     saveRunFeedback: (
       activityId: string,
-      ratingOrOptions:
-        | 'good'
-        | 'bad'
-        | 'skipped'
-        | string
-        | {
-            feel?: number | null;
-            rpe?: number | null;
-            status?: 'rated' | 'skipped';
-            rating?: 'good' | 'bad' | 'skipped' | string | null;
-            comment?: string | null;
-            category?: string | null;
-            protocol?: WorkoutProtocol | null;
-            carbsG?: number | null;
-            preRunCarbsG?: number | null;
-          },
+      ratingOrOptions: 'good' | 'bad' | 'skipped' | (string & {}) | SaveRunFeedbackOptions,
       comment?: string,
       protocol?: WorkoutProtocol | null,
     ) => {

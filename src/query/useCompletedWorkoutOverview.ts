@@ -87,7 +87,7 @@ export function useCompletedWorkoutOverview(
   };
 }
 
-export function useCompletedWorkoutMutations(event: CalendarEvent): {
+export function useCompletedWorkoutMutations(event?: CalendarEvent): {
   saveCarbs: UseMutationResult<{ ok: true }, Error, number>;
   savePreRunCarbs: UseMutationResult<
     { cleanupWarning: string | null },
@@ -114,7 +114,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const identity = session?.email ?? '';
-  const activityId = event.activityId;
+  const activityId = event?.activityId;
   const calendarKey = queryKeys.calendar(identity);
   const overviewKey = queryKeys.completedWorkoutOverview(identity, activityId ?? '');
   const carbsInFlight = useRef(false);
@@ -150,7 +150,10 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       mutationKey: queryKeys.updateWorkout(identity),
       networkMode: 'always',
       retry: false,
-      onMutate: (carbsG) => beginWorkoutUpdate(queryClient, identity, { eventId: event.id, activityId, patch: { carbsIngested: carbsG } }),
+      onMutate: (carbsG) => {
+        if (!event) throw new Error('No activity selected');
+        return beginWorkoutUpdate(queryClient, identity, { eventId: event.id, activityId, patch: { carbsIngested: carbsG } });
+      },
       mutationFn: async (carbsG) => {
         if (carbsInFlight.current) {
           throw new Error('Save already in progress');
@@ -166,8 +169,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         }
       },
       onSuccess: async (_result, carbsG, context) => {
-        await queryClient.cancelQueries({ queryKey: calendarKey });
-        patchCalendar(context?.eventId ?? event.id, context?.activityId ?? activityId, { carbsIngested: carbsG });
+        patchCalendar(context?.eventId ?? event?.id ?? '', context?.activityId ?? activityId, { carbsIngested: carbsG });
       },
     }),
     savePreRunCarbs: useMutation<
@@ -179,7 +181,10 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       mutationKey: queryKeys.updateWorkout(identity),
       networkMode: 'always',
       retry: false,
-      onMutate: (carbsG) => beginWorkoutUpdate(queryClient, identity, { eventId: event.id, activityId, patch: { preRunCarbsG: carbsG } }),
+      onMutate: (carbsG) => {
+        if (!event) throw new Error('No activity selected');
+        return beginWorkoutUpdate(queryClient, identity, { eventId: event.id, activityId, patch: { preRunCarbsG: carbsG } });
+      },
       mutationFn: async (carbsG) => {
         if (preRunInFlight.current) {
           throw new Error('Save already in progress');
@@ -209,7 +214,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         }
       },
       onSuccess: async (result, carbsG, context) => {
-        const targetEventId = context?.eventId ?? event.id;
+        const targetEventId = context?.eventId ?? event?.id ?? '';
         const targetActivityId = context?.activityId ?? activityId;
         const targetOverviewKey = queryKeys.completedWorkoutOverview(identity, targetActivityId ?? '');
         await Promise.all([
@@ -251,6 +256,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       networkMode: 'always',
       retry: false,
       onMutate: ({ feel, rpe, status: _status, rating, comment, category, protocol, carbsG, preRunCarbsG }) => {
+        if (!event) throw new Error('No activity selected');
         const patch: Partial<
           Pick<
             CalendarEvent,
@@ -263,7 +269,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         if (feel !== undefined) patch.feel = feel;
         if (rpe !== undefined) patch.rpe = rpe;
         if (rating !== undefined) patch.rating = rating;
-        const note = comment ?? protocol?.note;
+        const note = comment !== undefined ? comment : protocol?.note;
         if (note !== undefined) patch.feedbackComment = note;
         if (preRunCarbsG !== undefined) {
           patch.preRunCarbsG = preRunCarbsG;
@@ -294,7 +300,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         }
       },
       onSuccess: async (_result, input, context) => {
-        const targetEventId = context?.eventId ?? event.id;
+        const targetEventId = context?.eventId ?? event?.id ?? '';
         const targetActivityId = context?.activityId ?? activityId;
         const targetOverviewKey = queryKeys.completedWorkoutOverview(identity, targetActivityId ?? '');
         await Promise.all([
@@ -304,15 +310,16 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         const calendarPatch: Partial<
           Pick<
             CalendarEvent,
-            'feel' | 'rpe' | 'isRated' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
+            'feel' | 'rpe' | 'isRated' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested' | 'category'
           >
         > = {
           isRated: true,
         };
+        if (input.category != null) calendarPatch.category = input.category;
         if (input.feel !== undefined) calendarPatch.feel = input.feel;
         if (input.rpe !== undefined) calendarPatch.rpe = input.rpe;
         if (input.rating !== undefined) calendarPatch.rating = input.rating;
-        const note = input.comment ?? input.protocol?.note;
+        const note = input.comment !== undefined ? input.comment : input.protocol?.note;
         if (note !== undefined) calendarPatch.feedbackComment = note;
         if (input.preRunCarbsG !== undefined) {
           calendarPatch.preRunCarbsG = input.preRunCarbsG;

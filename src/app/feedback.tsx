@@ -34,16 +34,7 @@ export default function FeedbackScreen() {
     isFetching: overviewFetching,
   } = useCompletedWorkoutOverview(event?.activityId ?? '');
 
-  const dummyEvent = {
-    id: '',
-    type: 'completed',
-    category: 'easy',
-    name: '',
-    date: new Date(),
-    description: '',
-  } as const;
-
-  const mutations = useCompletedWorkoutMutations(event ?? dummyEvent);
+  const mutations = useCompletedWorkoutMutations(event);
 
   const isUnrated = !overview?.protocol;
   const isWaitingForOverview =

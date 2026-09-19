@@ -114,7 +114,9 @@ export function UnratedRunBanner() {
 
   if (!unrated) return null;
 
-  const event = events.find((e) => e.activityId === unrated.activityId);
+  const event = events.find(
+    (e) => e.id === unrated.eventId || (unrated.activityId && e.activityId === unrated.activityId),
+  );
   if (!event) return null;
 
   return <UnratedRunBannerContent key={unrated.activityId} unrated={unrated} event={event} />;

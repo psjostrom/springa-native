@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react-native';
-import { DeviceEventEmitter, ScrollView, TextInput } from 'react-native';
+import { DeviceEventEmitter, Dimensions, ScrollView, TextInput } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
 import { useScrollAboveKeyboard } from './useScrollAboveKeyboard';
 
@@ -75,8 +75,14 @@ describe('useScrollAboveKeyboard', () => {
     // Focus input while keyboard is open
     screen.getByTestId('input').props.onFocus();
 
+    const expectedKeyboardTop = Dimensions.get('window').height - 300;
+    const expectedOverlap = 450 + 80 + 16 - expectedKeyboardTop;
+
     await waitFor(() => {
-      expect(scrollToMock).toHaveBeenCalled();
+      expect(scrollToMock).toHaveBeenCalledWith({
+        y: 100 + expectedOverlap,
+        animated: true,
+      });
     });
   });
 });
