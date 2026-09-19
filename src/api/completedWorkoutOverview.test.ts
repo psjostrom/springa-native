@@ -73,7 +73,113 @@ describe('parseCompletedWorkoutOverview', () => {
         { km: 2, paceMinPerKm: 5.38, avgHr: null, elevationChangeM: null },
       ],
       preRunCarbs: { grams: 45, source: 'activity', fallbackEventId: null },
+      protocol: null,
+      lastProtocols: null,
+      feel: null,
+      rpe: null,
     });
+  });
+
+  it('parses protocol, feel, and rpe when present', () => {
+    const parsed = parseCompletedWorkoutOverview({
+      ...richOverview,
+      feel: 4,
+      rpe: 7,
+      protocol: {
+        activityId: 'activity-123',
+        category: 'easy',
+        beforeMode: 'auto',
+        beforeAutoSubmode: 'ease_off',
+        beforeTargetBg: 7.5,
+        beforeManualUh: null,
+        beforeTiming: '1-2h',
+        duringSame: false,
+        duringMode: 'disconnected',
+        duringAutoSubmode: null,
+        duringTargetBg: null,
+        duringManualUh: null,
+        preRunCarbsG: 25,
+        rescueCarbsG: 15,
+        feel: 4,
+        rpe: 7,
+        note: 'Solid easy run',
+        updatedAt: 1700000000000,
+      },
+    });
+
+    expect(parsed.feel).toBe(4);
+    expect(parsed.rpe).toBe(7);
+    expect(parsed.protocol).toEqual({
+      activityId: 'activity-123',
+      category: 'easy',
+      beforeMode: 'auto',
+      beforeAutoSubmode: 'ease_off',
+      beforeTargetBg: 7.5,
+      beforeManualUh: null,
+      beforeTiming: '1-2h',
+      duringSame: false,
+      duringMode: 'disconnected',
+      duringAutoSubmode: null,
+      duringTargetBg: null,
+      duringManualUh: null,
+      preRunCarbsG: 25,
+      rescueCarbsG: 15,
+      feel: 4,
+      rpe: 7,
+      note: 'Solid easy run',
+      updatedAt: 1700000000000,
+    });
+  });
+
+  it('parses lastProtocols dictionary when present', () => {
+    const parsed = parseCompletedWorkoutOverview({
+      ...richOverview,
+      lastProtocols: {
+        easy: {
+          activityId: 'act-prev',
+          category: 'easy',
+          beforeMode: 'manual',
+          beforeManualUh: 0.22,
+          beforeTiming: '1-2h',
+          duringSame: true,
+        },
+      },
+    });
+
+    expect(parsed.lastProtocols?.easy).toMatchObject({
+      activityId: 'act-prev',
+      category: 'easy',
+      beforeMode: 'manual',
+      beforeManualUh: 0.22,
+      beforeTiming: '1-2h',
+      duringSame: true,
+    });
+  });
+
+  it('degrades malformed protocol and invalid feel/rpe to null', () => {
+    const parsed = parseCompletedWorkoutOverview({
+      ...richOverview,
+      feel: 'good',
+      rpe: NaN,
+      protocol: {
+        beforeMode: 'invalid_mode',
+        beforeTiming: 'whenever',
+      },
+    });
+
+    expect(parsed.feel).toBeNull();
+    expect(parsed.rpe).toBeNull();
+    expect(parsed.protocol).toBeNull();
+
+    const parsedNonBooleanDuringSame = parseCompletedWorkoutOverview({
+      ...richOverview,
+      protocol: {
+        beforeMode: 'auto',
+        beforeTiming: '1-2h',
+        duringSame: 'true',
+      },
+    });
+    expect(parsedNonBooleanDuringSame.protocol).toBeNull();
   });
 
   it('preserves all-null report-card fields and a null splits field', () => {

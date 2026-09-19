@@ -10,9 +10,9 @@ import {
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import type { ApiClient } from '@/api/client';
-import type { CalendarEvent, CompletedWorkoutOverview } from '@/api/types';
+import type { CalendarEvent, CompletedWorkoutOverview, WorkoutProtocol } from '@/api/types';
 import { queryKeys } from './keys';
-import { applyWorkoutUpdates, beginWorkoutUpdate, usePendingWorkoutUpdates } from './usePendingWorkoutUpdates';
+import { applyWorkoutUpdates, beginWorkoutUpdate, usePendingWorkoutUpdates, type WorkoutUpdate } from './usePendingWorkoutUpdates';
 
 export const COMPLETED_OVERVIEW_STALE_TIME = 1000 * 60 * 60 * 24; // 24 hours
 
@@ -56,7 +56,10 @@ export function prefetchCompletedWorkoutOverview(
   );
 }
 
-export function useCompletedWorkoutOverview(activityId: string) {
+export function useCompletedWorkoutOverview(
+  activityId: string,
+  options?: { refetchOnMount?: boolean | 'always' },
+) {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
   const identity = session?.email ?? '';
@@ -64,6 +67,7 @@ export function useCompletedWorkoutOverview(activityId: string) {
   const query = useQuery({
     ...completedWorkoutOverviewQueryOptions(client, identity, activityId),
     enabled,
+    ...(options?.refetchOnMount != null ? { refetchOnMount: options.refetchOnMount } : {}),
   });
 
   const pendingUpdates = usePendingWorkoutUpdates(identity);
@@ -76,10 +80,10 @@ export function useCompletedWorkoutOverview(activityId: string) {
     data: data ?? null,
     isEnabled: enabled,
     isLoading: enabled && query.isPending,
+    isFetching: query.isFetching,
     isError: enabled && query.isError,
     error: query.error instanceof Error ? query.error.message : null,
     reload: () => query.refetch(),
-
   };
 }
 
@@ -93,7 +97,17 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
   saveFeedback: UseMutationResult<
     { ok: true },
     Error,
-    { rating: 'good' | 'bad'; comment: string }
+    {
+      feel?: number | null;
+      rpe?: number | null;
+      status?: 'rated' | 'skipped';
+      rating?: 'good' | 'bad' | 'skipped' | string | null;
+      comment?: string | null;
+      category?: 'easy' | 'long' | 'interval' | 'race' | 'other' | null;
+      protocol?: WorkoutProtocol | null;
+      carbsG?: number | null;
+      preRunCarbsG?: number | null;
+    }
   >;
 } {
   const client = useApiClient();
@@ -108,10 +122,12 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
   const feedbackInFlight = useRef(false);
 
   const patchCalendar = (
+    targetEventId: string,
+    targetActivityId: string | undefined,
     patch: Partial<
       Pick<
         CalendarEvent,
-        'carbsIngested' | 'preRunCarbsG' | 'rating' | 'feedbackComment'
+        'carbsIngested' | 'preRunCarbsG' | 'isRated' | 'rating' | 'feedbackComment' | 'feel' | 'rpe' | 'category'
       >
     >,
   ) => {
@@ -123,14 +139,14 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           : {
               ...current,
               pages: current.pages.map((page) =>
-                applyWorkoutUpdates(page, [{ eventId: event.id, activityId, patch }]),
+                applyWorkoutUpdates(page, [{ eventId: targetEventId, activityId: targetActivityId, patch }]),
               ),
             },
     );
   };
 
   return {
-    saveCarbs: useMutation<{ ok: true }, Error, number>({
+    saveCarbs: useMutation<{ ok: true }, Error, number, WorkoutUpdate>({
       mutationKey: queryKeys.updateWorkout(identity),
       networkMode: 'always',
       retry: false,
@@ -149,15 +165,16 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           carbsInFlight.current = false;
         }
       },
-      onSuccess: async (_result, carbsG) => {
+      onSuccess: async (_result, carbsG, context) => {
         await queryClient.cancelQueries({ queryKey: calendarKey });
-        patchCalendar({ carbsIngested: carbsG });
+        patchCalendar(context?.eventId ?? event.id, context?.activityId ?? activityId, { carbsIngested: carbsG });
       },
     }),
     savePreRunCarbs: useMutation<
       { cleanupWarning: string | null },
       Error,
-      number | null
+      number | null,
+      WorkoutUpdate
     >({
       mutationKey: queryKeys.updateWorkout(identity),
       networkMode: 'always',
@@ -191,16 +208,19 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           preRunInFlight.current = false;
         }
       },
-      onSuccess: async (result, carbsG) => {
+      onSuccess: async (result, carbsG, context) => {
+        const targetEventId = context?.eventId ?? event.id;
+        const targetActivityId = context?.activityId ?? activityId;
+        const targetOverviewKey = queryKeys.completedWorkoutOverview(identity, targetActivityId ?? '');
         await Promise.all([
           queryClient.cancelQueries({ queryKey: calendarKey }),
-          queryClient.cancelQueries({ queryKey: overviewKey }),
+          queryClient.cancelQueries({ queryKey: targetOverviewKey }),
         ]);
-        const previous = queryClient.getQueryData<CompletedWorkoutOverview>(overviewKey)?.preRunCarbs;
+        const previous = queryClient.getQueryData<CompletedWorkoutOverview>(targetOverviewKey)?.preRunCarbs;
         const preRunCarbs = nextPreRunState(previous ?? { grams: null, source: 'none', fallbackEventId: null }, carbsG, result.cleanupWarning == null);
-        patchCalendar({ preRunCarbsG: preRunCarbs.grams });
+        patchCalendar(targetEventId, targetActivityId, { preRunCarbsG: preRunCarbs.grams });
         queryClient.setQueryData<CompletedWorkoutOverview>(
-          overviewKey,
+          targetOverviewKey,
           (current) =>
             current == null
               ? current
@@ -214,15 +234,52 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
     saveFeedback: useMutation<
       { ok: true },
       Error,
-      { rating: 'good' | 'bad'; comment: string }
+      {
+        feel?: number | null;
+        rpe?: number | null;
+        status?: 'rated' | 'skipped';
+        rating?: 'good' | 'bad' | 'skipped' | string | null;
+        comment?: string | null;
+        category?: 'easy' | 'long' | 'interval' | 'race' | 'other' | null;
+        protocol?: WorkoutProtocol | null;
+        carbsG?: number | null;
+        preRunCarbsG?: number | null;
+      },
+      WorkoutUpdate
     >({
       mutationKey: queryKeys.updateWorkout(identity),
       networkMode: 'always',
       retry: false,
-      onMutate: ({ rating, comment }) => beginWorkoutUpdate(queryClient, identity, {
-        eventId: event.id, activityId, patch: { rating, feedbackComment: comment },
-      }),
-      mutationFn: async ({ rating, comment }) => {
+      onMutate: ({ feel, rpe, status: _status, rating, comment, category, protocol, carbsG, preRunCarbsG }) => {
+        const patch: Partial<
+          Pick<
+            CalendarEvent,
+            'feel' | 'rpe' | 'isRated' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested' | 'category'
+          >
+        > = {
+          isRated: true,
+        };
+        if (category != null) patch.category = category;
+        if (feel !== undefined) patch.feel = feel;
+        if (rpe !== undefined) patch.rpe = rpe;
+        if (rating !== undefined) patch.rating = rating;
+        const note = comment ?? protocol?.note;
+        if (note !== undefined) patch.feedbackComment = note;
+        if (preRunCarbsG !== undefined) {
+          patch.preRunCarbsG = preRunCarbsG;
+        } else if (protocol?.preRunCarbsG !== undefined) {
+          patch.preRunCarbsG = protocol.preRunCarbsG;
+        }
+        if (carbsG !== undefined) {
+          patch.carbsIngested = carbsG;
+        }
+        return beginWorkoutUpdate(queryClient, identity, {
+          eventId: event.id,
+          activityId,
+          patch,
+        });
+      },
+      mutationFn: async (input) => {
         if (feedbackInFlight.current) {
           throw new Error('Save already in progress');
         }
@@ -231,14 +288,69 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         }
         feedbackInFlight.current = true;
         try {
-          return await client.saveRunFeedback(activityId, rating, comment);
+          return await client.saveRunFeedback(activityId, input);
         } finally {
           feedbackInFlight.current = false;
         }
       },
-      onSuccess: async (_result, input) => {
-        await queryClient.cancelQueries({ queryKey: calendarKey });
-        patchCalendar({ rating: input.rating, feedbackComment: input.comment });
+      onSuccess: async (_result, input, context) => {
+        const targetEventId = context?.eventId ?? event.id;
+        const targetActivityId = context?.activityId ?? activityId;
+        const targetOverviewKey = queryKeys.completedWorkoutOverview(identity, targetActivityId ?? '');
+        await Promise.all([
+          queryClient.cancelQueries({ queryKey: calendarKey }),
+          queryClient.cancelQueries({ queryKey: targetOverviewKey }),
+        ]);
+        const calendarPatch: Partial<
+          Pick<
+            CalendarEvent,
+            'feel' | 'rpe' | 'isRated' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
+          >
+        > = {
+          isRated: true,
+        };
+        if (input.feel !== undefined) calendarPatch.feel = input.feel;
+        if (input.rpe !== undefined) calendarPatch.rpe = input.rpe;
+        if (input.rating !== undefined) calendarPatch.rating = input.rating;
+        const note = input.comment ?? input.protocol?.note;
+        if (note !== undefined) calendarPatch.feedbackComment = note;
+        if (input.preRunCarbsG !== undefined) {
+          calendarPatch.preRunCarbsG = input.preRunCarbsG;
+        } else if (input.protocol?.preRunCarbsG !== undefined) {
+          calendarPatch.preRunCarbsG = input.protocol.preRunCarbsG;
+        }
+        if (input.carbsG !== undefined) {
+          calendarPatch.carbsIngested = input.carbsG;
+        }
+        patchCalendar(targetEventId, targetActivityId, calendarPatch);
+        const resolvedPreRunCarbsG =
+          input.preRunCarbsG !== undefined
+            ? input.preRunCarbsG
+            : input.protocol?.preRunCarbsG;
+        if (
+          input.protocol !== undefined ||
+          resolvedPreRunCarbsG !== undefined ||
+          input.feel !== undefined ||
+          input.rpe !== undefined
+        ) {
+          queryClient.setQueryData<CompletedWorkoutOverview>(
+            targetOverviewKey,
+            (current) =>
+              current == null
+                ? current
+                : {
+                    ...current,
+                    feel: input.feel !== undefined ? input.feel : current.feel,
+                    rpe: input.rpe !== undefined ? input.rpe : current.rpe,
+                    protocol:
+                      input.protocol !== undefined ? input.protocol : current.protocol,
+                    preRunCarbs:
+                      resolvedPreRunCarbsG !== undefined
+                        ? nextPreRunState(current.preRunCarbs, resolvedPreRunCarbsG, true)
+                        : current.preRunCarbs,
+                  },
+          );
+        }
       },
     }),
   };

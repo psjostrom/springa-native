@@ -39,6 +39,19 @@ function RootNavigator() {
             contentStyle: { backgroundColor: SpringaColors.surface },
           }}
         />
+        <Stack.Screen
+          name="feedback"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            title: 'Rate Run',
+            headerTintColor: SpringaColors.brandText,
+            headerStyle: { backgroundColor: SpringaColors.surface },
+            headerTitleStyle: { color: SpringaColors.text },
+            headerShadowVisible: false,
+            contentStyle: { backgroundColor: SpringaColors.bg },
+          }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={signedOut}>
         <Stack.Screen name="login" />

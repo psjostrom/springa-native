@@ -1,169 +1,189 @@
-import type { ReactElement } from 'react';
-import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { MessageSquare, ThumbsDown, ThumbsUp } from 'lucide-react-native';
-import type { CalendarEvent } from '@/api/types';
-import { AppText, Button, Card, Section, TextField } from '@/components/ui';
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { MessageSquare, Pencil, ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import type { CalendarEvent, WorkoutProtocol } from '@/api/types';
+import { AppText, Badge, Card, IconButton, Section } from '@/components/ui';
+import { formatFeel, getProtocolPills } from '@/domain/formatProtocol';
 import { SpringaColors } from '@/theme/colors';
-import { MinTouchTarget, Radius, Spacing } from '@/theme/tokens';
+import { Radius, Spacing } from '@/theme/tokens';
 
-type CompletedFeedbackProps = {
+export { formatFeel, formatMode, formatTiming } from '@/domain/formatProtocol';
+
+export type CompletedFeedbackProps = {
   event: CalendarEvent;
-  saveFeedback: (input: { rating: 'good' | 'bad'; comment: string }) => void;
-  pending: boolean;
-  error: string | null;
-  onInputFocus?: (input: TextInput) => void;
+  protocol?: WorkoutProtocol | null;
+  feel?: number | null;
+  rpe?: number | null;
+  saveFeedback?: unknown;
+  pending?: boolean;
+  error?: string | null;
+  onInputFocus?: unknown;
+  onEdit?: () => void;
 };
-
-function RatingButton({
-  label,
-  selected,
-  disabled,
-  onPress,
-}: {
-  label: 'Good' | 'Bad';
-  selected: boolean;
-  disabled: boolean;
-  onPress: () => void;
-}) {
-  const Icon = label === 'Good' ? ThumbsUp : ThumbsDown;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.rating, selected && styles.ratingSelected, disabled && styles.ratingDisabled]}
-    >
-      <Icon
-        color={selected ? SpringaColors.brandText : SpringaColors.muted}
-        size={20}
-        accessible={false}
-      />
-    </Pressable>
-  );
-}
 
 export function CompletedFeedback({
   event,
-  saveFeedback,
-  pending,
-  error,
-  onInputFocus,
-}: CompletedFeedbackProps): ReactElement | null {
-  const commentRef = useRef<TextInput>(null);
-  const [rating, setRating] = useState<'good' | 'bad' | null>(null);
-  const [comment, setComment] = useState('');
+  protocol,
+  feel: feelProp,
+  rpe: rpeProp,
+  onEdit,
+}: CompletedFeedbackProps) {
+  const router = useRouter();
+  const feel = feelProp ?? event.feel ?? protocol?.feel;
+  const rpe = rpeProp ?? event.rpe ?? protocol?.rpe;
+  const isRated =
+    event.isRated ??
+    (event.rating != null || protocol != null || Boolean(event.feedbackComment));
+  const protocolPills = protocol ? getProtocolPills(protocol) : [];
+  const comment = event.feedbackComment ?? protocol?.note;
 
-  if (event.rating != null) {
-    return (
-      <Section title="Feedback" icon={MessageSquare} iconColor={SpringaColors.muted}>
-        <Card accessibilityLabel="Run feedback" style={styles.savedRow}>
-          {event.rating === 'good' ? (
-            <ThumbsUp color={SpringaColors.success} size={20} accessible={false} />
-          ) : (
-            <ThumbsDown color={SpringaColors.error} size={20} accessible={false} />
-          )}
-          <AppText
-            variant="subheading"
-            tone={event.rating === 'good' ? 'success' : 'error'}
-            selectable
-          >
-            {event.rating === 'good' ? 'Good' : 'Bad'}
-          </AppText>
-          {event.feedbackComment ? (
-            <AppText tone="muted" selectable>{event.feedbackComment}</AppText>
-          ) : null}
-        </Card>
-      </Section>
-    );
-  }
-
-  const save = () => {
-    if (rating == null || pending) return;
-    saveFeedback({ rating, comment: comment.trim() });
+  const navigateToFeedback = () => {
+    if (onEdit) {
+      onEdit();
+      return;
+    }
+    router.push({
+      pathname: '/feedback',
+      params: { activityId: event.activityId, eventId: event.id },
+    });
   };
 
   return (
-    <Section title="Feedback" icon={MessageSquare} iconColor={SpringaColors.muted}>
-      <Card accessibilityLabel="Run feedback form" style={styles.form}>
-        <View style={styles.ratingRow}>
-          <RatingButton
-            label="Good"
-            selected={rating === 'good'}
-            disabled={pending}
-            onPress={() => setRating('good')}
-          />
-          <RatingButton
-            label="Bad"
-            selected={rating === 'bad'}
-            disabled={pending}
-            onPress={() => setRating('bad')}
-          />
+    <Card style={styles.card}>
+      <Section icon={MessageSquare} title="Feedback">
+        <View style={styles.content}>
+          {isRated ? (
+            <View style={styles.ratedContainer}>
+              {/* Rating / Feel row */}
+              <View style={styles.ratingRow}>
+                {feel != null ? (
+                  <View style={styles.garminBadge} testID="garmin-feel-badge">
+                    <AppText variant="subheading" tone="primary">
+                      Garmin: {formatFeel(feel)}
+                      {rpe != null ? ` · RPE ${rpe}/10` : ''}
+                    </AppText>
+                  </View>
+                ) : event.rating === 'good' || event.rating === 'bad' ? (
+                  <View style={styles.ratingBadge}>
+                    {event.rating === 'good' ? (
+                      <ThumbsUp size={16} color={SpringaColors.success} />
+                    ) : (
+                      <ThumbsDown size={16} color={SpringaColors.error} />
+                    )}
+                    <AppText
+                      variant="subheading"
+                      style={{
+                        color:
+                          event.rating === 'good'
+                            ? SpringaColors.success
+                            : SpringaColors.error,
+                      }}
+                    >
+                      {event.rating === 'good' ? 'Good' : 'Bad'}
+                    </AppText>
+                  </View>
+                ) : null}
+
+                <IconButton
+                  accessibilityLabel="Edit feedback"
+                  onPress={navigateToFeedback}
+                >
+                  <Pencil color={SpringaColors.muted} size={16} />
+                </IconButton>
+              </View>
+
+              {/* Protocol pills */}
+              {protocolPills.length > 0 && (
+                <View style={styles.pillsRow}>
+                  {protocolPills.map((pill, idx) => (
+                    <Badge key={idx} label={pill} tone="neutral" />
+                  ))}
+                </View>
+              )}
+
+              {/* Note / Comment */}
+              {comment ? (
+                <AppText variant="body" tone="muted" style={styles.commentText}>
+                  {comment}
+                </AppText>
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.unratedRow}>
+              <AppText variant="body" tone="muted" style={styles.unratedText}>
+                Run not yet rated
+              </AppText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Rate run"
+                onPress={navigateToFeedback}
+                style={styles.rateButton}
+              >
+                <AppText variant="label" style={styles.rateButtonText}>
+                  Rate
+                </AppText>
+              </Pressable>
+            </View>
+          )}
         </View>
-        <TextField
-          ref={commentRef}
-          accessibilityLabel="Feedback comment"
-          placeholder="Optional comment..."
-          multiline
-          value={comment}
-          onChangeText={setComment}
-          onFocus={() => {
-            if (commentRef.current != null) onInputFocus?.(commentRef.current);
-          }}
-          editable={!pending}
-        />
-        <Button
-          label="Save"
-          onPress={save}
-          disabled={rating == null}
-          loading={pending}
-          style={styles.saveButton}
-        />
-        {error ? (
-          <AppText accessibilityRole="alert" tone="error">{error}</AppText>
-        ) : null}
-      </Card>
-    </Section>
+      </Section>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  form: {
-    gap: Spacing.md,
+  card: {
+    padding: Spacing.md,
+    gap: Spacing.xs,
   },
-  saveButton: {
-    alignSelf: 'flex-start',
-    minWidth: MinTouchTarget,
+  content: {
+    marginTop: Spacing.xs,
   },
-  savedRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+  ratedContainer: {
     gap: Spacing.sm,
   },
   ratingRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  rating: {
-    minHeight: MinTouchTarget,
-    minWidth: MinTouchTarget,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderCurve: 'continuous',
-    borderRadius: Radius.md,
-    borderColor: SpringaColors.border,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.sm,
+    justifyContent: 'space-between',
+  },
+  garminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.xs,
   },
-  ratingSelected: {
-    borderColor: SpringaColors.brand,
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
-  ratingDisabled: {
-    opacity: 0.48,
+  pillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  commentText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  unratedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.xxs,
+  },
+  unratedText: {
+    fontSize: 14,
+  },
+  rateButton: {
+    backgroundColor: SpringaColors.success,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.md,
+  },
+  rateButtonText: {
+    color: SpringaColors.bg,
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

@@ -92,6 +92,8 @@ function parseEvent(raw: unknown): CalendarEvent | null {
     preRunCarbsG: nullableNumberField(raw.preRunCarbsG),
     rating: nullableStringField(raw.rating),
     feedbackComment: nullableStringField(raw.feedbackComment),
+    feel: nullableNumberField(raw.feel),
+    rpe: nullableNumberField(raw.rpe),
     activityId: stringField(raw.activityId),
     pairedEventId: integerIdField(raw.pairedEventId),
   };

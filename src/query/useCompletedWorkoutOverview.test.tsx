@@ -20,7 +20,7 @@ import {
   newerCalendarWindow,
   olderCalendarWindow,
 } from '@/domain/calendarWindows';
-import type { CalendarEvent, CompletedWorkoutOverview } from '@/api/types';
+import type { CalendarEvent, CompletedWorkoutOverview, WorkoutProtocol } from '@/api/types';
 import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
 import {
@@ -86,6 +86,7 @@ function overviewFixture(
     source: 'activity',
     fallbackEventId: null,
   },
+  overrides: Partial<CompletedWorkoutOverview> = {},
 ): CompletedWorkoutOverview {
   return {
     activityId: 'activity-123',
@@ -104,6 +105,11 @@ function overviewFixture(
     },
     splits: null,
     preRunCarbs,
+    protocol: null,
+    lastProtocols: null,
+    feel: null,
+    rpe: null,
+    ...overrides,
   };
 }
 
@@ -161,6 +167,11 @@ function OverviewProbe({ activityId = 'activity-123' }: { activityId?: string })
       <Text>
         Pre-run: {data?.preRunCarbs.grams ?? 'none'} (
         {data?.preRunCarbs.source ?? 'unavailable'})
+      </Text>
+      <Text>Overview RPE: {data?.rpe ?? 'none'}</Text>
+      <Text>
+        Overview protocol:{' '}
+        {data?.protocol ? 'present' : data?.protocol === null ? 'null' : 'none'}
       </Text>
       <Text>Overview error: {isError ? error : 'none'}</Text>
     </>
@@ -491,6 +502,161 @@ describe('completed workout overview query', () => {
       activityId: 'activity-123',
       rating: 'good',
       comment: 'Strong finish',
+    });
+  });
+
+  it('resets preRunCarbs to none when feedback clears preRunCarbs', async () => {
+    const pages = calendarPages();
+    const calendarGets = { gets: 0 };
+    server.use(
+      calendarHandler(
+        {
+          [pages.initial.oldest]: [rawCompletedEvent()],
+        },
+        calendarGets,
+      ),
+      overviewHandler(overviewFixture({ grams: 25, source: 'activity', fallbackEventId: null })),
+      http.post(apiUrl('/api/run-feedback'), async () => {
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    function ClearPreRunProbe() {
+      const { saveFeedback } = useCompletedWorkoutMutations(selectedEvent());
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Clear pre-run via feedback"
+          onPress={() =>
+            saveFeedback.mutate({
+              feel: 4,
+              rpe: 7,
+              preRunCarbsG: null,
+            })
+          }
+        >
+          <Text>Clear pre-run</Text>
+        </Pressable>
+      );
+    }
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <ClearPreRunProbe />
+        <OverviewProbe />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Pre-run: 25 (activity)')).toBeOnTheScreen();
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Clear pre-run via feedback'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Pre-run: none (none)')).toBeOnTheScreen();
+    });
+  });
+
+  it('updates rpe in overview cache when only rpe is provided in feedback', async () => {
+    const pages = calendarPages();
+    const calendarGets = { gets: 0 };
+    server.use(
+      calendarHandler(
+        {
+          [pages.initial.oldest]: [rawCompletedEvent()],
+        },
+        calendarGets,
+      ),
+      overviewHandler(overviewFixture(undefined, { rpe: 3 })),
+      http.post(apiUrl('/api/run-feedback'), async () => {
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    function RpeProbe() {
+      const { saveFeedback } = useCompletedWorkoutMutations(selectedEvent());
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Update rpe via feedback"
+          onPress={() =>
+            saveFeedback.mutate({
+              rpe: 8,
+            })
+          }
+        >
+          <Text>Update rpe</Text>
+        </Pressable>
+      );
+    }
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <RpeProbe />
+        <OverviewProbe />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Overview RPE: 3')).toBeOnTheScreen();
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Update rpe via feedback'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Overview RPE: 8')).toBeOnTheScreen();
+    });
+  });
+
+  it('clears protocol in overview cache when protocol is explicitly null', async () => {
+    const pages = calendarPages();
+    const calendarGets = { gets: 0 };
+    const initialProtocol: WorkoutProtocol = {
+      beforeMode: 'auto',
+      beforeTiming: '1-2h',
+      duringSame: true,
+      note: 'Stay steady',
+    };
+    server.use(
+      calendarHandler(
+        {
+          [pages.initial.oldest]: [rawCompletedEvent()],
+        },
+        calendarGets,
+      ),
+      overviewHandler(overviewFixture(undefined, { protocol: initialProtocol })),
+      http.post(apiUrl('/api/run-feedback'), async () => {
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    function ClearProtocolProbe() {
+      const { saveFeedback } = useCompletedWorkoutMutations(selectedEvent());
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Clear protocol via feedback"
+          onPress={() =>
+            saveFeedback.mutate({
+              protocol: null,
+            })
+          }
+        >
+          <Text>Clear protocol</Text>
+        </Pressable>
+      );
+    }
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <ClearProtocolProbe />
+        <OverviewProbe />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('Overview protocol: present')).toBeOnTheScreen();
+    const user = userEvent.setup();
+    await user.press(screen.getByLabelText('Clear protocol via feedback'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Overview protocol: null')).toBeOnTheScreen();
     });
   });
 
