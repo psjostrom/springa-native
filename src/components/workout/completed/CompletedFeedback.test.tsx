@@ -44,13 +44,13 @@ describe('CompletedFeedback', () => {
     await render(
       <CompletedFeedback
         event={{ ...baseEvent, feedbackComment: 'Smooth steady run' }}
-        feel={4}
+        feel={2}
         rpe={6}
       />,
     );
 
     expect(screen.getByTestId('garmin-feel-badge')).toBeOnTheScreen();
-    expect(screen.getByText(/Garmin: Good · RPE 6\/10/)).toBeOnTheScreen();
+    expect(screen.getByText(/Garmin: Strong · RPE 6\/10/)).toBeOnTheScreen();
     expect(screen.getByText('Smooth steady run')).toBeOnTheScreen();
 
     const editButton = screen.getByRole('button', { name: 'Edit feedback' });

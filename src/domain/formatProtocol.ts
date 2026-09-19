@@ -8,15 +8,15 @@ import type {
 export function formatFeel(feel: number): string {
   switch (feel) {
     case 1:
-      return 'Very Weak';
+      return 'Very Strong';
     case 2:
-      return 'Weak';
+      return 'Strong';
     case 3:
       return 'Normal';
     case 4:
-      return 'Good';
+      return 'Weak';
     case 5:
-      return 'Very Strong';
+      return 'Very Weak';
     default:
       return `${feel}/5`;
   }

@@ -26,7 +26,7 @@ describe('FeedbackForm', () => {
     await render(
       <FeedbackForm
         event={baseEvent}
-        feel={4}
+        feel={2}
         rpe={6}
         saveFeedback={saveFeedback}
         pending={false}
@@ -39,7 +39,7 @@ describe('FeedbackForm', () => {
     expect(screen.getByText('40m')).toBeOnTheScreen();
     expect(screen.getByText('144 bpm')).toBeOnTheScreen();
     expect(screen.getByTestId('garmin-receipt')).toBeOnTheScreen();
-    expect(screen.getByText(/Garmin Receipt: Good · RPE 6\/10/)).toBeOnTheScreen();
+    expect(screen.getByText(/Garmin Receipt: Strong · RPE 6\/10/)).toBeOnTheScreen();
   });
 
   it('renders 1–5 scale picker when Garmin telemetry is absent and validates Save button', async () => {
@@ -117,6 +117,8 @@ describe('FeedbackForm', () => {
       expect.objectContaining({
         feel: 4,
         rpe: 6,
+        status: 'rated',
+        rating: 'rated',
         comment: 'Felt strong on hills',
         protocol: expect.objectContaining({
           beforeAutoSubmode: 'boost',
@@ -143,7 +145,7 @@ describe('FeedbackForm', () => {
     );
 
     await user.press(screen.getByRole('button', { name: 'Skip' }));
-    expect(saveFeedback).toHaveBeenCalledWith({ rating: 'skipped' });
+    expect(saveFeedback).toHaveBeenCalledWith({ status: 'skipped', rating: 'skipped' });
     expect(onDone).toHaveBeenCalledOnce();
   });
 

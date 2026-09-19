@@ -16,8 +16,9 @@ export function isUnratedCompletedRun(
     event.type === 'completed' &&
     typeof event.activityId === 'string' &&
     event.activityId.length > 0 &&
+    !event.isRated &&
     !event.rating &&
-    event.feel == null
+    !event.feedbackComment
   );
 }
 

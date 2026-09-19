@@ -48,16 +48,31 @@ describe('unratedRun', () => {
     expect(findUnratedRun([run], now)).toBeNull();
   });
 
-  it('ignores runs with existing feel', () => {
-    const run = makeCompleted({ feel: 4 });
-    expect(findUnratedRun([run], now)).toBeNull();
-  });
-
   it('ignores future-dated completed runs', () => {
     const futureRun = makeCompleted({
       date: new Date(now + 1000),
     });
     expect(findUnratedRun([futureRun], now)).toBeNull();
+  });
+
+  it('ignores runs marked isRated', () => {
+    const run = makeCompleted({ isRated: true });
+    expect(findUnratedRun([run], now)).toBeNull();
+  });
+
+  it('includes runs with Garmin feel when unrated', () => {
+    const run = makeCompleted({ feel: 2 });
+    expect(findUnratedRun([run], now)).toEqual({
+      activityId: 'act-1',
+      eventId: 'evt-1',
+      name: 'Easy Run',
+      date: new Date('2026-09-12T10:00:00Z'),
+    });
+  });
+
+  it('ignores runs with existing feedback comment', () => {
+    const run = makeCompleted({ feedbackComment: 'Felt great' });
+    expect(findUnratedRun([run], now)).toBeNull();
   });
 
   it('ignores runs older than 7 days', () => {

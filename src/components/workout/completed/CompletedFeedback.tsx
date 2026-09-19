@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { MessageSquare, Smile, ThumbsDown, ThumbsUp } from 'lucide-react-native';
+import { MessageSquare, ThumbsDown, ThumbsUp } from 'lucide-react-native';
 import type { CalendarEvent, WorkoutProtocol } from '@/api/types';
 import { AppText, Badge, Card, Section } from '@/components/ui';
 import { formatFeel, getProtocolPills } from '@/domain/formatProtocol';
@@ -24,16 +24,18 @@ export type CompletedFeedbackProps = {
 export function CompletedFeedback({
   event,
   protocol,
-  feel,
-  rpe,
+  feel: feelProp,
+  rpe: rpeProp,
   onEdit,
 }: CompletedFeedbackProps) {
   const router = useRouter();
+  const feel = feelProp ?? event.feel ?? protocol?.feel;
+  const rpe = rpeProp ?? event.rpe ?? protocol?.rpe;
   const isRated =
-    event.rating != null ||
-    feel != null ||
-    protocol != null ||
-    Boolean(event.feedbackComment);
+    event.isRated ??
+    (event.rating != null || protocol != null || Boolean(event.feedbackComment));
+  const protocolPills = protocol ? getProtocolPills(protocol) : [];
+  const comment = event.feedbackComment ?? protocol?.note;
 
   const navigateToFeedback = () => {
     if (onEdit) {
@@ -46,9 +48,6 @@ export function CompletedFeedback({
     });
   };
 
-  const protocolPills = protocol ? getProtocolPills(protocol) : [];
-  const comment = event.feedbackComment ?? protocol?.note;
-
   return (
     <Card style={styles.card}>
       <Section icon={MessageSquare} title="Feedback">
@@ -59,7 +58,6 @@ export function CompletedFeedback({
               <View style={styles.ratingRow}>
                 {feel != null ? (
                   <View style={styles.garminBadge} testID="garmin-feel-badge">
-                    <Smile size={16} color={SpringaColors.brand} />
                     <AppText variant="label" tone="primary">
                       Garmin: {formatFeel(feel)}
                       {rpe != null ? ` · RPE ${rpe}/10` : ''}

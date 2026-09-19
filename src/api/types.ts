@@ -185,6 +185,7 @@ export type CalendarEvent = {
   prescribedCarbsG?: number | null;
   carbsIngested?: number | null;
   preRunCarbsG?: number | null;
+  isRated?: boolean;
   rating?: string | null;
   feedbackComment?: string | null;
   feel?: number | null;

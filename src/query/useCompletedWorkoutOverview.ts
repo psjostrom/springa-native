@@ -119,7 +119,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
     patch: Partial<
       Pick<
         CalendarEvent,
-        'carbsIngested' | 'preRunCarbsG' | 'rating' | 'feedbackComment' | 'feel' | 'rpe'
+        'carbsIngested' | 'preRunCarbsG' | 'isRated' | 'rating' | 'feedbackComment' | 'feel' | 'rpe'
       >
     >,
   ) => {
@@ -225,6 +225,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       {
         feel?: number | null;
         rpe?: number | null;
+        status?: 'rated' | 'skipped';
         rating?: 'good' | 'bad' | 'skipped' | string | null;
         comment?: string | null;
         protocol?: WorkoutProtocol | null;
@@ -235,13 +236,15 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
       mutationKey: queryKeys.updateWorkout(identity),
       networkMode: 'always',
       retry: false,
-      onMutate: ({ feel, rpe, rating, comment, protocol, carbsG, preRunCarbsG }) => {
+      onMutate: ({ feel, rpe, status: _status, rating, comment, protocol, carbsG, preRunCarbsG }) => {
         const patch: Partial<
           Pick<
             CalendarEvent,
-            'feel' | 'rpe' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
+            'feel' | 'rpe' | 'isRated' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
           >
-        > = {};
+        > = {
+          isRated: true,
+        };
         if (feel !== undefined) patch.feel = feel;
         if (rpe !== undefined) patch.rpe = rpe;
         if (rating !== undefined) patch.rating = rating;
@@ -283,9 +286,11 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
         const calendarPatch: Partial<
           Pick<
             CalendarEvent,
-            'feel' | 'rpe' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
+            'feel' | 'rpe' | 'isRated' | 'rating' | 'feedbackComment' | 'preRunCarbsG' | 'carbsIngested'
           >
-        > = {};
+        > = {
+          isRated: true,
+        };
         if (input.feel !== undefined) calendarPatch.feel = input.feel;
         if (input.rpe !== undefined) calendarPatch.rpe = input.rpe;
         if (input.rating !== undefined) calendarPatch.rating = input.rating;

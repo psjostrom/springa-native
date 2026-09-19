@@ -51,7 +51,7 @@ describe('FeedbackScreen', () => {
       http.get(apiUrl('/api/intervals/activity/:id/overview'), () =>
         jsonOk({
           activityId: 'act-1',
-          feel: 4,
+          feel: 2,
           rpe: 6,
           reportCard: { bg: null, hrZone: null, entryTrend: null, recovery: null },
           splits: null,
@@ -64,7 +64,7 @@ describe('FeedbackScreen', () => {
 
     expect(await screen.findByText('How was the run?')).toBeOnTheScreen();
     expect(screen.getByText('Morning Easy Run')).toBeOnTheScreen();
-    expect(screen.getByText(/Garmin Receipt: Good · RPE 6\/10/)).toBeOnTheScreen();
+    expect(screen.getByText(/Garmin Receipt: Strong · RPE 6\/10/)).toBeOnTheScreen();
   });
 
   it('renders Run not found when event does not match', async () => {

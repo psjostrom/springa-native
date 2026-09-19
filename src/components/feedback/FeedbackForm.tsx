@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Smile } from 'lucide-react-native';
 import type {
   CalendarEvent,
   CamAPSAutoSubmode,
@@ -25,7 +24,8 @@ export type FeedbackFormProps = {
   saveFeedback: (input: {
     feel?: number | null;
     rpe?: number | null;
-    rating?: 'good' | 'bad' | 'skipped' | null;
+    status?: 'rated' | 'skipped';
+    rating?: 'good' | 'bad' | 'skipped' | string | null;
     comment?: string | null;
     protocol?: WorkoutProtocol | null;
     carbsG?: number | null;
@@ -167,6 +167,8 @@ export function FeedbackForm({
       await saveFeedback({
         feel: resolvedFeel,
         rpe: displayRpe ?? null,
+        status: 'rated',
+        rating: 'rated',
         comment: comment.trim() || null,
         protocol: protocolToSave,
         carbsG: Number.isFinite(parsedCarbsG) ? parsedCarbsG : null,
@@ -181,6 +183,7 @@ export function FeedbackForm({
   const handleSkip = async () => {
     try {
       await saveFeedback({
+        status: 'skipped',
         rating: 'skipped',
       });
     } catch {
@@ -233,7 +236,6 @@ export function FeedbackForm({
       <View style={styles.ratingSection}>
         {hasGarminMetrics ? (
           <View style={styles.garminReceipt} testID="garmin-receipt">
-            <Smile size={20} color={SpringaColors.brand} />
             <AppText variant="label" tone="primary">
               Garmin Receipt:{' '}
               {displayFeel != null ? formatFeel(displayFeel) : ''}
