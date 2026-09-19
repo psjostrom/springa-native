@@ -36,6 +36,10 @@ function integerIdField(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
 }
 
+function booleanField(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 function parseZoneTimes(value: unknown): HeartRateZoneTimes | undefined {
   if (!isRecord(value)) return undefined;
   const z1 = numberField(value.z1);
@@ -96,6 +100,7 @@ function parseEvent(raw: unknown): CalendarEvent | null {
     rpe: nullableNumberField(raw.rpe),
     activityId: stringField(raw.activityId),
     pairedEventId: integerIdField(raw.pairedEventId),
+    isRated: booleanField(raw.isRated),
   };
 }
 

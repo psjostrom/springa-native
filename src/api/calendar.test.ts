@@ -32,6 +32,7 @@ const completedEvent = {
   feedbackComment: 'Felt controlled throughout',
   activityId: 'activity-123',
   pairedEventId: 456,
+  isRated: true,
 };
 
 describe('parseCalendarEvents', () => {
@@ -63,6 +64,7 @@ describe('parseCalendarEvents', () => {
       feedbackComment: completedEvent.feedbackComment,
       activityId: completedEvent.activityId,
       pairedEventId: completedEvent.pairedEventId,
+      isRated: true,
     });
   });
 
