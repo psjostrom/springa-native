@@ -137,6 +137,7 @@ export function FeedbackForm({
       : '',
   );
 
+
   // Rescue Carbs
   const [hadRescue, setHadRescue] = useState(
     initialProtocol ? (initialProtocol.rescueCarbsG != null && initialProtocol.rescueCarbsG > 0) : false,
@@ -323,45 +324,47 @@ export function FeedbackForm({
         )}
       </View>
 
-      {/* Run Type Section */}
-      <View style={styles.categorySection}>
-        <View style={styles.labelWithAction}>
-          <AppText variant="label" tone="muted" style={styles.sectionTitle}>
-            RUN TYPE
-          </AppText>
-          {selectedCategory == null ? (
-            <AppText variant="caption" tone="muted">
-              Select type to load basal defaults
+      {/* Run Type Section - only shown if run type is unknown */}
+      {(!event.category || event.category === 'other') && (
+        <View style={styles.categorySection}>
+          <View style={styles.labelWithAction}>
+            <AppText variant="label" tone="muted" style={styles.sectionTitle}>
+              RUN TYPE
             </AppText>
-          ) : null}
+            {selectedCategory == null ? (
+              <AppText variant="caption" tone="muted">
+                Select type to load basal defaults
+              </AppText>
+            ) : null}
+          </View>
+          <View style={styles.chipRow}>
+            <ChoiceChip
+              label="Easy"
+              selected={selectedCategory === 'easy'}
+              disabled={pending}
+              onPress={() => handleSelectCategory('easy')}
+            />
+            <ChoiceChip
+              label="Long"
+              selected={selectedCategory === 'long'}
+              disabled={pending}
+              onPress={() => handleSelectCategory('long')}
+            />
+            <ChoiceChip
+              label="Interval"
+              selected={selectedCategory === 'interval'}
+              disabled={pending}
+              onPress={() => handleSelectCategory('interval')}
+            />
+            <ChoiceChip
+              label="Race"
+              selected={selectedCategory === 'race'}
+              disabled={pending}
+              onPress={() => handleSelectCategory('race')}
+            />
+          </View>
         </View>
-        <View style={styles.chipRow}>
-          <ChoiceChip
-            label="Easy"
-            selected={selectedCategory === 'easy'}
-            disabled={pending}
-            onPress={() => handleSelectCategory('easy')}
-          />
-          <ChoiceChip
-            label="Long"
-            selected={selectedCategory === 'long'}
-            disabled={pending}
-            onPress={() => handleSelectCategory('long')}
-          />
-          <ChoiceChip
-            label="Interval"
-            selected={selectedCategory === 'interval'}
-            disabled={pending}
-            onPress={() => handleSelectCategory('interval')}
-          />
-          <ChoiceChip
-            label="Race"
-            selected={selectedCategory === 'race'}
-            disabled={pending}
-            onPress={() => handleSelectCategory('race')}
-          />
-        </View>
-      </View>
+      )}
 
       {/* Fueling Section */}
       <View style={styles.strategySection}>
@@ -510,34 +513,36 @@ export function FeedbackForm({
             </View>
           )}
 
-          <AppText variant="caption" tone="muted" style={styles.subLabel}>
-            Timing
-          </AppText>
-          <View style={styles.chipRow}>
-            <ChoiceChip
-              label=">2h before"
-              selected={beforeTiming === '>2h'}
-              disabled={pending}
-              onPress={() => setBeforeTiming('>2h')}
-            />
-            <ChoiceChip
-              label="1–2h before"
-              selected={beforeTiming === '1-2h'}
-              disabled={pending}
-              onPress={() => setBeforeTiming('1-2h')}
-            />
-            <ChoiceChip
-              label="<30m before"
-              selected={beforeTiming === '<30m'}
-              disabled={pending}
-              onPress={() => setBeforeTiming('<30m')}
-            />
-            <ChoiceChip
-              label="At start"
-              selected={beforeTiming === 'at_start'}
-              disabled={pending}
-              onPress={() => setBeforeTiming('at_start')}
-            />
+          <View style={styles.timingBlock}>
+            <AppText variant="caption" tone="muted">
+              Timing
+            </AppText>
+            <View style={styles.chipRow}>
+              <ChoiceChip
+                label=">2h before"
+                selected={beforeTiming === '>2h'}
+                disabled={pending}
+                onPress={() => setBeforeTiming('>2h')}
+              />
+              <ChoiceChip
+                label="1–2h before"
+                selected={beforeTiming === '1-2h'}
+                disabled={pending}
+                onPress={() => setBeforeTiming('1-2h')}
+              />
+              <ChoiceChip
+                label="<30m before"
+                selected={beforeTiming === '<30m'}
+                disabled={pending}
+                onPress={() => setBeforeTiming('<30m')}
+              />
+              <ChoiceChip
+                label="At start"
+                selected={beforeTiming === 'at_start'}
+                disabled={pending}
+                onPress={() => setBeforeTiming('at_start')}
+              />
+            </View>
           </View>
         </View>
 
@@ -729,15 +734,14 @@ export function FeedbackForm({
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: Spacing.xxl,
+    gap: Spacing.lg,
   },
   header: {
-    marginBottom: Spacing.md,
+    gap: Spacing.xxs,
   },
   statsRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
   },
   statTile: {
     flex: 1,
@@ -750,7 +754,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xxs,
   },
   ratingSection: {
-    marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   garminReceipt: {
     flexDirection: 'row',
@@ -805,15 +809,17 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   categorySection: {
-    marginBottom: Spacing.md,
     gap: Spacing.xs,
   },
   sectionTitle: {
     letterSpacing: 1.2,
-    marginTop: Spacing.xs,
   },
   fieldBlock: {
     gap: Spacing.xs,
+  },
+  timingBlock: {
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
   },
   chipRow: {
     flexDirection: 'row',
@@ -822,9 +828,6 @@ const styles = StyleSheet.create({
   },
   subOptions: {
     gap: Spacing.xs,
-    marginTop: Spacing.xxs,
-  },
-  subLabel: {
     marginTop: Spacing.xs,
   },
   errorText: {
@@ -834,7 +837,7 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
-    marginTop: Spacing.lg,
+    marginTop: Spacing.xs,
   },
   actionButton: {
     flex: 1,

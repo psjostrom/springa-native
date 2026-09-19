@@ -331,4 +331,24 @@ describe('FeedbackForm', () => {
       }),
     );
   });
+
+  it('does not show RUN TYPE section when event.category is already known', async () => {
+    const saveFeedback = vi.fn();
+    const onDone = vi.fn();
+
+    await render(
+      <FeedbackForm
+        event={{ ...baseEvent, category: 'long' }}
+        lastProtocols={{}}
+        feel={4}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    expect(screen.queryByText('RUN TYPE')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Select type to load basal defaults')).not.toBeOnTheScreen();
+  });
 });
+

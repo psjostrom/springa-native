@@ -25,7 +25,7 @@ export default function FeedbackScreen() {
       (activityId && e.id === activityId),
   );
 
-  const { data: overview } = useCompletedWorkoutOverview(
+  const { data: overview, isLoading: overviewLoading } = useCompletedWorkoutOverview(
     event?.activityId ?? '',
   );
 
@@ -41,7 +41,7 @@ export default function FeedbackScreen() {
   const mutations = useCompletedWorkoutMutations(event ?? dummyEvent);
   const { scrollRef, onInputFocus, onScroll } = useScrollAboveKeyboard(Spacing.xl);
 
-  if (eventsLoading && !event) {
+  if ((eventsLoading && !event) || (overviewLoading && !overview)) {
     return (
       <View style={styles.center}>
         <StateView loading title="Loading run details…" />
@@ -65,7 +65,7 @@ export default function FeedbackScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.keyboardRoot}
     >
       <ScrollView
@@ -78,14 +78,13 @@ export default function FeedbackScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         automaticallyAdjustKeyboardInsets={true}
-        scrollsChildToFocus={Platform.OS === 'android' ? false : undefined}
       >
         <FeedbackForm
           key={
             overview?.protocol
               ? `protocol-${overview.activityId}-${overview.protocol.updatedAt ?? 'static'}`
               : overview
-                ? `loaded-${overview.activityId}`
+                ? `loaded-${overview.activityId}-${overview.lastProtocols ? Object.keys(overview.lastProtocols).sort().join('-') : 'none'}`
                 : 'pending'
           }
           event={event}
@@ -120,7 +119,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.xxl * 3,
+    paddingBottom: Spacing.xl,
   },
   center: {
     flex: 1,
