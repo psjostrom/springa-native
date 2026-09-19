@@ -118,7 +118,6 @@ describe('FeedbackForm', () => {
         feel: 4,
         rpe: 6,
         status: 'rated',
-        rating: 'rated',
         comment: 'Felt strong on hills',
         protocol: expect.objectContaining({
           beforeAutoSubmode: 'boost',

@@ -210,7 +210,6 @@ export function FeedbackForm({
         feel: resolvedFeel,
         rpe: displayRpe ?? null,
         status: 'rated',
-        rating: 'rated',
         comment: comment.trim() || null,
         protocol: protocolToSave,
         carbsG: Number.isFinite(parsedCarbsG) ? parsedCarbsG : null,

@@ -334,7 +334,7 @@ export function useCompletedWorkoutMutations(event: CalendarEvent): {
           input.rpe !== undefined
         ) {
           queryClient.setQueryData<CompletedWorkoutOverview>(
-            overviewKey,
+            targetOverviewKey,
             (current) =>
               current == null
                 ? current
