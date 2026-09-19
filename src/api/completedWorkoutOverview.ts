@@ -6,6 +6,7 @@ import type {
   CompletedRecoveryScore,
   CompletedSplit,
   CompletedWorkoutOverview,
+  WorkoutProtocol,
 } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -132,6 +133,85 @@ function parsePreRunCarbs(value: unknown): CompletedWorkoutOverview['preRunCarbs
   };
 }
 
+function parseWorkoutProtocol(value: unknown): WorkoutProtocol | null {
+  if (!isRecord(value)) return null;
+  const beforeMode = value.beforeMode;
+  if (beforeMode !== 'disconnected' && beforeMode !== 'auto' && beforeMode !== 'manual') {
+    return null;
+  }
+  const beforeTiming = value.beforeTiming;
+  if (
+    beforeTiming !== '>2h' &&
+    beforeTiming !== '1-2h' &&
+    beforeTiming !== '<30m' &&
+    beforeTiming !== 'at_start'
+  ) {
+    return null;
+  }
+  const beforeAutoSubmode =
+    value.beforeAutoSubmode === 'ease_off' ||
+    value.beforeAutoSubmode === 'normal' ||
+    value.beforeAutoSubmode === 'boost'
+      ? value.beforeAutoSubmode
+      : null;
+
+  if (typeof value.duringSame !== 'boolean') {
+    return null;
+  }
+  const duringSame = value.duringSame;
+  const duringMode =
+    value.duringMode === 'disconnected' ||
+    value.duringMode === 'auto' ||
+    value.duringMode === 'manual'
+      ? value.duringMode
+      : null;
+  const duringAutoSubmode =
+    value.duringAutoSubmode === 'ease_off' ||
+    value.duringAutoSubmode === 'normal' ||
+    value.duringAutoSubmode === 'boost'
+      ? value.duringAutoSubmode
+      : null;
+  const category =
+    value.category === 'easy' ||
+    value.category === 'long' ||
+    value.category === 'interval' ||
+    value.category === 'race' ||
+    value.category === 'other'
+      ? value.category
+      : null;
+
+  return {
+    activityId: scoreString(value.activityId) ?? undefined,
+    category,
+    beforeMode,
+    beforeAutoSubmode,
+    beforeTargetBg: scoreNumber(value.beforeTargetBg),
+    beforeManualUh: scoreNumber(value.beforeManualUh),
+    beforeTiming,
+    duringSame,
+    duringMode,
+    duringAutoSubmode,
+    duringTargetBg: scoreNumber(value.duringTargetBg),
+    duringManualUh: scoreNumber(value.duringManualUh),
+    preRunCarbsG: scoreNumber(value.preRunCarbsG),
+    rescueCarbsG: scoreNumber(value.rescueCarbsG),
+    feel: scoreNumber(value.feel),
+    rpe: scoreNumber(value.rpe),
+    note: scoreString(value.note),
+    updatedAt: scoreNumber(value.updatedAt) ?? undefined,
+  };
+}
+
+function parseLastProtocols(value: unknown): Record<string, WorkoutProtocol> | null {
+  if (!isRecord(value)) return null;
+  const result: Record<string, WorkoutProtocol> = {};
+  for (const [key, val] of Object.entries(value)) {
+    const proto = parseWorkoutProtocol(val);
+    if (proto) result[key] = proto;
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 export function parseCompletedWorkoutOverview(data: unknown): CompletedWorkoutOverview {
   if (!isRecord(data)) return invalid();
   const activityId = data.activityId;
@@ -148,5 +228,9 @@ export function parseCompletedWorkoutOverview(data: unknown): CompletedWorkoutOv
     },
     splits: parseSplits(data.splits),
     preRunCarbs: parsePreRunCarbs(data.preRunCarbs),
+    protocol: parseWorkoutProtocol(data.protocol),
+    lastProtocols: parseLastProtocols(data.lastProtocols),
+    feel: scoreNumber(data.feel),
+    rpe: scoreNumber(data.rpe),
   };
 }

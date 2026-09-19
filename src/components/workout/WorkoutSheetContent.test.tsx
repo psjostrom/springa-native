@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
-import { render, screen, userEvent } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import type { CalendarEvent } from '@/api/types';
 import { ApiClientProvider } from '@/api/ApiClientProvider';
 import { AuthProviderForTests } from '@/auth/AuthContext';
@@ -148,6 +148,7 @@ describe('WorkoutSheetContent', () => {
       type: 'completed',
       name: 'First run',
       activityId: 'activity-123',
+      feedbackComment: 'First run comment',
     });
     const second = sampleEvent({
       id: 'second-run',
@@ -156,16 +157,15 @@ describe('WorkoutSheetContent', () => {
       activityId: 'activity-456',
     });
     const view = await render(renderTree(first));
-    const user = userEvent.setup();
 
-    await user.press(await screen.findByRole('button', { name: 'Good' }));
-    await user.type(screen.getByLabelText('Feedback comment'), 'First draft');
+    expect(await screen.findByText('First run')).toBeOnTheScreen();
+    expect(screen.getByText('First run comment')).toBeOnTheScreen();
 
     view.rerender(renderTree(second));
 
     expect(await screen.findByText('Second run')).toBeOnTheScreen();
-    expect(await screen.findByLabelText('Feedback comment')).toHaveProp('value', '');
-    expect(screen.getByRole('button', { name: 'Good', selected: false })).toBeOnTheScreen();
+    expect(screen.queryByText('First run comment')).toBeNull();
+    expect(screen.getByText('Run not yet rated')).toBeOnTheScreen();
   });
 
   it('keeps race events on the planned detail path', async () => {

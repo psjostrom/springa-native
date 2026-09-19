@@ -553,6 +553,33 @@ describe('createApiClient', () => {
     await expect(
       client.saveRunFeedback('activity-123', 'good', 'Felt strong'),
     ).resolves.toEqual({ ok: true });
+    await expect(
+      client.saveRunFeedback('activity-456', {
+        protocol: {
+          beforeMode: 'auto',
+          beforeTiming: '1-2h',
+          beforeAutoSubmode: 'ease_off',
+          beforeTargetBg: 7.0,
+          beforeManualUh: null,
+          duringSame: true,
+          duringMode: null,
+          duringAutoSubmode: null,
+          duringTargetBg: null,
+          duringManualUh: null,
+          preRunCarbsG: 20,
+          rescueCarbsG: null,
+          note: 'Good energy',
+        },
+        carbsG: 20,
+      }),
+    ).resolves.toEqual({ ok: true });
+    await expect(
+      client.saveRunFeedback('activity-789', {
+        feel: null,
+        rpe: null,
+        comment: null,
+      }),
+    ).resolves.toEqual({ ok: true });
 
     expect(putBodies).toEqual([
       { carbs_ingested: 60 },
@@ -562,6 +589,31 @@ describe('createApiClient', () => {
     expect(new URL(deleteUrl!).searchParams.get('eventId')).toBe('202');
     expect(feedbackBodies).toEqual([
       { activityId: 'activity-123', rating: 'good', comment: 'Felt strong' },
+      {
+        activityId: 'activity-456',
+        carbsG: 20,
+        protocol: {
+          beforeAutoSubmode: 'ease_off',
+          beforeManualUh: null,
+          beforeMode: 'auto',
+          beforeTargetBg: 7,
+          beforeTiming: '1-2h',
+          duringAutoSubmode: null,
+          duringManualUh: null,
+          duringMode: null,
+          duringSame: true,
+          duringTargetBg: null,
+          note: 'Good energy',
+          preRunCarbsG: 20,
+          rescueCarbsG: null,
+        },
+      },
+      {
+        activityId: 'activity-789',
+        feel: null,
+        rpe: null,
+        comment: null,
+      },
     ]);
   });
 

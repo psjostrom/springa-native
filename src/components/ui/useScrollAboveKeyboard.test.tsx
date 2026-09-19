@@ -1,0 +1,88 @@
+import { render, screen, waitFor } from '@testing-library/react-native';
+import { DeviceEventEmitter, Dimensions, ScrollView, TextInput } from 'react-native';
+import { describe, expect, it, vi } from 'vitest';
+import { useScrollAboveKeyboard } from './useScrollAboveKeyboard';
+
+function Harness({
+  extraOffset = 16,
+  onScrollTo,
+}: {
+  extraOffset?: number;
+  onScrollTo: (params: { y: number; animated: boolean }) => void;
+}) {
+  const { scrollRef, onInputFocus, onScroll } = useScrollAboveKeyboard(extraOffset);
+
+  return (
+    <ScrollView
+      ref={(node) => {
+        if (node != null) {
+          Object.assign(scrollRef, { current: { scrollTo: onScrollTo } });
+        }
+      }}
+      onScroll={onScroll}
+      testID="scroll-view"
+    >
+      <TextInput
+        testID="input"
+        onFocus={() => {
+          onInputFocus({
+            measureInWindow: (
+              cb: (x: number, y: number, width: number, height: number) => void,
+            ) => cb(0, 450, 200, 80),
+          } as unknown as TextInput);
+        }}
+      />
+    </ScrollView>
+  );
+}
+
+describe('useScrollAboveKeyboard', () => {
+  it('scrolls target above keyboard on keyboardDidShow', async () => {
+    const scrollToMock = vi.fn();
+    await render(<Harness extraOffset={16} onScrollTo={scrollToMock} />);
+
+    screen.getByTestId('scroll-view').props.onScroll({
+      nativeEvent: { contentOffset: { y: 120 } },
+    });
+
+    screen.getByTestId('input').props.onFocus();
+
+    DeviceEventEmitter.emit('keyboardDidShow', {
+      endCoordinates: { screenY: 500 },
+    });
+
+    await waitFor(() => {
+      expect(scrollToMock).toHaveBeenCalledWith({
+        y: 166,
+        animated: true,
+      });
+    });
+  });
+
+  it('calculates keyboard top from height and scrolls immediately on subsequent input focus', async () => {
+    const scrollToMock = vi.fn();
+    await render(<Harness extraOffset={16} onScrollTo={scrollToMock} />);
+
+    screen.getByTestId('scroll-view').props.onScroll({
+      nativeEvent: { contentOffset: { y: 100 } },
+    });
+
+    // Keyboard already shown with height: 300
+    DeviceEventEmitter.emit('keyboardDidShow', {
+      endCoordinates: { height: 300, screenY: 1000 },
+    });
+
+    // Focus input while keyboard is open
+    screen.getByTestId('input').props.onFocus();
+
+    const expectedKeyboardTop = Dimensions.get('window').height - 300;
+    const expectedOverlap = 450 + 80 + 16 - expectedKeyboardTop;
+
+    await waitFor(() => {
+      expect(scrollToMock).toHaveBeenCalledWith({
+        y: 100 + expectedOverlap,
+        animated: true,
+      });
+    });
+  });
+});

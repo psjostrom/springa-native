@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { AgendaGate } from '@/components/agenda/AgendaGate';
 import { AgendaList } from '@/components/agenda/AgendaList';
+import { UnratedRunBanner } from '@/components/agenda/UnratedRunBanner';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Card } from '@/components/ui';
 import { Spacing } from '@/theme/tokens';
@@ -20,6 +21,7 @@ export default function CalendarScreen() {
               }}
             />
           </Card>
+          <UnratedRunBanner />
         </AgendaGate>
       </View>
     </ScreenShell>

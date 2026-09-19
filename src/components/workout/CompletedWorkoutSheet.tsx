@@ -69,9 +69,6 @@ export function CompletedWorkoutSheet({
     pendingEditorTarget.current = target;
   }, [scrollToEditor]);
 
-  const feedbackError = mutations.saveFeedback.isError
-    ? (mutations.saveFeedback.error?.message ?? 'Failed to save feedback.')
-    : null;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -154,10 +151,9 @@ export function CompletedWorkoutSheet({
             />
             <CompletedFeedback
               event={event}
-              saveFeedback={mutations.saveFeedback.mutate}
-              pending={mutations.saveFeedback.isPending}
-              error={feedbackError}
-              onInputFocus={scrollEditorAboveKeyboard}
+              protocol={data?.protocol}
+              feel={data?.feel ?? event.feel}
+              rpe={data?.rpe ?? event.rpe}
             />
           </>
         )}
