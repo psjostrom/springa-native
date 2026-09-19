@@ -19,6 +19,7 @@ export { formatFeel } from '@/domain/formatProtocol';
 export type FeedbackFormProps = {
   event: CalendarEvent;
   protocol?: WorkoutProtocol | null;
+  lastProtocols?: Record<string, WorkoutProtocol> | null;
   feel?: number | null;
   rpe?: number | null;
   saveFeedback: (input: {
@@ -27,6 +28,7 @@ export type FeedbackFormProps = {
     status?: 'rated' | 'skipped';
     rating?: 'good' | 'bad' | 'skipped' | string | null;
     comment?: string | null;
+    category?: 'easy' | 'long' | 'interval' | 'race' | 'other' | null;
     protocol?: WorkoutProtocol | null;
     carbsG?: number | null;
     preRunCarbsG?: number | null;
@@ -40,6 +42,7 @@ export type FeedbackFormProps = {
 export function FeedbackForm({
   event,
   protocol: initialProtocol,
+  lastProtocols,
   feel,
   rpe,
   saveFeedback,
@@ -48,6 +51,23 @@ export function FeedbackForm({
   onDone,
   onInputFocus,
 }: FeedbackFormProps) {
+  const initialCategory =
+    event.category === 'easy' ||
+    event.category === 'long' ||
+    event.category === 'interval' ||
+    event.category === 'race'
+      ? event.category
+      : null;
+
+  const [selectedCategory, setSelectedCategory] = useState<
+    'easy' | 'long' | 'interval' | 'race' | null
+  >(initialCategory);
+
+  const defaultBasalProtocol =
+    !initialProtocol && selectedCategory ? lastProtocols?.[selectedCategory] : null;
+
+  const activeProtocol = initialProtocol ?? defaultBasalProtocol;
+
   const [selectedFeel, setSelectedFeel] = useState<number | null>(
     feel ?? (event.feel ?? null),
   );
@@ -61,7 +81,7 @@ export function FeedbackForm({
   const rescueGramsRef = useRef<TextInput>(null);
   const commentRef = useRef<TextInput>(null);
 
-  // Fueling
+  // Fueling (NOT autofilled from previous runs)
   const [preRunCarbs, setPreRunCarbs] = useState<string>(
     initialProtocol?.preRunCarbsG != null
       ? String(initialProtocol.preRunCarbsG)
@@ -73,47 +93,47 @@ export function FeedbackForm({
     event.carbsIngested != null ? String(event.carbsIngested) : '',
   );
 
-  // Before Run Strategy
+  // Before Run Strategy (autofilled from last run of same type if unrated)
   const [beforeMode, setBeforeMode] = useState<CamAPSMode>(
-    initialProtocol?.beforeMode ?? 'auto',
+    activeProtocol?.beforeMode ?? 'auto',
   );
   const [beforeAutoSubmode, setBeforeAutoSubmode] = useState<CamAPSAutoSubmode>(
-    initialProtocol?.beforeMode === 'auto'
-      ? initialProtocol.beforeAutoSubmode ?? 'ease_off'
+    activeProtocol?.beforeMode === 'auto'
+      ? activeProtocol.beforeAutoSubmode ?? 'ease_off'
       : 'ease_off',
   );
   const [beforeTargetBg, setBeforeTargetBg] = useState<string>(
-    initialProtocol?.beforeTargetBg != null
-      ? String(initialProtocol.beforeTargetBg)
+    activeProtocol?.beforeTargetBg != null
+      ? String(activeProtocol.beforeTargetBg)
       : '',
   );
   const [beforeManualUh, setBeforeManualUh] = useState<string>(
-    initialProtocol?.beforeManualUh != null
-      ? String(initialProtocol.beforeManualUh)
+    activeProtocol?.beforeManualUh != null
+      ? String(activeProtocol.beforeManualUh)
       : '',
   );
   const [beforeTiming, setBeforeTiming] = useState<ProtocolTiming>(
-    initialProtocol?.beforeTiming ?? '1-2h',
+    activeProtocol?.beforeTiming ?? '1-2h',
   );
 
-  // During Run Strategy
+  // During Run Strategy (autofilled from last run of same type if unrated)
   const [duringSame, setDuringSame] = useState(
-    initialProtocol ? initialProtocol.duringSame : true,
+    activeProtocol ? activeProtocol.duringSame : true,
   );
   const [duringMode, setDuringMode] = useState<CamAPSMode>(
-    initialProtocol?.duringMode ?? 'disconnected',
+    activeProtocol?.duringMode ?? 'disconnected',
   );
   const [duringAutoSubmode, setDuringAutoSubmode] = useState<CamAPSAutoSubmode>(
-    initialProtocol?.duringAutoSubmode ?? 'ease_off',
+    activeProtocol?.duringAutoSubmode ?? 'ease_off',
   );
   const [duringTargetBg, setDuringTargetBg] = useState<string>(
-    initialProtocol?.duringTargetBg != null
-      ? String(initialProtocol.duringTargetBg)
+    activeProtocol?.duringTargetBg != null
+      ? String(activeProtocol.duringTargetBg)
       : '',
   );
   const [duringManualUh, setDuringManualUh] = useState<string>(
-    initialProtocol?.duringManualUh != null
-      ? String(initialProtocol.duringManualUh)
+    activeProtocol?.duringManualUh != null
+      ? String(activeProtocol.duringManualUh)
       : '',
   );
 
@@ -132,6 +152,25 @@ export function FeedbackForm({
     event.feedbackComment ?? initialProtocol?.note ?? '',
   );
 
+  const handleSelectCategory = (cat: 'easy' | 'long' | 'interval' | 'race') => {
+    setSelectedCategory(cat);
+    const proto = lastProtocols?.[cat];
+    if (proto) {
+      if (proto.beforeMode) setBeforeMode(proto.beforeMode);
+      setBeforeAutoSubmode(
+        proto.beforeMode === 'auto' ? proto.beforeAutoSubmode ?? 'ease_off' : 'ease_off',
+      );
+      setBeforeTargetBg(proto.beforeTargetBg != null ? String(proto.beforeTargetBg) : '');
+      setBeforeManualUh(proto.beforeManualUh != null ? String(proto.beforeManualUh) : '');
+      if (proto.beforeTiming) setBeforeTiming(proto.beforeTiming);
+      setDuringSame(proto.duringSame);
+      if (proto.duringMode) setDuringMode(proto.duringMode);
+      setDuringAutoSubmode(proto.duringAutoSubmode ?? 'ease_off');
+      setDuringTargetBg(proto.duringTargetBg != null ? String(proto.duringTargetBg) : '');
+      setDuringManualUh(proto.duringManualUh != null ? String(proto.duringManualUh) : '');
+    }
+  };
+
   const displayFeel = feel ?? event.feel;
   const displayRpe = rpe ?? event.rpe;
   const hasGarminMetrics = displayFeel != null;
@@ -146,6 +185,7 @@ export function FeedbackForm({
     const resolvedFeel = selectedFeel ?? displayFeel ?? null;
 
     const protocolToSave: WorkoutProtocol = {
+      category: selectedCategory ?? event.category,
       beforeMode,
       beforeAutoSubmode: beforeMode === 'auto' ? beforeAutoSubmode : null,
       beforeTargetBg: beforeMode === 'auto' && Number.isFinite(parsedTargetBg) ? parsedTargetBg : null,
@@ -165,6 +205,7 @@ export function FeedbackForm({
 
     try {
       await saveFeedback({
+        category: selectedCategory ?? event.category,
         feel: resolvedFeel,
         rpe: displayRpe ?? null,
         status: 'rated',
@@ -280,6 +321,46 @@ export function FeedbackForm({
             ) : null}
           </View>
         )}
+      </View>
+
+      {/* Run Type Section */}
+      <View style={styles.categorySection}>
+        <View style={styles.labelWithAction}>
+          <AppText variant="label" tone="muted" style={styles.sectionTitle}>
+            RUN TYPE
+          </AppText>
+          {selectedCategory == null ? (
+            <AppText variant="caption" tone="muted">
+              Select type to load basal defaults
+            </AppText>
+          ) : null}
+        </View>
+        <View style={styles.chipRow}>
+          <ChoiceChip
+            label="Easy"
+            selected={selectedCategory === 'easy'}
+            disabled={pending}
+            onPress={() => handleSelectCategory('easy')}
+          />
+          <ChoiceChip
+            label="Long"
+            selected={selectedCategory === 'long'}
+            disabled={pending}
+            onPress={() => handleSelectCategory('long')}
+          />
+          <ChoiceChip
+            label="Interval"
+            selected={selectedCategory === 'interval'}
+            disabled={pending}
+            onPress={() => handleSelectCategory('interval')}
+          />
+          <ChoiceChip
+            label="Race"
+            selected={selectedCategory === 'race'}
+            disabled={pending}
+            onPress={() => handleSelectCategory('race')}
+          />
+        </View>
       </View>
 
       {/* Fueling Section */}
@@ -722,6 +803,10 @@ const styles = StyleSheet.create({
   },
   strategySection: {
     gap: Spacing.md,
+  },
+  categorySection: {
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
   },
   sectionTitle: {
     letterSpacing: 1.2,

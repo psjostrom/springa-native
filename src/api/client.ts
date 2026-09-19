@@ -89,8 +89,10 @@ export type ApiClient = {
       | {
           feel?: number | null;
           rpe?: number | null;
+          status?: 'rated' | 'skipped';
           rating?: 'good' | 'bad' | 'skipped' | string | null;
           comment?: string | null;
+          category?: 'easy' | 'long' | 'interval' | 'race' | 'other' | null;
           protocol?: WorkoutProtocol | null;
           carbsG?: number | null;
           preRunCarbsG?: number | null;
@@ -367,8 +369,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         | {
             feel?: number | null;
             rpe?: number | null;
+            status?: 'rated' | 'skipped';
             rating?: 'good' | 'bad' | 'skipped' | string | null;
             comment?: string | null;
+            category?: string | null;
             protocol?: WorkoutProtocol | null;
             carbsG?: number | null;
             preRunCarbsG?: number | null;
@@ -382,8 +386,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
           activityId,
           feel: ratingOrOptions.feel,
           rpe: ratingOrOptions.rpe,
+          status: ratingOrOptions.status,
           rating: ratingOrOptions.rating,
           comment: ratingOrOptions.comment,
+          category: ratingOrOptions.category,
           protocol: ratingOrOptions.protocol,
           carbsG: ratingOrOptions.carbsG,
           preRunCarbsG: ratingOrOptions.preRunCarbsG,

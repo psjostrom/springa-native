@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import {
+  Dimensions,
   Keyboard,
   Platform,
   type NativeScrollEvent,
@@ -13,6 +14,8 @@ export function useScrollAboveKeyboard(extraOffset: number = Spacing.lg) {
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetY = useRef(0);
   const pendingEditorTarget = useRef<TextInput | null>(null);
+  const currentKeyboardHeight = useRef<number>(0);
+  const lastKeyboardTop = useRef<number | null>(null);
 
   const scrollToEditor = useCallback(
     (target: TextInput, keyboardY: number) => {
@@ -30,23 +33,45 @@ export function useScrollAboveKeyboard(extraOffset: number = Spacing.lg) {
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    const subscription = Keyboard.addListener('keyboardDidShow', (keyboardEvent) => {
+    const showSub = Keyboard.addListener('keyboardDidShow', (keyboardEvent) => {
+      const height = keyboardEvent.endCoordinates?.height;
+      const keyboardTop =
+        height != null && height > 0
+          ? Dimensions.get('window').height - height
+          : keyboardEvent.endCoordinates?.screenY;
+
+      if (height != null && height > 0) {
+        currentKeyboardHeight.current = height;
+      }
+      if (keyboardTop != null) {
+        lastKeyboardTop.current = keyboardTop;
+      }
+
       const target = pendingEditorTarget.current;
-      if (target == null) return;
+      if (target == null || keyboardTop == null) return;
       pendingEditorTarget.current = null;
       requestAnimationFrame(() => {
-        scrollToEditor(target, keyboardEvent.endCoordinates.screenY);
+        scrollToEditor(target, keyboardTop);
       });
     });
-    return () => subscription.remove();
+
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      currentKeyboardHeight.current = 0;
+      lastKeyboardTop.current = null;
+      pendingEditorTarget.current = null;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, [scrollToEditor]);
 
   const onInputFocus = useCallback(
     (target: TextInput) => {
       if (Platform.OS !== 'android') return;
-      const keyboardY = Keyboard.metrics()?.screenY;
-      if (Keyboard.isVisible() && keyboardY != null) {
-        scrollToEditor(target, keyboardY);
+      if (lastKeyboardTop.current != null) {
+        scrollToEditor(target, lastKeyboardTop.current);
         return;
       }
       pendingEditorTarget.current = target;

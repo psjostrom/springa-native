@@ -58,4 +58,25 @@ describe('useScrollAboveKeyboard', () => {
       });
     });
   });
+
+  it('calculates keyboard top from height and scrolls immediately on subsequent input focus', async () => {
+    const scrollToMock = vi.fn();
+    await render(<Harness extraOffset={16} onScrollTo={scrollToMock} />);
+
+    screen.getByTestId('scroll-view').props.onScroll({
+      nativeEvent: { contentOffset: { y: 100 } },
+    });
+
+    // Keyboard already shown with height: 300
+    DeviceEventEmitter.emit('keyboardDidShow', {
+      endCoordinates: { height: 300, screenY: 1000 },
+    });
+
+    // Focus input while keyboard is open
+    screen.getByTestId('input').props.onFocus();
+
+    await waitFor(() => {
+      expect(scrollToMock).toHaveBeenCalled();
+    });
+  });
 });

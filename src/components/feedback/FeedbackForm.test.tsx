@@ -235,4 +235,100 @@ describe('FeedbackForm', () => {
     expect(saveFeedback).toHaveBeenCalledOnce();
     expect(onDone).not.toHaveBeenCalled();
   });
+
+  it('autofills basal defaults from lastProtocols for known category without autofilling carbs', async () => {
+    const saveFeedback = vi.fn();
+    const onDone = vi.fn();
+
+    const lastProtocols = {
+      easy: {
+        activityId: 'act-prev',
+        beforeMode: 'manual' as const,
+        beforeManualUh: 0.22,
+        beforeTiming: '1-2h' as const,
+        duringSame: true,
+        hasProtocol: true,
+        status: 'rated' as const,
+        preRunCarbsG: 50,
+      },
+    };
+
+    await render(
+      <FeedbackForm
+        event={{ ...baseEvent, category: 'easy', preRunCarbsG: null }}
+        lastProtocols={lastProtocols}
+        feel={3}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    // Basal fields should be autofilled from lastProtocols.easy
+    expect(screen.getByLabelText('Before manual rate').props.value).toBe('0.22');
+
+    // Carbs should NOT be autofilled from lastProtocols
+    expect(screen.getByLabelText('Pre-run carbs').props.value).toBe('');
+    expect(screen.getByLabelText('Carbs ingested').props.value).toBe('');
+  });
+
+  it('shows prompt for unknown category and updates basal defaults on category selection', async () => {
+    const saveFeedback = vi.fn();
+    const onDone = vi.fn();
+    const user = userEvent.setup();
+
+    const lastProtocols = {
+      interval: {
+        activityId: 'act-interval',
+        beforeMode: 'manual' as const,
+        beforeManualUh: 0.35,
+        beforeTiming: '>2h' as const,
+        duringSame: true,
+        hasProtocol: true,
+        status: 'rated' as const,
+        preRunCarbsG: 40,
+      },
+    };
+
+    const adHocEvent: CalendarEvent = {
+      ...baseEvent,
+      category: 'other',
+      preRunCarbsG: null,
+    };
+
+    await render(
+      <FeedbackForm
+        event={adHocEvent}
+        lastProtocols={lastProtocols}
+        feel={4}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    // Prompt is visible when category is unknown
+    expect(screen.getByText('Select type to load basal defaults')).toBeOnTheScreen();
+
+    // Select Interval
+    await user.press(screen.getByText('Interval'));
+
+    // Basal field should now be populated from interval protocol
+    expect(screen.getByLabelText('Before manual rate').props.value).toBe('0.35');
+
+    // Carbs still empty
+    expect(screen.getByLabelText('Pre-run carbs').props.value).toBe('');
+
+    // Save and verify category is passed
+    await user.press(screen.getByRole('button', { name: 'Save' }));
+    expect(saveFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'interval',
+        protocol: expect.objectContaining({
+          category: 'interval',
+          beforeManualUh: 0.35,
+        }),
+      }),
+    );
+  });
 });

@@ -174,6 +174,7 @@ function parseWorkoutProtocol(value: unknown): WorkoutProtocol | null {
 
   return {
     activityId: scoreString(value.activityId) ?? undefined,
+    category: scoreString(value.category),
     beforeMode,
     beforeAutoSubmode,
     beforeTargetBg: scoreNumber(value.beforeTargetBg),
@@ -193,6 +194,16 @@ function parseWorkoutProtocol(value: unknown): WorkoutProtocol | null {
   };
 }
 
+function parseLastProtocols(value: unknown): Record<string, WorkoutProtocol> | null {
+  if (!isRecord(value)) return null;
+  const result: Record<string, WorkoutProtocol> = {};
+  for (const [key, val] of Object.entries(value)) {
+    const proto = parseWorkoutProtocol(val);
+    if (proto) result[key] = proto;
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 export function parseCompletedWorkoutOverview(data: unknown): CompletedWorkoutOverview {
   if (!isRecord(data)) return invalid();
   const activityId = data.activityId;
@@ -210,6 +221,7 @@ export function parseCompletedWorkoutOverview(data: unknown): CompletedWorkoutOv
     splits: parseSplits(data.splits),
     preRunCarbs: parsePreRunCarbs(data.preRunCarbs),
     protocol: parseWorkoutProtocol(data.protocol),
+    lastProtocols: parseLastProtocols(data.lastProtocols),
     feel: scoreNumber(data.feel),
     rpe: scoreNumber(data.rpe),
   };

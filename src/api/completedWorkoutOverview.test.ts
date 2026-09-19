@@ -74,6 +74,7 @@ describe('parseCompletedWorkoutOverview', () => {
       ],
       preRunCarbs: { grams: 45, source: 'activity', fallbackEventId: null },
       protocol: null,
+      lastProtocols: null,
       feel: null,
       rpe: null,
     });
@@ -86,6 +87,7 @@ describe('parseCompletedWorkoutOverview', () => {
       rpe: 7,
       protocol: {
         activityId: 'activity-123',
+        category: 'easy',
         beforeMode: 'auto',
         beforeAutoSubmode: 'ease_off',
         beforeTargetBg: 7.5,
@@ -109,6 +111,7 @@ describe('parseCompletedWorkoutOverview', () => {
     expect(parsed.rpe).toBe(7);
     expect(parsed.protocol).toEqual({
       activityId: 'activity-123',
+      category: 'easy',
       beforeMode: 'auto',
       beforeAutoSubmode: 'ease_off',
       beforeTargetBg: 7.5,
@@ -125,6 +128,31 @@ describe('parseCompletedWorkoutOverview', () => {
       rpe: 7,
       note: 'Solid easy run',
       updatedAt: 1700000000000,
+    });
+  });
+
+  it('parses lastProtocols dictionary when present', () => {
+    const parsed = parseCompletedWorkoutOverview({
+      ...richOverview,
+      lastProtocols: {
+        easy: {
+          activityId: 'act-prev',
+          category: 'easy',
+          beforeMode: 'manual',
+          beforeManualUh: 0.22,
+          beforeTiming: '1-2h',
+          duringSame: true,
+        },
+      },
+    });
+
+    expect(parsed.lastProtocols?.easy).toMatchObject({
+      activityId: 'act-prev',
+      category: 'easy',
+      beforeMode: 'manual',
+      beforeManualUh: 0.22,
+      beforeTiming: '1-2h',
+      duringSame: true,
     });
   });
 

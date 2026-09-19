@@ -65,7 +65,7 @@ export default function FeedbackScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboardRoot}
     >
       <ScrollView
@@ -77,6 +77,8 @@ export default function FeedbackScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={true}
+        scrollsChildToFocus={Platform.OS === 'android' ? false : undefined}
       >
         <FeedbackForm
           key={
@@ -88,6 +90,7 @@ export default function FeedbackScreen() {
           }
           event={event}
           protocol={overview?.protocol}
+          lastProtocols={overview?.lastProtocols}
           feel={overview?.feel ?? event.feel}
           rpe={overview?.rpe ?? event.rpe}
           saveFeedback={async (input) => {

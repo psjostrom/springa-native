@@ -280,6 +280,7 @@ export type ProtocolTiming = '>2h' | '1-2h' | '<30m' | 'at_start';
 
 export type WorkoutProtocol = {
   activityId?: string;
+  category?: string | null;
   beforeMode: CamAPSMode;
   beforeAutoSubmode?: CamAPSAutoSubmode | null;
   beforeTargetBg?: number | null;
@@ -314,6 +315,7 @@ export type CompletedWorkoutOverview = {
     fallbackEventId: number | null;
   };
   protocol?: WorkoutProtocol | null;
+  lastProtocols?: Record<string, WorkoutProtocol> | null;
   feel?: number | null;
   rpe?: number | null;
 };

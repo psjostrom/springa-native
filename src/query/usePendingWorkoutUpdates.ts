@@ -5,7 +5,7 @@ import { queryKeys } from './keys';
 export type WorkoutUpdate = {
   eventId: string;
   activityId?: string;
-  patch: Partial<Pick<CalendarEvent, 'date' | 'preRunCarbsG' | 'carbsIngested' | 'rating' | 'feedbackComment'>> | null;
+  patch: Partial<Pick<CalendarEvent, 'date' | 'preRunCarbsG' | 'carbsIngested' | 'rating' | 'feedbackComment' | 'isRated'>> | null;
 };
 
 function matchesWorkoutUpdate(event: CalendarEvent, update: WorkoutUpdate) {

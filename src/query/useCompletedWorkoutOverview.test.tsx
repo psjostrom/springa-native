@@ -106,6 +106,7 @@ function overviewFixture(
     splits: null,
     preRunCarbs,
     protocol: null,
+    lastProtocols: null,
     feel: null,
     rpe: null,
     ...overrides,

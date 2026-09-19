@@ -2,34 +2,27 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { X } from 'lucide-react-native';
-import { findUnratedRun, getNextUnratedRunBoundary } from '@/domain/unratedRun';
+import type { CalendarEvent } from '@/api/types';
+import { findUnratedRun, getNextUnratedRunBoundary, type UnratedRun } from '@/domain/unratedRun';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
+import { useCompletedWorkoutMutations } from '@/query/useCompletedWorkoutOverview';
 import { AppText } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
 import { Radius, Spacing } from '@/theme/tokens';
 
-export function UnratedRunBanner() {
+function UnratedRunBannerContent({
+  unrated,
+  event,
+}: {
+  unrated: UnratedRun;
+  event: CalendarEvent;
+}) {
   const router = useRouter();
-  const { events } = useCalendarEvents();
-  const [now, setNow] = useState(() => Date.now());
-  const [dismissedActivityId, setDismissedActivityId] = useState<string | null>(null);
+  const { saveFeedback } = useCompletedWorkoutMutations(event);
 
-  const unrated = findUnratedRun(events, now);
-
-  useEffect(() => {
-    const nextBoundary = getNextUnratedRunBoundary(events, now);
-    if (nextBoundary == null) return;
-
-    const timeoutId = setTimeout(() => {
-      setNow(Date.now());
-    }, Math.max(0, nextBoundary - now));
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [events, now]);
-
-  if (!unrated || dismissedActivityId === unrated.activityId) return null;
+  const handleSkip = () => {
+    saveFeedback.mutate({ status: 'skipped', rating: 'skipped' });
+  };
 
   return (
     <View
@@ -67,9 +60,9 @@ export function UnratedRunBanner() {
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Dismiss unrated banner"
+        accessibilityLabel={`Skip rating ${unrated.name}`}
         testID="dismiss-unrated-banner"
-        onPress={() => setDismissedActivityId(unrated.activityId)}
+        onPress={handleSkip}
         style={styles.dismissButton}
         hitSlop={8}
       >
@@ -77,6 +70,33 @@ export function UnratedRunBanner() {
       </Pressable>
     </View>
   );
+}
+
+export function UnratedRunBanner() {
+  const { events } = useCalendarEvents();
+  const [now, setNow] = useState(() => Date.now());
+
+  const unrated = findUnratedRun(events, now);
+
+  useEffect(() => {
+    const nextBoundary = getNextUnratedRunBoundary(events, now);
+    if (nextBoundary == null) return;
+
+    const timeoutId = setTimeout(() => {
+      setNow(Date.now());
+    }, Math.max(0, nextBoundary - now));
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [events, now]);
+
+  if (!unrated) return null;
+
+  const event = events.find((e) => e.activityId === unrated.activityId);
+  if (!event) return null;
+
+  return <UnratedRunBannerContent key={unrated.activityId} unrated={unrated} event={event} />;
 }
 
 const styles = StyleSheet.create({
