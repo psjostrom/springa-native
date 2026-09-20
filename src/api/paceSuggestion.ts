@@ -18,8 +18,8 @@ export function parsePaceSuggestionResponse(data: unknown): PaceSuggestion | nul
   }
   const s = suggestion as Record<string, unknown>;
   if (
-    typeof s.direction !== 'string' ||
-    typeof s.confidence !== 'string' ||
+    (s.direction !== 'improvement' && s.direction !== 'regression') ||
+    (s.confidence !== 'high' && s.confidence !== 'medium') ||
     typeof s.suggestedAbilitySecs !== 'number' ||
     typeof s.currentAbilitySecs !== 'number' ||
     typeof s.currentAbilityDist !== 'number'

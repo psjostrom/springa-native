@@ -53,8 +53,8 @@ export function buildBGCategories(cached: CachedBGActivity[]): {
       categoryObservations[cat].fuelRates.push(activity.fuelRate);
     }
 
-    const startTime = glucose[0].time + SKIP_START;
-    const endTime = glucose[glucose.length - 1].time - SKIP_END;
+    const startTime = Math.round(glucose[0].time) + SKIP_START;
+    const endTime = Math.round(glucose[glucose.length - 1].time) - SKIP_END;
 
     const gMap = new Map(glucose.map((p) => [Math.round(p.time), p.value]));
 

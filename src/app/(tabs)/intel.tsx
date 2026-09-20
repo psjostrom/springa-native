@@ -11,7 +11,7 @@ import { ReadinessPanel } from '@/components/intel/ReadinessPanel';
 import { VolumeCompact } from '@/components/intel/VolumeCompact';
 import { IntervalsGate } from '@/components/shell/IntervalsGate';
 import { ScreenShell } from '@/components/shell/ScreenShell';
-import { StateView } from '@/components/ui';
+import { AppText, StateView } from '@/components/ui';
 import { getMonday, getPhaseInfo } from '@/lib/phases';
 import { useBgModelQuery } from '@/query/useBgModelQuery';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
@@ -23,13 +23,24 @@ import { Spacing } from '@/theme/tokens';
 
 export default function IntelScreen() {
   const { settings, reload: reloadSettings } = useSettingsQuery();
-  const { entries: wellnessEntries, reload: reloadWellness } = useWellnessQuery();
+  const {
+    entries: wellnessEntries,
+    status: wellnessStatus,
+    error: wellnessError,
+    reload: reloadWellness,
+  } = useWellnessQuery();
   const [timeWindow, setTimeWindow] = useState('all');
-  const { data: paceCurveData, reload: reloadPaceCurves } =
-    usePaceCurvesQuery(timeWindow);
+  const {
+    data: paceCurveData,
+    status: paceCurvesStatus,
+    error: paceCurvesError,
+    reload: reloadPaceCurves,
+  } = usePaceCurvesQuery(timeWindow);
   const {
     categories: bgCategories,
     activitiesAnalyzed,
+    status: bgModelStatus,
+    error: bgModelError,
     reload: reloadBgModel,
   } = useBgModelQuery(settings?.diabetesMode);
   const {
@@ -51,6 +62,33 @@ export default function IntelScreen() {
   } = usePaceSuggestionQuery();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [paceActionError, setPaceActionError] = useState<string | null>(null);
+
+  const handleAcceptPace = useCallback(async () => {
+    if (!paceSuggestion) return;
+    setPaceActionError(null);
+    try {
+      await acceptPaceSuggestion(
+        paceSuggestion.suggestedAbilitySecs,
+        paceSuggestion.currentAbilityDist,
+      );
+    } catch (err) {
+      setPaceActionError(
+        err instanceof Error ? err.message : 'Failed to update paces',
+      );
+    }
+  }, [paceSuggestion, acceptPaceSuggestion]);
+
+  const handleDismissPace = useCallback(async () => {
+    setPaceActionError(null);
+    try {
+      await dismissPaceSuggestion();
+    } catch (err) {
+      setPaceActionError(
+        err instanceof Error ? err.message : 'Failed to dismiss pace suggestion',
+      );
+    }
+  }, [dismissPaceSuggestion]);
 
   useEffect(() => {
     if (hasOlder && !calendarLoading) {
@@ -152,6 +190,7 @@ export default function IntelScreen() {
 
           {!calendarLoading &&
             !calendarError &&
+            wellnessStatus === 'ready' &&
             !hasCompletedRuns &&
             (!wellnessEntries || wellnessEntries.length === 0) && (
               <StateView
@@ -167,6 +206,19 @@ export default function IntelScreen() {
             </View>
           )}
 
+          {wellnessStatus === 'error' && (
+            <View style={styles.section}>
+              <IntelSectionHeading icon={Activity} label="Readiness" />
+              <StateView
+                title="Couldn’t load readiness"
+                message={wellnessError ?? 'Failed to load wellness data.'}
+                onRetry={reloadWellness}
+                retryLabel="Retry"
+                retryAccessibilityLabel="Retry loading wellness data"
+              />
+            </View>
+          )}
+
           {wellnessEntries && wellnessEntries.length > 0 && (
             <View style={styles.section}>
               <IntelSectionHeading icon={Activity} label="Readiness" />
@@ -178,16 +230,16 @@ export default function IntelScreen() {
             <View style={styles.section}>
               <PaceSuggestionBanner
                 suggestion={paceSuggestion}
-                onAccept={() =>
-                  acceptPaceSuggestion(
-                    paceSuggestion.suggestedAbilitySecs,
-                    paceSuggestion.currentAbilityDist,
-                  )
-                }
-                onDismiss={dismissPaceSuggestion}
+                onAccept={handleAcceptPace}
+                onDismiss={handleDismissPace}
                 isAccepting={isAcceptingPace}
                 isDismissing={isDismissingPace}
               />
+              {paceActionError ? (
+                <AppText variant="caption" tone="error">
+                  {paceActionError}
+                </AppText>
+              ) : null}
             </View>
           )}
 
@@ -201,6 +253,19 @@ export default function IntelScreen() {
               loading={calendarLoading}
             />
           </View>
+
+          {Boolean(settings?.diabetesMode) && bgModelStatus === 'error' && (
+            <View style={styles.section}>
+              <IntelSectionHeading icon={Activity} label="Blood Glucose" />
+              <StateView
+                title="Couldn’t load blood glucose"
+                message={bgModelError ?? 'Failed to load BG data.'}
+                onRetry={reloadBgModel}
+                retryLabel="Retry"
+                retryAccessibilityLabel="Retry loading blood glucose"
+              />
+            </View>
+          )}
 
           {Boolean(settings?.diabetesMode) &&
             bgCategories &&
@@ -219,21 +284,42 @@ export default function IntelScreen() {
               </View>
             )}
 
+          {paceCurvesStatus === 'error' && (
+            <View style={styles.section}>
+              <IntelSectionHeading icon={Award} label="Personal Bests" />
+              <StateView
+                title="Couldn’t load pace curves"
+                message={paceCurvesError ?? 'Failed to load pace curves.'}
+                onRetry={reloadPaceCurves}
+                retryLabel="Retry"
+                retryAccessibilityLabel="Retry loading pace curves"
+              />
+            </View>
+          )}
+
           {paceCurveData &&
-            paceCurveData.bestEfforts &&
-            paceCurveData.bestEfforts.length > 0 && (
+            ((paceCurveData.bestEfforts && paceCurveData.bestEfforts.length > 0) ||
+              (paceCurveData.curve && paceCurveData.curve.length > 0) ||
+              paceCurveData.longestRun) && (
               <View style={styles.section}>
                 <IntelSectionHeading icon={Award} label="Personal Bests" />
-                <PacePBs
-                  bestEfforts={paceCurveData.bestEfforts}
-                  longestRun={paceCurveData.longestRun}
-                />
-                <View style={styles.chartSpacer} />
-                <PaceCurvesChart
-                  curve={paceCurveData.curve}
-                  timeWindow={timeWindow}
-                  onTimeWindowChange={setTimeWindow}
-                />
+                {paceCurveData.bestEfforts && paceCurveData.bestEfforts.length > 0 && (
+                  <>
+                    <PacePBs
+                      bestEfforts={paceCurveData.bestEfforts}
+                      longestRun={paceCurveData.longestRun}
+                    />
+                    <View style={styles.chartSpacer} />
+                  </>
+                )}
+                {((paceCurveData.curve && paceCurveData.curve.length > 0) ||
+                  (!paceCurveData.bestEfforts?.length && paceCurveData.longestRun)) && (
+                  <PaceCurvesChart
+                    curve={paceCurveData.curve}
+                    timeWindow={timeWindow}
+                    onTimeWindowChange={setTimeWindow}
+                  />
+                )}
               </View>
             )}
         </ScrollView>

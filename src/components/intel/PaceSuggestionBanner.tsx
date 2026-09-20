@@ -35,6 +35,7 @@ export function PaceSuggestionBanner({
           label="Update paces"
           onPress={onAccept}
           loading={isAccepting}
+          disabled={isAccepting || isDismissing}
           variant="primary"
         />
         {onDismiss && (
@@ -42,6 +43,7 @@ export function PaceSuggestionBanner({
             label="Not now"
             onPress={onDismiss}
             loading={isDismissing}
+            disabled={isAccepting || isDismissing}
             variant="secondary"
           />
         )}

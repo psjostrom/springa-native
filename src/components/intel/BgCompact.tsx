@@ -41,7 +41,7 @@ export function BgCompact({ categories }: Props) {
                 {formattedRate}
               </AppText>
               <AppText variant="caption" tone="muted" style={styles.unit}>
-                mmol/hr
+                mmol/L/hr
               </AppText>
             </View>
             <AppText variant="caption" style={{ color, fontWeight: '600' }}>

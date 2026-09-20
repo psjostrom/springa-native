@@ -41,8 +41,22 @@ export function PaceCurvesChart({
     curve.length > 0 ? Math.max(5000, curve[curve.length - 1].distance) : 10000;
 
   // Y-axis: inverted (faster / lower pace at top)
-  const yMin = 3.5;
-  const yMax = 8.0;
+  let yMin = 3.5;
+  let yMax = 8.0;
+
+  if (curve.length > 0) {
+    const paces = curve.map((c) => c.pace);
+    const minPace = Math.min(...paces);
+    const maxPace = Math.max(...paces);
+    if (minPace === maxPace) {
+      yMin = Math.max(2.0, minPace - 0.5);
+      yMax = minPace + 0.5;
+    } else {
+      const paddingY = Math.max(0.2, (maxPace - minPace) * 0.15);
+      yMin = Math.max(2.0, minPace - paddingY);
+      yMax = maxPace + paddingY;
+    }
+  }
 
   const scaleX = (d: number) =>
     padding.left + ((d - minDist) / (maxDist - minDist)) * chartWidth;
@@ -60,7 +74,16 @@ export function PaceCurvesChart({
           .join(' ')
       : '';
 
-  const yTicks = [4.0, 5.0, 6.0, 7.0];
+  const yTicks: number[] = [];
+  const minTick = Math.ceil(yMin);
+  const maxTick = Math.floor(yMax);
+  const tickStep = maxTick - minTick > 5 ? 2 : 1;
+  for (let t = minTick; t <= maxTick; t += tickStep) {
+    yTicks.push(t);
+  }
+  if (yTicks.length === 0) {
+    yTicks.push(Number(yMin.toFixed(1)), Number(yMax.toFixed(1)));
+  }
   const maxKm = Math.floor(maxDist / 1000);
   const xStep = maxKm > 10 ? 5 : 2;
   const xTicks: number[] = [];
