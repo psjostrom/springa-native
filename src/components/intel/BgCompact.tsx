@@ -81,6 +81,7 @@ const styles = StyleSheet.create({
   rateRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    flexWrap: 'wrap',
     gap: Spacing.xxs,
     marginBottom: Spacing.xxs,
   },

@@ -31,7 +31,7 @@ export function usePaceSuggestionQuery() {
     }) => client.acceptPaceSuggestion(suggestedAbilitySecs, currentAbilityDist),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.paceSuggestion(identity) });
-      void queryClient.invalidateQueries({ queryKey: ['pace-curves', identity] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.paceCurves(identity) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings(identity) });
     },
   });
@@ -40,16 +40,21 @@ export function usePaceSuggestionQuery() {
     mutationFn: () => client.dismissPaceSuggestion(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.paceSuggestion(identity) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.settings(identity) });
     },
   });
 
-  const reload = useCallback(() => query.refetch(), [query]);
+  const reload = useCallback(() => {
+    if (!enabled) return Promise.resolve();
+    return query.refetch();
+  }, [enabled, query]);
 
   const accept = useCallback(
-    async (suggestedAbilitySecs: number, currentAbilityDist = 1000) => {
-      await acceptMutation.mutateAsync({ suggestedAbilitySecs, currentAbilityDist });
+    async (suggestedAbilitySecs: number, currentAbilityDist?: number) => {
+      const dist = currentAbilityDist ?? query.data?.currentAbilityDist ?? 5;
+      await acceptMutation.mutateAsync({ suggestedAbilitySecs, currentAbilityDist: dist });
     },
-    [acceptMutation],
+    [acceptMutation, query.data?.currentAbilityDist],
   );
 
   const dismiss = useCallback(async () => {

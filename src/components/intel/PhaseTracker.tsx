@@ -22,6 +22,7 @@ export function PhaseTracker({ phaseInfo }: Props) {
       <View
         style={styles.track}
         accessibilityRole="progressbar"
+        accessibilityLabel={`${phaseInfo.name} phase progress`}
         accessibilityValue={{
           min: 0,
           max: 100,

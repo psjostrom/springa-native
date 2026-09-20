@@ -4,11 +4,17 @@ import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { buildBGCategories, type CategoryBGResponse } from '@/lib/bgModel';
 import { queryKeys } from './keys';
+import { useSettingsQuery } from './useSettingsQuery';
 
 export function useBgModelQuery(diabetesMode?: boolean) {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
-  const enabled = authStatus === 'signedIn' && session != null && Boolean(diabetesMode);
+  const settings = useSettingsQuery();
+  const isDiabetes =
+    diabetesMode !== undefined
+      ? diabetesMode
+      : Boolean(settings.settings?.diabetesMode);
+  const enabled = authStatus === 'signedIn' && session != null && isDiabetes;
   const identity = session?.email ?? '';
 
   const query = useQuery({
@@ -17,7 +23,10 @@ export function useBgModelQuery(diabetesMode?: boolean) {
     enabled,
   });
 
-  const reload = useCallback(() => query.refetch(), [query]);
+  const reload = useCallback(() => {
+    if (!enabled) return Promise.resolve();
+    return query.refetch();
+  }, [enabled, query]);
 
   const { categories, activitiesAnalyzed } = useMemo(
     () => buildBGCategories(query.data ?? []),

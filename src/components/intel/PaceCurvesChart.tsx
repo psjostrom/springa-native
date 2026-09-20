@@ -50,11 +50,11 @@ export function PaceCurvesChart({
     const maxPace = Math.max(...paces);
     if (minPace === maxPace) {
       yMin = Math.max(2.0, minPace - 0.5);
-      yMax = minPace + 0.5;
+      yMax = Math.max(yMin + 1.0, minPace + 0.5);
     } else {
       const paddingY = Math.max(0.2, (maxPace - minPace) * 0.15);
       yMin = Math.max(2.0, minPace - paddingY);
-      yMax = maxPace + paddingY;
+      yMax = Math.max(yMin + 0.5, maxPace + paddingY);
     }
   }
 
@@ -97,16 +97,14 @@ export function PaceCurvesChart({
         <AppText variant="subheading">Pace Curve</AppText>
         <View style={styles.windowChips}>
           {TIME_WINDOWS.map((tw) => {
-            const isSelected =
-              timeWindow === tw.value ||
-              (tw.value === 'all' && timeWindow === 'all');
+            const isSelected = timeWindow === tw.value;
             return (
               <Pressable
                 key={tw.value}
                 accessibilityRole="button"
                 accessibilityLabel={`Time window ${tw.label}`}
                 accessibilityState={{ selected: isSelected }}
-                hitSlop={8}
+                hitSlop={{ top: 12, bottom: 12, left: 2, right: 2 }}
                 onPress={() => onTimeWindowChange(tw.value)}
                 style={[
                   styles.chip,
@@ -209,9 +207,12 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xxs,
+    paddingVertical: Spacing.xs,
+    minHeight: 28,
     borderRadius: Radius.pill,
     backgroundColor: SpringaColors.surfaceAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chipText: {
     color: SpringaColors.muted,

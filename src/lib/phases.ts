@@ -136,15 +136,15 @@ export function getPhaseInfo(
   } else if (currentWeek >= boundaries.raceWeek) {
     name = 'Race Week';
   } else if (
-    currentWeek >= boundaries.taperStart &&
-    currentWeek <= boundaries.taperEnd
-  ) {
-    name = 'Taper Phase';
-  } else if (
     currentWeek >= boundaries.raceTestStart &&
     currentWeek <= boundaries.raceTestEnd
   ) {
     name = 'Race Test Phase';
+  } else if (
+    currentWeek >= boundaries.taperStart &&
+    currentWeek <= boundaries.taperEnd
+  ) {
+    name = 'Taper Phase';
   }
 
   const progress = Math.min(1, Math.max(0, currentWeek / totalWeeks));

@@ -44,13 +44,15 @@ export function parsePaceCurveData(data: unknown): PaceCurveData | null {
   const bestEfforts = d.bestEfforts.filter(isValidBestEffort);
   const curve = Array.isArray(d.curve) ? d.curve.filter(isValidCurvePoint) : [];
 
-  const lr = d.longestRun;
+  const lr = d.longestRun as Record<string, unknown> | null | undefined;
   const longestRun =
     lr &&
     typeof lr === 'object' &&
     !Array.isArray(lr) &&
-    typeof (lr as Record<string, unknown>).distance === 'number' &&
-    Number.isFinite((lr as Record<string, unknown>).distance)
+    typeof lr.distance === 'number' &&
+    Number.isFinite(lr.distance) &&
+    (lr.movingTime == null ||
+      (typeof lr.movingTime === 'number' && Number.isFinite(lr.movingTime)))
       ? (lr as PaceCurveData['longestRun'])
       : null;
 

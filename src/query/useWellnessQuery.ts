@@ -20,7 +20,10 @@ export function useWellnessQuery(days = 365) {
     enabled,
   });
 
-  const reload = useCallback(() => query.refetch(), [query]);
+  const reload = useCallback(() => {
+    if (!enabled) return Promise.resolve();
+    return query.refetch();
+  }, [enabled, query]);
 
   if (!enabled) {
     return {

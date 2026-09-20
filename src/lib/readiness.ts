@@ -139,15 +139,31 @@ export function computeReadinessData(
     .slice(-14)
     .map((e) => e.restingHR)
     .filter((v): v is number => v != null && v > 0);
+  const isSleepScore = sleep != null && sleep > 12;
   const sleepSparkline = sorted
     .slice(-14)
-    .map((e) =>
-      e.sleepScore ?? (e.sleepSecs ? e.sleepSecs / 3600 : undefined),
-    )
+    .map((e) => {
+      if (isSleepScore) {
+        if (e.sleepScore != null) return e.sleepScore;
+        if (e.sleepSecs != null) {
+          const hrs = e.sleepSecs / 3600;
+          return Math.round(Math.max(0, Math.min(100, ((hrs - 4) / 5) * 100)));
+        }
+        return undefined;
+      } else {
+        if (e.sleepSecs != null) {
+          return Math.round((e.sleepSecs / 3600) * 10) / 10;
+        }
+        if (e.sleepScore != null) {
+          return Math.round((4 + (e.sleepScore / 100) * 5) * 10) / 10;
+        }
+        return undefined;
+      }
+    })
     .filter((v): v is number => v != null && v > 0);
 
-  const sleepLabel = sleep != null && sleep > 12 ? 'Sleep Score' : 'Sleep';
-  const sleepUnit = sleep != null && sleep > 12 ? '' : 'hrs';
+  const sleepLabel = isSleepScore ? 'Sleep Score' : 'Sleep';
+  const sleepUnit = isSleepScore ? '' : 'hrs';
 
   return {
     readiness,

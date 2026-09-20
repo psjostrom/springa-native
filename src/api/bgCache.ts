@@ -26,7 +26,7 @@ export function parseBgCacheResponse(data: unknown): CachedBGActivity[] {
     if (!Array.isArray(a.hr) || !a.hr.every(isValidPoint)) continue;
 
     let glucose: BGDataPoint[] | undefined;
-    if (a.glucose !== undefined) {
+    if (a.glucose != null) {
       if (!Array.isArray(a.glucose) || !a.glucose.every(isValidPoint)) continue;
       glucose = a.glucose;
     }

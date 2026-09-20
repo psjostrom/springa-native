@@ -51,6 +51,7 @@ export function VolumeCompact({
       <View
         style={styles.track}
         accessibilityRole="progressbar"
+        accessibilityLabel="Weekly volume progress"
         accessibilityValue={{
           min: 0,
           max: 100,

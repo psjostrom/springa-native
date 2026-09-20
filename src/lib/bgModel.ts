@@ -47,12 +47,6 @@ export function buildBGCategories(cached: CachedBGActivity[]): {
     const glucose = activity.glucose;
     if (!glucose || glucose.length < 5) continue;
 
-    analyzedActivityIds.add(activity.activityId);
-    categoryObservations[cat].activityIds.add(activity.activityId);
-    if (activity.fuelRate != null && activity.fuelRate > 0) {
-      categoryObservations[cat].fuelRates.push(activity.fuelRate);
-    }
-
     const startTime = Math.round(glucose[0].time) + SKIP_START;
     const endTime = Math.round(glucose[glucose.length - 1].time) - SKIP_END;
 
@@ -65,16 +59,17 @@ export function buildBGCategories(cached: CachedBGActivity[]): {
         const val = gMap.get(m);
         if (val != null) {
           sum += val;
-          count++;
         }
+        count++;
       }
       return count > 0 ? sum / count : null;
     };
 
+    const activityRates: number[] = [];
     for (let t = startTime; t <= endTime - WINDOW_SIZE; t++) {
       let startMin: number | null = null;
       let endMin: number | null = null;
-      for (let m = t; m < t + WINDOW_SIZE; m++) {
+      for (let m = t; m <= t + WINDOW_SIZE; m++) {
         if (gMap.has(m)) {
           startMin ??= m;
           endMin = m;
@@ -88,7 +83,16 @@ export function buildBGCategories(cached: CachedBGActivity[]): {
 
       const windowDuration = endMin - startMin || WINDOW_SIZE;
       const rate = (gEnd - gStart) / windowDuration;
-      categoryObservations[cat].rates.push(rate);
+      activityRates.push(rate);
+    }
+
+    if (activityRates.length > 0) {
+      categoryObservations[cat].rates.push(...activityRates);
+      analyzedActivityIds.add(activity.activityId);
+      categoryObservations[cat].activityIds.add(activity.activityId);
+      if (activity.fuelRate != null && activity.fuelRate >= 0) {
+        categoryObservations[cat].fuelRates.push(activity.fuelRate);
+      }
     }
   }
 

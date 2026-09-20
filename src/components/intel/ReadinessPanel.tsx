@@ -185,7 +185,15 @@ export function ReadinessPanel({ entries }: Props) {
   };
 
   const data = computeReadinessData(entries);
-  if (!data) {
+  const hasMetrics =
+    data != null &&
+    (data.readiness != null ||
+      data.hrv != null ||
+      data.restingHR != null ||
+      data.sleep != null ||
+      data.tsb != null);
+
+  if (!data || !hasMetrics) {
     return (
       <Card tone="default">
         <AppText variant="body" tone="muted" style={styles.centerText}>

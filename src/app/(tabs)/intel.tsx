@@ -1,5 +1,5 @@
 import { Activity, Award, Layers, TrendingUp } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { BgCompact } from '@/components/intel/BgCompact';
 import { IntelSectionHeading } from '@/components/intel/IntelSectionHeading';
@@ -19,6 +19,7 @@ import { usePaceCurvesQuery } from '@/query/usePaceCurvesQuery';
 import { usePaceSuggestionQuery } from '@/query/usePaceSuggestionQuery';
 import { useSettingsQuery } from '@/query/useSettingsQuery';
 import { useWellnessQuery } from '@/query/useWellnessQuery';
+import { SpringaColors } from '@/theme/colors';
 import { Spacing } from '@/theme/tokens';
 
 export default function IntelScreen() {
@@ -49,8 +50,6 @@ export default function IntelScreen() {
     isError: calendarError,
     error: calendarErrorMessage,
     reload: reloadCalendar,
-    fetchOlder,
-    hasOlder,
   } = useCalendarEvents();
   const {
     suggestion: paceSuggestion,
@@ -89,12 +88,6 @@ export default function IntelScreen() {
       );
     }
   }, [dismissPaceSuggestion]);
-
-  useEffect(() => {
-    if (hasOlder && !calendarLoading) {
-      void fetchOlder();
-    }
-  }, [hasOlder, calendarLoading, fetchOlder]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -175,7 +168,12 @@ export default function IntelScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={SpringaColors.brand}
+              colors={[SpringaColors.brand]}
+            />
           }
         >
           {calendarError && (
@@ -206,18 +204,27 @@ export default function IntelScreen() {
             </View>
           )}
 
-          {wellnessStatus === 'error' && (
-            <View style={styles.section}>
-              <IntelSectionHeading icon={Activity} label="Readiness" />
-              <StateView
-                title="Couldn’t load readiness"
-                message={wellnessError ?? 'Failed to load wellness data.'}
-                onRetry={reloadWellness}
-                retryLabel="Retry"
-                retryAccessibilityLabel="Retry loading wellness data"
-              />
-            </View>
-          )}
+          {wellnessStatus === 'loading' &&
+            (!wellnessEntries || wellnessEntries.length === 0) && (
+              <View style={styles.section}>
+                <IntelSectionHeading icon={Activity} label="Readiness" />
+                <StateView title="Loading readiness…" />
+              </View>
+            )}
+
+          {wellnessStatus === 'error' &&
+            (!wellnessEntries || wellnessEntries.length === 0) && (
+              <View style={styles.section}>
+                <IntelSectionHeading icon={Activity} label="Readiness" />
+                <StateView
+                  title="Couldn’t load readiness"
+                  message={wellnessError ?? 'Failed to load wellness data.'}
+                  onRetry={reloadWellness}
+                  retryLabel="Retry"
+                  retryAccessibilityLabel="Retry loading wellness data"
+                />
+              </View>
+            )}
 
           {wellnessEntries && wellnessEntries.length > 0 && (
             <View style={styles.section}>
@@ -254,18 +261,29 @@ export default function IntelScreen() {
             />
           </View>
 
-          {Boolean(settings?.diabetesMode) && bgModelStatus === 'error' && (
-            <View style={styles.section}>
-              <IntelSectionHeading icon={Activity} label="Blood Glucose" />
-              <StateView
-                title="Couldn’t load blood glucose"
-                message={bgModelError ?? 'Failed to load BG data.'}
-                onRetry={reloadBgModel}
-                retryLabel="Retry"
-                retryAccessibilityLabel="Retry loading blood glucose"
-              />
-            </View>
-          )}
+          {Boolean(settings?.diabetesMode) &&
+            bgModelStatus === 'loading' &&
+            (!bgCategories || bgCategories.length === 0) && (
+              <View style={styles.section}>
+                <IntelSectionHeading icon={Activity} label="Blood Glucose" />
+                <StateView title="Loading blood glucose…" />
+              </View>
+            )}
+
+          {Boolean(settings?.diabetesMode) &&
+            bgModelStatus === 'error' &&
+            (!bgCategories || bgCategories.length === 0) && (
+              <View style={styles.section}>
+                <IntelSectionHeading icon={Activity} label="Blood Glucose" />
+                <StateView
+                  title="Couldn’t load blood glucose"
+                  message={bgModelError ?? 'Failed to load BG data.'}
+                  onRetry={reloadBgModel}
+                  retryLabel="Retry"
+                  retryAccessibilityLabel="Retry loading blood glucose"
+                />
+              </View>
+            )}
 
           {Boolean(settings?.diabetesMode) &&
             bgCategories &&
@@ -284,7 +302,14 @@ export default function IntelScreen() {
               </View>
             )}
 
-          {paceCurvesStatus === 'error' && (
+          {paceCurvesStatus === 'loading' && !paceCurveData && (
+            <View style={styles.section}>
+              <IntelSectionHeading icon={Award} label="Personal Bests" />
+              <StateView title="Loading pace curves…" />
+            </View>
+          )}
+
+          {paceCurvesStatus === 'error' && !paceCurveData && (
             <View style={styles.section}>
               <IntelSectionHeading icon={Award} label="Personal Bests" />
               <StateView
@@ -303,17 +328,20 @@ export default function IntelScreen() {
               paceCurveData.longestRun) && (
               <View style={styles.section}>
                 <IntelSectionHeading icon={Award} label="Personal Bests" />
-                {paceCurveData.bestEfforts && paceCurveData.bestEfforts.length > 0 && (
-                  <>
-                    <PacePBs
-                      bestEfforts={paceCurveData.bestEfforts}
-                      longestRun={paceCurveData.longestRun}
-                    />
-                    <View style={styles.chartSpacer} />
-                  </>
+                {((paceCurveData.bestEfforts && paceCurveData.bestEfforts.length > 0) ||
+                  paceCurveData.longestRun) && (
+                  <PacePBs
+                    bestEfforts={paceCurveData.bestEfforts ?? []}
+                    longestRun={paceCurveData.longestRun}
+                  />
                 )}
-                {((paceCurveData.curve && paceCurveData.curve.length > 0) ||
-                  (!paceCurveData.bestEfforts?.length && paceCurveData.longestRun)) && (
+                {((paceCurveData.bestEfforts && paceCurveData.bestEfforts.length > 0) ||
+                  paceCurveData.longestRun) &&
+                  paceCurveData.curve &&
+                  paceCurveData.curve.length > 0 && (
+                    <View style={styles.chartSpacer} />
+                  )}
+                {paceCurveData.curve && paceCurveData.curve.length > 0 && (
                   <PaceCurvesChart
                     curve={paceCurveData.curve}
                     timeWindow={timeWindow}

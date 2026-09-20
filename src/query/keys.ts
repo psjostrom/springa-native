@@ -12,8 +12,10 @@ export const queryKeys = {
   completedWorkoutOverview: (identity: string, activityId: string) =>
     ['completed-overview', identity, activityId] as const,
   wellness: (identity: string, days = 365) => ['wellness', identity, days] as const,
-  paceCurves: (identity: string, timeWindow: string) =>
-    ['pace-curves', identity, timeWindow] as const,
+  paceCurves: (identity: string, timeWindow?: string) =>
+    timeWindow
+      ? (['pace-curves', identity, timeWindow] as const)
+      : (['pace-curves', identity] as const),
   paceSuggestion: (identity: string) => ['pace-suggestion', identity] as const,
   bgModel: (identity: string) => ['bg-model', identity] as const,
 };

@@ -21,7 +21,10 @@ export function usePaceCurvesQuery(timeWindow = 'all') {
     placeholderData: keepPreviousData,
   });
 
-  const reload = useCallback(() => query.refetch(), [query]);
+  const reload = useCallback(() => {
+    if (!enabled) return Promise.resolve();
+    return query.refetch();
+  }, [enabled, query]);
 
   if (!enabled) {
     return {
