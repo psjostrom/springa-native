@@ -37,10 +37,6 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>Intel</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="chart.xyaxis.line" md="monitoring" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="coach" {...tabChrome}>
-        <NativeTabs.Trigger.Label>Coach</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="brain.head.profile" md="smart_toy" />
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="planner" {...tabChrome}>
         <NativeTabs.Trigger.Label>Planner</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="square.stack.3d.up" md="layers" />

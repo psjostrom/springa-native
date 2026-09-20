@@ -10,14 +10,21 @@ import {
   parsePlannerPreview,
   parsePlannerState,
 } from './planner';
+import { parseBgCacheResponse } from './bgCache';
+import { parsePaceCurveData } from './paceCurves';
+import { parsePaceSuggestionResponse } from './paceSuggestion';
+import { parseWellnessEntries } from './wellness';
 import type { ApiErrorDetails } from './errors';
 import type {
+  CachedBGActivity,
   CreateWorkoutRequest,
   SingleWorkoutPreview,
   BgPayload,
   CalendarEvent,
   CompletedWorkoutOverview,
   EffortMetric,
+  PaceCurveData,
+  PaceSuggestion,
   PlannedWorkoutDetail,
   PlannedWorkoutReplacementCategory,
   PlannerApplyRequest,
@@ -27,6 +34,7 @@ import type {
   PlannerPreviewRequest,
   PlannerState,
   UserSettings,
+  WellnessEntry,
   WorkoutCategory,
   WorkoutProtocol,
 } from './types';
@@ -98,6 +106,15 @@ export type ApiClient = {
     comment?: string,
     protocol?: WorkoutProtocol | null,
   ) => Promise<{ ok: true }>;
+  getWellness: (days?: number) => Promise<WellnessEntry[]>;
+  getPaceCurves: (timeWindow?: string) => Promise<PaceCurveData | null>;
+  getPaceSuggestion: () => Promise<PaceSuggestion | null>;
+  acceptPaceSuggestion: (
+    suggestedAbilitySecs: number,
+    currentAbilityDist: number,
+  ) => Promise<{ ok: true }>;
+  dismissPaceSuggestion: () => Promise<{ ok: true }>;
+  getBgCache: () => Promise<CachedBGActivity[]>;
 };
 
 /** Reject null/array/non-objects so callers don't treat garbage as empty settings. */
@@ -390,5 +407,31 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         body: JSON.stringify(body),
       });
     },
+    getWellness: async (days = 365) =>
+      parseWellnessEntries(await apiFetch<unknown>(`/api/wellness?days=${days}`)),
+    getPaceCurves: async (timeWindow = 'all') =>
+      parsePaceCurveData(
+        await apiFetch<unknown>(
+          `/api/intervals/pace-curves?curve=${encodeURIComponent(timeWindow)}`,
+        ),
+      ),
+    getPaceSuggestion: async () =>
+      parsePaceSuggestionResponse(
+        await apiFetch<unknown>('/api/pace-suggestion'),
+      ),
+    acceptPaceSuggestion: async (
+      suggestedAbilitySecs: number,
+      currentAbilityDist: number,
+    ) =>
+      apiFetch<{ ok: true }>('/api/pace-suggestion/accept', {
+        method: 'POST',
+        body: JSON.stringify({ suggestedAbilitySecs, currentAbilityDist }),
+      }),
+    dismissPaceSuggestion: async () =>
+      apiFetch<{ ok: true }>('/api/pace-suggestion/dismiss', {
+        method: 'POST',
+      }),
+    getBgCache: async () =>
+      parseBgCacheResponse(await apiFetch<unknown>('/api/bg-cache')),
   };
 }

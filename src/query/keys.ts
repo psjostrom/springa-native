@@ -11,4 +11,9 @@ export const queryKeys = {
     ['planned-workout', identity, eventId] as const,
   completedWorkoutOverview: (identity: string, activityId: string) =>
     ['completed-overview', identity, activityId] as const,
+  wellness: (identity: string, days = 365) => ['wellness', identity, days] as const,
+  paceCurves: (identity: string, timeWindow: string) =>
+    ['pace-curves', identity, timeWindow] as const,
+  paceSuggestion: (identity: string) => ['pace-suggestion', identity] as const,
+  bgModel: (identity: string) => ['bg-model', identity] as const,
 };

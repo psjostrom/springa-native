@@ -1,27 +1,34 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
+import { buildBGCategories, type CategoryBGResponse } from '@/lib/bgModel';
 import { queryKeys } from './keys';
 
-export function useSettingsQuery() {
+export function useBgModelQuery(diabetesMode?: boolean) {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
-  const enabled = authStatus === 'signedIn' && session != null;
+  const enabled = authStatus === 'signedIn' && session != null && Boolean(diabetesMode);
   const identity = session?.email ?? '';
 
   const query = useQuery({
-    queryKey: queryKeys.settings(identity),
-    queryFn: () => client.getSettings(),
+    queryKey: queryKeys.bgModel(identity),
+    queryFn: () => client.getBgCache(),
     enabled,
   });
 
   const reload = useCallback(() => query.refetch(), [query]);
 
+  const { categories, activitiesAnalyzed } = useMemo(
+    () => buildBGCategories(query.data ?? []),
+    [query.data],
+  );
+
   if (!enabled) {
     return {
       status: 'idle' as const,
-      settings: null,
+      categories: null as CategoryBGResponse[] | null,
+      activitiesAnalyzed: 0,
       error: null as string | null,
       reload,
     };
@@ -30,7 +37,8 @@ export function useSettingsQuery() {
   if (query.isPending || (query.isFetching && query.data === undefined && !query.isError)) {
     return {
       status: 'loading' as const,
-      settings: null,
+      categories: null as CategoryBGResponse[] | null,
+      activitiesAnalyzed: 0,
       error: null as string | null,
       reload,
     };
@@ -39,15 +47,17 @@ export function useSettingsQuery() {
   if (query.isError) {
     return {
       status: 'error' as const,
-      settings: null,
-      error: query.error instanceof Error ? query.error.message : 'Failed to load settings',
+      categories: null as CategoryBGResponse[] | null,
+      activitiesAnalyzed: 0,
+      error: query.error instanceof Error ? query.error.message : 'Failed to load BG model data',
       reload,
     };
   }
 
   return {
     status: 'ready' as const,
-    settings: query.data ?? null,
+    categories,
+    activitiesAnalyzed,
     error: null as string | null,
     reload,
   };
