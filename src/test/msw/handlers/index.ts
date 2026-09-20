@@ -5,6 +5,7 @@ import { bgHandlers } from './bg';
 import { plannedWorkoutHandlers } from './plannedWorkout';
 import { completedWorkoutOverviewHandlers } from './completedWorkoutOverview';
 import { plannerHandlers } from './planner';
+import { intelHandlers } from './intelHandlers';
 
 export const handlers = [
   ...authHandlers,
@@ -14,4 +15,5 @@ export const handlers = [
   ...plannedWorkoutHandlers,
   ...completedWorkoutOverviewHandlers,
   ...plannerHandlers,
+  ...intelHandlers,
 ];

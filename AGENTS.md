@@ -66,7 +66,7 @@ src/theme/colors.ts          # Springa dark + HR zones
 src/test/msw/                # Vitest MSW server + handlers
 ```
 
-Intel / Coach / Simulate are placeholders with the shared shell; Planner is live.
+Coach / Simulate are placeholders with the shared shell; Planner and Intel are live.
 
 ## Testing
 
