@@ -23,6 +23,7 @@ export type FeedbackFormProps = {
   lastProtocols?: Record<string, WorkoutProtocol> | null;
   feel?: number | null;
   rpe?: number | null;
+  preRunCarbsG?: number | null;
   saveFeedback: (input: {
     feel?: number | null;
     rpe?: number | null;
@@ -46,6 +47,7 @@ export function FeedbackForm({
   lastProtocols,
   feel,
   rpe,
+  preRunCarbsG,
   saveFeedback,
   pending,
   error,
@@ -86,9 +88,11 @@ export function FeedbackForm({
   const [preRunCarbs, setPreRunCarbs] = useState<string>(
     initialProtocol?.preRunCarbsG != null
       ? String(initialProtocol.preRunCarbsG)
-      : event.preRunCarbsG != null
-        ? String(event.preRunCarbsG)
-        : '',
+      : preRunCarbsG != null
+        ? String(preRunCarbsG)
+        : event.preRunCarbsG != null
+          ? String(event.preRunCarbsG)
+          : '',
   );
   const [carbsIngested, setCarbsIngested] = useState<string>(
     event.carbsIngested != null ? String(event.carbsIngested) : '',

@@ -91,6 +91,11 @@ export default function FeedbackScreen() {
           lastProtocols={overview?.lastProtocols}
           feel={overview?.feel ?? event.feel}
           rpe={overview?.rpe ?? event.rpe}
+          preRunCarbsG={
+            overview?.protocol?.preRunCarbsG ??
+            overview?.preRunCarbs?.grams ??
+            event.preRunCarbsG
+          }
           saveFeedback={async (input) => {
             await mutations.saveFeedback.mutateAsync(input);
           }}

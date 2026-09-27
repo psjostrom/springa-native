@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+  type InfiniteQueryObserverResult,
+} from '@tanstack/react-query';
 import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
 import { useAuth } from '@/auth/AuthContext';
@@ -101,7 +106,47 @@ export function useCalendarEvents() {
     newestIso && newestIso < formatIsoDay(new Date()),
   );
 
-  // After the first (today→future) page paints, warm older (history) then newer.
+  type CalendarQueryResult = InfiniteQueryObserverResult<InfiniteData<CalendarEvent[], unknown>, Error>;
+  const inFlightNextRef = useRef<Promise<CalendarQueryResult | undefined> | null>(null);
+  const inFlightPrevRef = useRef<Promise<CalendarQueryResult | undefined> | null>(null);
+
+  const fetchNewer = useCallback(() => {
+    if (inFlightNextRef.current) return inFlightNextRef.current;
+    const execute = async () => {
+      if (inFlightPrevRef.current) {
+        await inFlightPrevRef.current.catch(() => {});
+      }
+      if (!hasNextPage) return;
+      return fetchNextPage();
+    };
+    const promise = execute().finally(() => {
+      if (inFlightNextRef.current === promise) {
+        inFlightNextRef.current = null;
+      }
+    });
+    inFlightNextRef.current = promise;
+    return promise;
+  }, [hasNextPage, fetchNextPage]);
+
+  const fetchOlder = useCallback(() => {
+    if (inFlightPrevRef.current) return inFlightPrevRef.current;
+    const execute = async () => {
+      if (inFlightNextRef.current) {
+        await inFlightNextRef.current.catch(() => {});
+      }
+      if (!hasPreviousPage) return;
+      return fetchPreviousPage();
+    };
+    const promise = execute().finally(() => {
+      if (inFlightPrevRef.current === promise) {
+        inFlightPrevRef.current = null;
+      }
+    });
+    inFlightPrevRef.current = promise;
+    return promise;
+  }, [hasPreviousPage, fetchPreviousPage]);
+
+  // After the first (today→future) page paints, warm newer (future) then older (history).
   // Gated on pageCount === 1 so components mounting with existing cache never refire warming,
   // unless the hydrated cache is behind today due to multi-day inactivity.
   useEffect(() => {
@@ -111,20 +156,26 @@ export function useCalendarEvents() {
     let cancelled = false;
     void (async () => {
       try {
-        if (hasPreviousPage && !cancelled) await fetchPreviousPage();
-        if (hasNextPage && !cancelled) {
-          let currentRes = await fetchNextPage();
-          while (!cancelled && currentRes.isSuccess) {
-            const params = currentRes.data?.pageParams as DateWindow[] | undefined;
-            const last = params?.[params.length - 1];
-            if (!last || last.newest >= formatIsoDay(new Date()) || !currentRes.hasNextPage) {
-              break;
+        if (isCacheBehindToday) {
+          if (hasPreviousPage && !cancelled) await fetchOlder();
+          if (hasNextPage && !cancelled) {
+            let currentRes = await fetchNewer();
+            while (!cancelled && currentRes?.isSuccess) {
+              const params = currentRes.data?.pageParams as DateWindow[] | undefined;
+              const last = params?.[params.length - 1];
+              if (!last || last.newest >= formatIsoDay(new Date()) || !currentRes.hasNextPage) {
+                break;
+              }
+              currentRes = await fetchNewer();
             }
-            currentRes = await fetchNextPage();
+            if (!currentRes?.isSuccess) {
+              warmedIdentityRef.current = null;
+            }
           }
-          if (!currentRes.isSuccess) {
-            warmedIdentityRef.current = null;
-          }
+        } else {
+          // Normal mount: warm upcoming workouts first, then older history in background.
+          if (hasNextPage && !cancelled) await fetchNewer();
+          if (hasPreviousPage && !cancelled) await fetchOlder();
         }
       } catch {
         warmedIdentityRef.current = null;
@@ -135,8 +186,8 @@ export function useCalendarEvents() {
     };
   }, [
     calendarEnabled,
-    fetchNextPage,
-    fetchPreviousPage,
+    fetchNewer,
+    fetchOlder,
     hasNextPage,
     hasPreviousPage,
     identity,
@@ -144,16 +195,6 @@ export function useCalendarEvents() {
     isSuccess,
     pageCount,
   ]);
-
-  const fetchOlder = useCallback(() => {
-    if (!hasPreviousPage || isFetchingPreviousPage) return Promise.resolve();
-    return fetchPreviousPage();
-  }, [hasPreviousPage, isFetchingPreviousPage, fetchPreviousPage]);
-
-  const fetchNewer = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage) return Promise.resolve();
-    return fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const { refetch } = query;
   const reload = useCallback(() => {

@@ -95,7 +95,7 @@ describe('WorkoutSheetContent', () => {
       change: expect.any(Function),
     });
     expect(screen.getByText('T-shirt')).toBeOnTheScreen();
-    expect(screen.getByText('65m')).toBeOnTheScreen();
+    expect(screen.getByText('1h 5m')).toBeOnTheScreen();
   });
 
   it('shows the Calendar summary and Overview content for completed events', async () => {
@@ -184,7 +184,7 @@ describe('WorkoutSheetContent', () => {
     expect(screen.getByText('Race')).toBeOnTheScreen();
     expect(await screen.findByText('Workout structure')).toBeOnTheScreen();
     expect(screen.getByText('T-shirt')).toBeOnTheScreen();
-    expect(screen.getByText('65m')).toBeOnTheScreen();
+    expect(screen.getByText('1h 5m')).toBeOnTheScreen();
     expect(screen.queryByTestId('effort-metric-picker')).toBeNull();
     expect(screen.queryByText('Completed workout')).toBeNull();
   });
