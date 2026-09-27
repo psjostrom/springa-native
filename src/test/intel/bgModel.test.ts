@@ -70,4 +70,30 @@ describe('bgModel domain logic', () => {
     expect(easyCat.avgFuelRate).toBe(45);
     expect(['low', 'medium', 'high']).toContain(easyCat.confidence);
   });
+
+  it('correctly averages sparse glucose readings without dividing by empty minutes', () => {
+    // 5-minute CGM interval where BG drops 0.5 mmol/L every 5 min (-0.1 mmol/L per min)
+    const sparsePoints = [
+      { time: 0, value: 8.0 },
+      { time: 5, value: 7.5 },
+      { time: 10, value: 7.0 },
+      { time: 15, value: 6.5 },
+      { time: 20, value: 6.0 },
+      { time: 25, value: 5.5 },
+    ];
+
+    const activities: CachedBGActivity[] = [
+      {
+        activityId: 'sparse-1',
+        category: 'easy',
+        hr: [],
+        glucose: sparsePoints,
+        fuelRate: null,
+      },
+    ];
+
+    const { categories } = buildBGCategories(activities);
+    expect(categories).toHaveLength(1);
+    expect(categories[0].medianRate).toBeCloseTo(-0.1, 2);
+  });
 });

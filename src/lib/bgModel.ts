@@ -59,8 +59,8 @@ export function buildBGCategories(cached: CachedBGActivity[]): {
         const val = gMap.get(m);
         if (val != null) {
           sum += val;
+          count++;
         }
-        count++;
       }
       return count > 0 ? sum / count : null;
     };
