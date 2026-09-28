@@ -28,19 +28,17 @@ export default function FeedbackScreen() {
       (activityId && e.id === activityId),
   );
 
+  const resolvedActivityId = activityId ?? event?.activityId ?? '';
   const {
     data: overview,
     isLoading: overviewLoading,
-    isFetching: overviewFetching,
-  } = useCompletedWorkoutOverview(event?.activityId ?? '');
+  } = useCompletedWorkoutOverview(resolvedActivityId);
 
   const mutations = useCompletedWorkoutMutations(event);
 
-  const isUnrated = !overview?.protocol;
   const isWaitingForOverview =
     (eventsLoading && !event) ||
-    (overviewLoading && !overview) ||
-    (isUnrated && !overview?.lastProtocols && overviewFetching);
+    (overviewLoading && !overview);
 
   if (isWaitingForOverview) {
     return (
@@ -59,15 +57,22 @@ export default function FeedbackScreen() {
         <AppText variant="body" tone="muted" style={styles.notFoundMessage}>
           This workout is no longer available or could not be loaded.
         </AppText>
-        <Button label="Go back" variant="secondary" onPress={() => router.back()} />
+        <Button
+          label="Go back"
+          variant="secondary"
+          onPress={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace('/');
+          }}
+        />
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={headerHeight}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
       style={styles.keyboardRoot}
     >
       <ScrollView
@@ -103,6 +108,7 @@ export default function FeedbackScreen() {
           error={mutations.saveFeedback.error?.message}
           onDone={() => {
             if (router.canGoBack()) router.back();
+            else router.replace('/');
           }}
         />
       </ScrollView>

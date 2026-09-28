@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import { Text } from 'react-native';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { useCalendarEvents } from './useCalendarEvents';
+import { useCalendarEvents, _resetCalendarEventsModuleState } from './useCalendarEvents';
 import { queryKeys } from './keys';
 import {
   initialCalendarWindow,
@@ -36,6 +36,10 @@ function CalendarProbe() {
 }
 
 describe('useCalendarEvents', () => {
+  beforeEach(() => {
+    _resetCalendarEventsModuleState();
+  });
+
   it('automatically warms older and newer windows in background on initial mount', async () => {
     const session = makeTestSession('runner@example.com');
     const requestedWindows: { oldest: string; newest: string }[] = [];
@@ -256,11 +260,12 @@ describe('useCalendarEvents', () => {
 
     expect(await screen.findByText('old-1')).toBeOnTheScreen();
     await waitFor(() => {
-      expect(previousCalls).toBe(1);
       expect(newerCalls).toBe(1);
+      expect(previousCalls).toBe(0);
     });
     await new Promise((r) => setTimeout(r, 50));
     expect(newerCalls).toBe(1);
+    expect(previousCalls).toBe(0);
   });
 
   it('deduplicates concurrent fetchNewer calls to avoid dropping in-flight fetches', async () => {
@@ -320,6 +325,83 @@ describe('useCalendarEvents', () => {
     await act(async () => {
       const p1 = captured!.fetchNewer();
       const p2 = captured!.fetchNewer();
+      await Promise.all([p1, p2]);
+    });
+
+    expect(newerRequests).toBe(1);
+  });
+
+  it('shares warming and in-flight fetch deduplication across concurrent subscribers', async () => {
+    const session = makeTestSession('runner@example.com');
+    const initWin = initialCalendarWindow();
+    const newerWin = newerCalendarWindow(initWin.newest);
+    let newerRequests = 0;
+
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), async ({ request }) => {
+        const url = new URL(request.url);
+        const oldest = url.searchParams.get('oldest') ?? '';
+        if (oldest === initWin.oldest) {
+          return HttpResponse.json([
+            { id: 'init-event', date: new Date().toISOString(), name: 'Today Run', type: 'planned' },
+          ]);
+        }
+        if (oldest === newerWin.oldest) {
+          newerRequests++;
+          await new Promise((r) => setTimeout(r, 40));
+          return HttpResponse.json([
+            { id: 'newer-event', date: new Date(Date.now() + 86400000 * 5).toISOString(), name: 'Future Run', type: 'planned' },
+          ]);
+        }
+        return HttpResponse.json([]);
+      }),
+      http.get(apiUrl('/api/intervals/settings'), () =>
+        HttpResponse.json({ intervalsConnected: true }),
+      ),
+    );
+
+    let sub1: ReturnType<typeof useCalendarEvents> | null = null;
+    let sub2: ReturnType<typeof useCalendarEvents> | null = null;
+
+    function Subscriber1() {
+      const api = useCalendarEvents();
+      useEffect(() => {
+        sub1 = api;
+      }, [api]);
+      return <Text testID="sub1">{api.events.length}</Text>;
+    }
+
+    function Subscriber2() {
+      const api = useCalendarEvents();
+      useEffect(() => {
+        sub2 = api;
+      }, [api]);
+      return <Text testID="sub2">{api.events.length}</Text>;
+    }
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(session)}>
+        <Subscriber1 />
+        <Subscriber2 />
+      </TestAppProviders>,
+    );
+
+    await waitFor(() => {
+      expect(sub1).not.toBeNull();
+      expect(sub2).not.toBeNull();
+      expect(sub1!.isLoading).toBe(false);
+      expect(sub2!.isLoading).toBe(false);
+    });
+
+    // Warming was executed only once despite two concurrent subscribers mounting
+    await waitFor(() => {
+      expect(newerRequests).toBe(1);
+    });
+
+    // Both subscribers calling fetchNewer simultaneously share the same in-flight fetch
+    await act(async () => {
+      const p1 = sub1!.fetchNewer();
+      const p2 = sub2!.fetchNewer();
       await Promise.all([p1, p2]);
     });
 

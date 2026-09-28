@@ -60,6 +60,14 @@ describe('unratedRun', () => {
     });
   });
 
+  it('ignores completed runs with timestamps beyond clock drift tolerance (>24h in the future)', () => {
+    const distantFutureRun = makeCompleted({
+      date: new Date(now + 25 * 60 * 60 * 1000),
+    });
+    expect(findUnratedRun([distantFutureRun], now)).toBeNull();
+    expect(getNextUnratedRunBoundary([distantFutureRun], now)).toBeNull();
+  });
+
   it('ignores runs marked isRated', () => {
     const run = makeCompleted({ isRated: true });
     expect(findUnratedRun([run], now)).toBeNull();

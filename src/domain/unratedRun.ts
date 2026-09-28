@@ -8,6 +8,7 @@ export interface UnratedRun {
 }
 
 export const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+export const CLOCK_DRIFT_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
 export function isUnratedCompletedRun(
   event: CalendarEvent,
@@ -30,12 +31,13 @@ export function findUnratedRun(
   now = Date.now(),
 ): UnratedRun | null {
   const cutoff = now - SEVEN_DAYS_MS;
+  const maxValidTime = now + CLOCK_DRIFT_TOLERANCE_MS;
   const match = events
     .filter((event): event is CalendarEvent & { activityId: string } => {
       if (!isUnratedCompletedRun(event)) return false;
       const time =
         event.date instanceof Date ? event.date.getTime() : new Date(event.date).getTime();
-      return time >= cutoff;
+      return time >= cutoff && time <= maxValidTime;
     })
     .sort((a, b) => {
       const timeA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
@@ -58,14 +60,15 @@ export function getNextUnratedRunBoundary(
   events: readonly CalendarEvent[],
   now = Date.now(),
 ): number | null {
+  const maxValidTime = now + CLOCK_DRIFT_TOLERANCE_MS;
   const nextBoundary = events
     .filter(isUnratedCompletedRun)
     .map((event) => {
       const time =
         event.date instanceof Date ? event.date.getTime() : new Date(event.date).getTime();
-      return time + SEVEN_DAYS_MS;
+      return time <= maxValidTime ? time + SEVEN_DAYS_MS : null;
     })
-    .filter((boundary) => boundary > now)
+    .filter((boundary): boundary is number => boundary !== null && boundary > now)
     .sort((a, b) => a - b)
     .at(0);
 

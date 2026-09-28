@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   useInfiniteQuery,
   useQueryClient,
@@ -46,6 +46,39 @@ function newerPageParam(currentNewest: string, now = new Date()): DateWindow | u
 
 export const CALENDAR_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
+type CalendarQueryResult = InfiniteQueryObserverResult<InfiniteData<CalendarEvent[], unknown>, Error>;
+
+// Cache-scoped coordination so all concurrent subscribers (AgendaList, UnratedRunBanner, etc.)
+// sharing a QueryClient instance share deduplication and warming state without cross-client leakage.
+const clientInFlightNext = new WeakMap<QueryClient, Map<string, Promise<CalendarQueryResult | undefined>>>();
+const clientInFlightPrev = new WeakMap<QueryClient, Map<string, Promise<CalendarQueryResult | undefined>>>();
+const clientWarmedIdentities = new WeakMap<QueryClient, Set<string>>();
+
+function getWarmedSet(client: QueryClient): Set<string> {
+  let set = clientWarmedIdentities.get(client);
+  if (!set) {
+    set = new Set();
+    clientWarmedIdentities.set(client, set);
+  }
+  return set;
+}
+
+function getInFlightMap(
+  store: WeakMap<QueryClient, Map<string, Promise<CalendarQueryResult | undefined>>>,
+  client: QueryClient,
+): Map<string, Promise<CalendarQueryResult | undefined>> {
+  let map = store.get(client);
+  if (!map) {
+    map = new Map();
+    store.set(client, map);
+  }
+  return map;
+}
+
+export function _resetCalendarEventsModuleState() {
+  // No-op kept for test suite compatibility; WeakMap isolates by QueryClient instance.
+}
+
 export function useCalendarEvents() {
   const client = useApiClient();
   const queryClient = useQueryClient();
@@ -85,7 +118,6 @@ export function useCalendarEvents() {
   ]), [pages, pendingEvents, pendingUpdates]);
   const {
     isSuccess,
-    data,
     hasPreviousPage,
     hasNextPage,
     fetchPreviousPage,
@@ -94,113 +126,118 @@ export function useCalendarEvents() {
     isFetchingNextPage,
   } = query;
 
-  const warmedIdentityRef = useRef<string | null>(null);
-  const pageCount = data?.pages.length ?? 0;
-
-  const pageParams = data?.pageParams as DateWindow[] | undefined;
-  const newestIso = pageParams?.reduce(
-    (max, p) => (!max || p.newest > max ? p.newest : max),
-    '',
-  );
-  const isCacheBehindToday = Boolean(
-    newestIso && newestIso < formatIsoDay(new Date()),
-  );
-
-  type CalendarQueryResult = InfiniteQueryObserverResult<InfiniteData<CalendarEvent[], unknown>, Error>;
-  const inFlightNextRef = useRef<Promise<CalendarQueryResult | undefined> | null>(null);
-  const inFlightPrevRef = useRef<Promise<CalendarQueryResult | undefined> | null>(null);
-
   const fetchNewer = useCallback(() => {
-    if (inFlightNextRef.current) return inFlightNextRef.current;
+    if (!identity) return Promise.resolve(undefined);
+    const inFlightMap = getInFlightMap(clientInFlightNext, queryClient);
+    const existing = inFlightMap.get(identity);
+    if (existing) return existing;
+
     const execute = async () => {
-      if (inFlightPrevRef.current) {
-        await inFlightPrevRef.current.catch(() => {});
+      const activePrev = getInFlightMap(clientInFlightPrev, queryClient).get(identity);
+      if (activePrev) {
+        await activePrev.catch(() => {});
       }
-      if (!hasNextPage) return;
       return fetchNextPage();
     };
+
     const promise = execute().finally(() => {
-      if (inFlightNextRef.current === promise) {
-        inFlightNextRef.current = null;
+      if (inFlightMap.get(identity) === promise) {
+        inFlightMap.delete(identity);
       }
     });
-    inFlightNextRef.current = promise;
+    inFlightMap.set(identity, promise);
     return promise;
-  }, [hasNextPage, fetchNextPage]);
+  }, [identity, queryClient, fetchNextPage]);
 
   const fetchOlder = useCallback(() => {
-    if (inFlightPrevRef.current) return inFlightPrevRef.current;
+    if (!identity) return Promise.resolve(undefined);
+    const inFlightMap = getInFlightMap(clientInFlightPrev, queryClient);
+    const existing = inFlightMap.get(identity);
+    if (existing) return existing;
+
     const execute = async () => {
-      if (inFlightNextRef.current) {
-        await inFlightNextRef.current.catch(() => {});
+      const activeNext = getInFlightMap(clientInFlightNext, queryClient).get(identity);
+      if (activeNext) {
+        await activeNext.catch(() => {});
       }
-      if (!hasPreviousPage) return;
       return fetchPreviousPage();
     };
+
     const promise = execute().finally(() => {
-      if (inFlightPrevRef.current === promise) {
-        inFlightPrevRef.current = null;
+      if (inFlightMap.get(identity) === promise) {
+        inFlightMap.delete(identity);
       }
     });
-    inFlightPrevRef.current = promise;
+    inFlightMap.set(identity, promise);
     return promise;
-  }, [hasPreviousPage, fetchPreviousPage]);
+  }, [identity, queryClient, fetchPreviousPage]);
 
   // After the first (today→future) page paints, warm newer (future) then older (history).
   // Gated on pageCount === 1 so components mounting with existing cache never refire warming,
   // unless the hydrated cache is behind today due to multi-day inactivity.
   useEffect(() => {
-    if (!calendarEnabled || !isSuccess) return;
-    if (warmedIdentityRef.current === identity || (pageCount !== 1 && !isCacheBehindToday)) return;
-    warmedIdentityRef.current = identity;
+    if (!calendarEnabled || !isSuccess || !identity) return;
+    const warmedSet = getWarmedSet(queryClient);
+    if (warmedSet.has(identity)) return;
+
+    const cached = queryClient.getQueryData<InfiniteData<CalendarEvent[], DateWindow>>(
+      queryKeys.calendar(identity),
+    );
+    const pageParams = cached?.pageParams;
+    const newestIso = pageParams?.reduce(
+      (max, p) => (!max || p.newest > max ? p.newest : max),
+      '',
+    );
+    const isCacheBehindToday = Boolean(
+      newestIso && newestIso < formatIsoDay(new Date()),
+    );
+    const pageCount = cached?.pages.length ?? 0;
+    if (pageCount !== 1 && !isCacheBehindToday) return;
+
+    warmedSet.add(identity);
     let cancelled = false;
+
     void (async () => {
       try {
         if (isCacheBehindToday) {
-          if (hasPreviousPage && !cancelled) await fetchOlder();
-          if (hasNextPage && !cancelled) {
-            let currentRes = await fetchNewer();
-            while (!cancelled && currentRes?.isSuccess) {
-              const params = currentRes.data?.pageParams as DateWindow[] | undefined;
-              const last = params?.[params.length - 1];
-              if (!last || last.newest >= formatIsoDay(new Date()) || !currentRes.hasNextPage) {
-                break;
-              }
-              currentRes = await fetchNewer();
+          // Stale cache: advance future horizon to reach today FIRST
+          let currentRes = await fetchNewer();
+          while (!cancelled && currentRes?.isSuccess) {
+            const params = currentRes.data?.pageParams as DateWindow[] | undefined;
+            const last = params?.[params.length - 1];
+            if (!last || last.newest >= formatIsoDay(new Date()) || !currentRes.hasNextPage) {
+              break;
             }
-            if (!currentRes?.isSuccess) {
-              warmedIdentityRef.current = null;
-            }
+            currentRes = await fetchNewer();
+          }
+          if (!currentRes?.isSuccess) {
+            warmedSet.delete(identity);
+            return;
+          }
+          // Now that cache is caught up to today, warm history in background
+          if (!cancelled) {
+            await fetchOlder();
           }
         } else {
           // Normal mount: warm upcoming workouts first, then older history in background.
-          if (hasNextPage && !cancelled) await fetchNewer();
-          if (hasPreviousPage && !cancelled) await fetchOlder();
+          if (!cancelled) await fetchNewer();
+          if (!cancelled) await fetchOlder();
         }
       } catch {
-        warmedIdentityRef.current = null;
+        warmedSet.delete(identity);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [
-    calendarEnabled,
-    fetchNewer,
-    fetchOlder,
-    hasNextPage,
-    hasPreviousPage,
-    identity,
-    isCacheBehindToday,
-    isSuccess,
-    pageCount,
-  ]);
+  }, [calendarEnabled, isSuccess, identity, queryClient, fetchNewer, fetchOlder]);
 
   const { refetch } = query;
   const reload = useCallback(() => {
-    warmedIdentityRef.current = null;
+    getWarmedSet(queryClient).delete(identity);
     return refetch();
-  }, [refetch]);
+  }, [identity, queryClient, refetch]);
 
   return {
     events,

@@ -367,5 +367,33 @@ describe('FeedbackForm', () => {
 
     expect(screen.getByLabelText('Pre-run carbs').props.value).toBe('35');
   });
+
+  it('correctly parses numbers entered with localized comma separator', async () => {
+    const saveFeedback = vi.fn(async () => ({ ok: true }));
+    const onDone = vi.fn();
+    const user = userEvent.setup();
+
+    await render(
+      <FeedbackForm
+        event={baseEvent}
+        feel={4}
+        rpe={5}
+        saveFeedback={saveFeedback}
+        pending={false}
+        onDone={onDone}
+      />,
+    );
+
+    fireEvent.changeText(screen.getByLabelText('Pre-run carbs'), '22,5');
+    await user.press(screen.getByRole('button', { name: 'Save' }));
+
+    expect(saveFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        protocol: expect.objectContaining({
+          preRunCarbsG: 22.5,
+        }),
+      }),
+    );
+  });
 });
 

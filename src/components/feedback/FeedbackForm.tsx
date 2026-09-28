@@ -182,16 +182,16 @@ export function FeedbackForm({
   const hasGarminMetrics = displayFeel != null;
 
   const handleSave = async () => {
-    const parsedTargetBg = parseFloat(beforeTargetBg);
-    const parsedManualUh = parseFloat(beforeManualUh);
-    const parsedRescueG = parseFloat(rescueGrams);
-    const parsedPreRunG = parseFloat(preRunCarbs);
-    const parsedCarbsG = parseFloat(carbsIngested);
+    const parsedTargetBg = parseFloat(beforeTargetBg.replace(',', '.'));
+    const parsedManualUh = parseFloat(beforeManualUh.replace(',', '.'));
+    const parsedRescueG = parseFloat(rescueGrams.replace(',', '.'));
+    const parsedPreRunG = parseFloat(preRunCarbs.replace(',', '.'));
+    const parsedCarbsG = parseFloat(carbsIngested.replace(',', '.'));
 
     const resolvedFeel = selectedFeel ?? displayFeel ?? null;
 
-    const parsedDuringTargetBg = parseFloat(duringTargetBg);
-    const parsedDuringManualUh = parseFloat(duringManualUh);
+    const parsedDuringTargetBg = parseFloat(duringTargetBg.replace(',', '.'));
+    const parsedDuringManualUh = parseFloat(duringManualUh.replace(',', '.'));
     const protocolToSave: WorkoutProtocol = {
       category: selectedCategory ?? event.category,
       beforeMode,

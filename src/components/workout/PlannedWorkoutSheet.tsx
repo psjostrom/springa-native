@@ -148,7 +148,7 @@ function getMetricValues(detail: Pick<PlannedWorkoutDetail, 'metrics'>) {
     detail.metrics.duration
       ? {
           key: 'duration',
-          value: `${detail.metrics.duration.estimated ? '~' : ''}${formatHrMin(detail.metrics.duration.minutes)}`,
+          value: `${detail.metrics.duration.estimated ? '~' : ''}${formatHrMin(Math.round(detail.metrics.duration.minutes))}`,
         }
       : null,
     detail.metrics.distance

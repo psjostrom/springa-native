@@ -14,7 +14,7 @@ import {
 } from '@/query/useCompletedWorkoutOverview';
 import { AppText } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
-import { Radius, Spacing } from '@/theme/tokens';
+import { MinTouchTarget, Radius, Spacing } from '@/theme/tokens';
 
 function UnratedRunBannerContent({
   unrated,
@@ -32,13 +32,16 @@ function UnratedRunBannerContent({
 
   return (
     <View
-      accessibilityRole="alert"
-      accessibilityLabel={`${unrated.name} is unrated`}
       testID="unrated-run-banner"
       style={styles.container}
     >
       <View style={styles.textWrapper}>
-        <AppText variant="label" tone="primary" numberOfLines={1}>
+        <AppText
+          accessibilityRole="alert"
+          variant="label"
+          tone="primary"
+          numberOfLines={1}
+        >
           {unrated.name}
           <AppText variant="caption" tone="muted">
             {' '}
@@ -103,9 +106,10 @@ export function UnratedRunBanner() {
     const nextBoundary = getNextUnratedRunBoundary(events, now);
     if (nextBoundary == null) return;
 
+    const delay = Math.min(2147483647, Math.max(0, nextBoundary - now));
     const timeoutId = setTimeout(() => {
       setNow(Date.now());
-    }, Math.max(0, nextBoundary - now));
+    }, delay);
 
     return () => {
       clearTimeout(timeoutId);
@@ -143,6 +147,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.md,
+    minHeight: MinTouchTarget,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -152,6 +157,8 @@ const styles = StyleSheet.create({
   },
   dismissButton: {
     padding: Spacing.xs,
+    minWidth: MinTouchTarget,
+    minHeight: MinTouchTarget,
     justifyContent: 'center',
     alignItems: 'center',
   },
