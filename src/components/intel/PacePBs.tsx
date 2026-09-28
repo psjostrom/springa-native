@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { BestEffort, PaceCurveData } from '@/api/types';
 import { AppText } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -32,41 +33,94 @@ function formatDate(dateStr?: string): string {
 }
 
 export function PacePBs({ bestEfforts, longestRun }: Props) {
+  const router = useRouter();
+
   if ((!bestEfforts || bestEfforts.length === 0) && !longestRun) return null;
+
+  const navigateToWorkout = (
+    activityId?: string,
+    activityName?: string,
+    activityDate?: string,
+  ) => {
+    if (!activityId) return;
+    router.push({
+      pathname: '/workout/[id]',
+      params: {
+        id: activityId,
+        name: activityName ?? '',
+        date: activityDate ?? '',
+      },
+    });
+  };
 
   return (
     <View style={styles.grid}>
-      {bestEfforts.map((pb) => (
-        <View key={pb.label || pb.distance} style={styles.card}>
-          <AppText variant="caption" style={styles.distanceLabel}>
-            {pb.label.toUpperCase()}
-          </AppText>
-          <AppText variant="heading" style={styles.timeText}>
-            {formatTime(pb.timeSeconds)}
-          </AppText>
-          <AppText variant="caption" tone="muted" style={styles.paceText}>
-            {formatPace(pb.pace)}
-          </AppText>
-          {pb.activityName ? (
-            <AppText
-              variant="caption"
-              tone="muted"
-              numberOfLines={1}
-              style={styles.activityText}
-            >
-              {pb.activityName}
+      {bestEfforts.map((pb) => {
+        const canPress = Boolean(pb.activityId);
+        return (
+          <Pressable
+            key={pb.label || pb.distance}
+            disabled={!canPress}
+            onPress={() =>
+              navigateToWorkout(pb.activityId, pb.activityName, pb.activityDate)
+            }
+            accessibilityRole={canPress ? 'button' : undefined}
+            accessibilityLabel={
+              canPress ? `View ${pb.label} effort workout` : undefined
+            }
+            style={({ pressed }) => [
+              styles.card,
+              canPress && pressed && styles.cardPressed,
+            ]}
+          >
+            <AppText variant="caption" style={styles.distanceLabel}>
+              {pb.label.toUpperCase()}
             </AppText>
-          ) : null}
-          {pb.activityDate ? (
-            <AppText variant="caption" tone="muted" style={styles.dateText}>
-              {formatDate(pb.activityDate)}
+            <AppText variant="heading" style={styles.timeText}>
+              {formatTime(pb.timeSeconds)}
             </AppText>
-          ) : null}
-        </View>
-      ))}
+            <AppText variant="caption" tone="muted" style={styles.paceText}>
+              {formatPace(pb.pace)}
+            </AppText>
+            {pb.activityName ? (
+              <AppText
+                variant="caption"
+                tone="muted"
+                numberOfLines={1}
+                style={styles.activityText}
+              >
+                {pb.activityName}
+              </AppText>
+            ) : null}
+            {pb.activityDate ? (
+              <AppText variant="caption" tone="muted" style={styles.dateText}>
+                {formatDate(pb.activityDate)}
+              </AppText>
+            ) : null}
+          </Pressable>
+        );
+      })}
 
       {longestRun && (
-        <View key="longest-run" style={styles.card}>
+        <Pressable
+          key="longest-run"
+          disabled={!longestRun.activityId}
+          onPress={() =>
+            navigateToWorkout(
+              longestRun.activityId,
+              longestRun.activityName,
+              longestRun.activityDate,
+            )
+          }
+          accessibilityRole={longestRun.activityId ? 'button' : undefined}
+          accessibilityLabel={
+            longestRun.activityId ? 'View longest run workout' : undefined
+          }
+          style={({ pressed }) => [
+            styles.card,
+            Boolean(longestRun.activityId) && pressed && styles.cardPressed,
+          ]}
+        >
           <AppText variant="caption" style={styles.distanceLabel}>
             LONGEST RUN
           </AppText>
@@ -93,7 +147,7 @@ export function PacePBs({ bestEfforts, longestRun }: Props) {
               {formatDate(longestRun.activityDate)}
             </AppText>
           ) : null}
-        </View>
+        </Pressable>
       )}
     </View>
   );
@@ -132,5 +186,8 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 10,
     marginTop: Spacing.xxs,
+  },
+  cardPressed: {
+    opacity: 0.7,
   },
 });

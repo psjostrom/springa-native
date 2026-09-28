@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Svg, { G, Line, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
 import { AppText, Card } from '@/components/ui';
 import { formatPaceMinPerKm } from '@/components/workout/completed/completedOverviewPresentation';
 import { SpringaColors } from '@/theme/colors';
@@ -21,6 +22,12 @@ type Props = {
 
 function formatPace(paceMinPerKm: number): string {
   return formatPaceMinPerKm(paceMinPerKm);
+}
+
+function formatDistance(distM: number): string {
+  if (distM < 1000) return `${Math.round(distM)}m`;
+  const km = distM / 1000;
+  return `${km >= 10 ? km.toFixed(0) : km.toFixed(1)} km`;
 }
 
 export function PaceCurvesChart({
@@ -91,6 +98,32 @@ export function PaceCurvesChart({
     xTicks.push(km * 1000);
   }
 
+  const [scrubIdx, setScrubIdx] = useState<number | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(width);
+
+  const handleTouch = (locationX: number) => {
+    if (curve.length === 0 || containerWidth <= 0) return;
+    const svgX = (locationX / containerWidth) * width;
+    if (svgX < padding.left || svgX > width - padding.right) return;
+
+    const frac = (svgX - padding.left) / chartWidth;
+    const targetDist = minDist + frac * (maxDist - minDist);
+
+    let bestIdx = 0;
+    let bestDiff = Infinity;
+    for (let i = 0; i < curve.length; i++) {
+      const diff = Math.abs(curve[i].distance - targetDist);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestIdx = i;
+      }
+    }
+    setScrubIdx(bestIdx);
+  };
+
+  const activePoint =
+    scrubIdx !== null && curve[scrubIdx] ? curve[scrubIdx] : null;
+
   return (
     <Card tone="default">
       <View style={styles.header}>
@@ -126,7 +159,39 @@ export function PaceCurvesChart({
         </View>
       </View>
 
-      <View style={styles.chartContainer}>
+      <View
+        style={styles.chartContainer}
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={(e) => handleTouch(e.nativeEvent.locationX)}
+        onResponderMove={(e) => handleTouch(e.nativeEvent.locationX)}
+        onResponderRelease={() => setScrubIdx(null)}
+        onResponderTerminate={() => setScrubIdx(null)}
+      >
+        {activePoint ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.tooltip,
+              {
+                left:
+                  (scaleX(activePoint.distance) / width) * containerWidth <
+                  containerWidth / 2
+                    ? (scaleX(activePoint.distance) / width) * containerWidth + 8
+                    : (scaleX(activePoint.distance) / width) * containerWidth - 110,
+              },
+            ]}
+          >
+            <AppText variant="caption" tone="muted">
+              {formatDistance(activePoint.distance)}
+            </AppText>
+            <AppText variant="caption" style={styles.tooltipPace}>
+              {formatPace(activePoint.pace)}/km
+            </AppText>
+          </View>
+        ) : null}
+
         <Svg
           width="100%"
           height={height}
@@ -188,6 +253,30 @@ export function PaceCurvesChart({
               strokeLinejoin="round"
             />
           ) : null}
+
+          {/* Active scrub crosshair & indicator */}
+          {activePoint ? (
+            <G>
+              <Line
+                x1={scaleX(activePoint.distance)}
+                y1={padding.top}
+                x2={scaleX(activePoint.distance)}
+                y2={height - padding.bottom}
+                stroke={SpringaColors.muted}
+                strokeWidth={1}
+                strokeDasharray="4 2"
+                opacity={0.6}
+              />
+              <Circle
+                cx={scaleX(activePoint.distance)}
+                cy={scaleY(activePoint.pace)}
+                r={5}
+                fill={SpringaColors.chartPrimary}
+                stroke={SpringaColors.surface}
+                strokeWidth={2}
+              />
+            </G>
+          ) : null}
         </Svg>
       </View>
     </Card>
@@ -219,5 +308,22 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     alignItems: 'center',
+    position: 'relative',
+  },
+  tooltip: {
+    position: 'absolute',
+    top: Spacing.xs,
+    zIndex: 10,
+    backgroundColor: SpringaColors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: SpringaColors.border,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    minWidth: 100,
+  },
+  tooltipPace: {
+    color: SpringaColors.text,
+    fontWeight: '700',
   },
 });

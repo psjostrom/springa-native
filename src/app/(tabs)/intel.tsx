@@ -1,7 +1,8 @@
-import { Activity, Award, Layers, TrendingUp } from 'lucide-react-native';
+import { Activity, Award, Layers, TrendingUp, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { BgCompact } from '@/components/intel/BgCompact';
+import { FitnessChart } from '@/components/intel/FitnessChart';
 import { IntelSectionHeading } from '@/components/intel/IntelSectionHeading';
 import { PaceCurvesChart } from '@/components/intel/PaceCurvesChart';
 import { PacePBs } from '@/components/intel/PacePBs';
@@ -13,6 +14,7 @@ import { IntervalsGate } from '@/components/shell/IntervalsGate';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { AppText, StateView } from '@/components/ui';
 import { formatIsoDay } from '@/domain/calendarWindows';
+import { wellnessToFitnessData } from '@/lib/fitness';
 import { getMonday, getPhaseInfo } from '@/lib/phases';
 import { useBgModelQuery } from '@/query/useBgModelQuery';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
@@ -175,6 +177,11 @@ export default function IntelScreen() {
     [events],
   );
 
+  const fitnessData = useMemo(
+    () => (wellnessEntries ? wellnessToFitnessData(wellnessEntries) : []),
+    [wellnessEntries],
+  );
+
   return (
     <ScreenShell>
       <IntervalsGate>
@@ -213,7 +220,11 @@ export default function IntelScreen() {
           {phaseInfo && (
             <View style={styles.section}>
               <IntelSectionHeading icon={Layers} label="Phase" />
-              <PhaseTracker phaseInfo={phaseInfo} />
+              <PhaseTracker
+                phaseInfo={phaseInfo}
+                raceDate={settings?.raceDate}
+                includeBasePhase={settings?.includeBasePhase}
+              />
             </View>
           )}
 
@@ -243,6 +254,13 @@ export default function IntelScreen() {
             <View style={styles.section}>
               <IntelSectionHeading icon={Activity} label="Readiness" />
               <ReadinessPanel entries={wellnessEntries} />
+            </View>
+          )}
+
+          {fitnessData.length > 0 && (
+            <View style={styles.section}>
+              <IntelSectionHeading icon={Zap} label="Fitness Evolution" />
+              <FitnessChart data={fitnessData} />
             </View>
           )}
 

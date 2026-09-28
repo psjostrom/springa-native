@@ -28,8 +28,8 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   const max = Math.max(...validData);
   const range = max - min || 1;
 
-  const width = 60;
-  const height = 20;
+  const width = 46;
+  const height = 18;
   const padding = 2;
 
   const points = validData
@@ -244,7 +244,7 @@ export function ReadinessPanel({ entries }: Props) {
       tsbBg = SpringaColors.tintWarning;
     } else if (tsb < 5) {
       tsbLabel = 'Neutral';
-      tsbToneColor = SpringaColors.muted;
+      tsbToneColor = SpringaColors.chartPrimary;
       tsbBg = SpringaColors.surfaceAlt;
     } else if (tsb < 15) {
       tsbLabel = 'Fresh';
@@ -390,13 +390,13 @@ export function ReadinessPanel({ entries }: Props) {
                 baseline:
                   sleep > 12 ? { mean: 75, sd: 15 } : { mean: 7.5, sd: 1.2 },
                 sparkline: data.sleepSparkline,
-                color: SpringaColors.muted,
+                color: SpringaColors.chartSecondary,
               })
             }
             style={styles.metricCard}
           >
             <View style={styles.metricHeader}>
-              <Moon size={14} color={SpringaColors.muted} />
+              <Moon size={14} color={SpringaColors.chartSecondary} />
               <AppText variant="caption" tone="muted" style={styles.metricLabel}>
                 SLEEP
               </AppText>
@@ -410,7 +410,7 @@ export function ReadinessPanel({ entries }: Props) {
                   </AppText>
                 ) : null}
               </View>
-              <Sparkline data={data.sleepSparkline} color={SpringaColors.muted} />
+              <Sparkline data={data.sleepSparkline} color={SpringaColors.chartSecondary} />
             </View>
           </Pressable>
         )}
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SpringaColors.surfaceAlt,
     borderRadius: Radius.md,
-    padding: Spacing.md,
+    padding: Spacing.sm,
     borderWidth: 1,
     borderColor: SpringaColors.border,
     justifyContent: 'space-between',

@@ -33,6 +33,7 @@ describe('IntelScreen', () => {
     // Section headings
     expect(await screen.findByText('PHASE')).toBeOnTheScreen();
     expect(await screen.findByText('READINESS')).toBeOnTheScreen();
+    expect(await screen.findByText('FITNESS EVOLUTION')).toBeOnTheScreen();
     expect(await screen.findByText('VOLUME')).toBeOnTheScreen();
     expect(await screen.findByText('BLOOD GLUCOSE')).toBeOnTheScreen();
     expect(await screen.findByText('PERSONAL BESTS')).toBeOnTheScreen();
@@ -40,6 +41,7 @@ describe('IntelScreen', () => {
     // Verify sub-components rendered
     expect(screen.getByText('Build Phase')).toBeOnTheScreen();
     expect(screen.getByText('Ready to train')).toBeOnTheScreen();
+    expect(screen.getByText('Fitness & Fatigue')).toBeOnTheScreen();
     expect(screen.getByText('1KM')).toBeOnTheScreen();
     expect(screen.getByText('LONGEST RUN')).toBeOnTheScreen();
   });

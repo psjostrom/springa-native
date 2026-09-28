@@ -4,5 +4,5 @@ export function findCalendarEvent(
   events: readonly CalendarEvent[],
   id: string,
 ): CalendarEvent | undefined {
-  return events.find((event) => event.id === id);
+  return events.find((event) => event.id === id || event.activityId === id);
 }

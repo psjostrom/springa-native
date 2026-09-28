@@ -12,9 +12,26 @@ import { Spacing } from '@/theme/tokens';
 /** Workout detail stack screen — identity = `/workout/[id]`; data = calendar Query cache. */
 export default function WorkoutSheetScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, name, date } = useLocalSearchParams<{
+    id: string;
+    name?: string;
+    date?: string;
+  }>();
   const { events, isLoading } = useCalendarEvents();
-  const event = id ? findCalendarEvent(events, id) : undefined;
+  const matchedEvent = id ? findCalendarEvent(events, id) : undefined;
+  const event =
+    matchedEvent ??
+    (id
+      ? {
+          id,
+          activityId: id,
+          name: name || 'Completed Run',
+          description: '',
+          type: 'completed' as const,
+          category: 'easy' as const,
+          date: date ? new Date(date) : new Date(),
+        }
+      : undefined);
   const [actionsPresented, setActionsPresented] = useState(false);
   const [actions, setActions] = useState<PlannedWorkoutActions | null>(null);
 

@@ -11,6 +11,15 @@ export interface PhaseBoundaries {
   raceWeek: number;
 }
 
+export interface PhaseDefinition {
+  name: PhaseName;
+  displayName: string;
+  startWeek: number;
+  endWeek: number;
+  description: string;
+  focus: string[];
+}
+
 export interface PhaseInfo {
   name: string;
   week: number;
@@ -158,3 +167,125 @@ export function getPhaseInfo(
     progressPercent,
   };
 }
+
+export function isRecoveryWeek(
+  weekNum: number,
+  totalWeeks: number,
+  includeBasePhase = false,
+): boolean {
+  const b = getPhaseBoundaries(totalWeeks, includeBasePhase);
+  if (weekNum < b.buildStart || weekNum > b.buildEnd) return false;
+  const buildWeekIndex = weekNum - b.buildStart; // 0-based
+  return buildWeekIndex > 0 && (buildWeekIndex + 1) % 4 === 0;
+}
+
+export function getPhaseDefinitions(
+  totalWeeks: number,
+  includeBasePhase = false,
+): PhaseDefinition[] {
+  const b = getPhaseBoundaries(totalWeeks, includeBasePhase);
+  const compressed = totalWeeks < 10;
+  const phases: PhaseDefinition[] = [];
+
+  if (includeBasePhase && b.baseEnd > 0) {
+    phases.push({
+      name: 'Base',
+      displayName: 'Base Phase',
+      startWeek: 1,
+      endWeek: b.baseEnd,
+      description:
+        'Building a foundation of easy running. Consistency and BG management practice come first.',
+      focus: [
+        'Easy runs only',
+        'Long runs growing in distance',
+        'BG management practice',
+        'Build running habit',
+      ],
+    });
+  }
+
+  phases.push(
+    {
+      name: 'Build',
+      displayName: 'Build Phase',
+      startWeek: b.buildStart,
+      endWeek: b.buildEnd,
+      description:
+        'Increasing volume with weekly speed sessions. Recovery week every 4th build week.',
+      focus: [
+        'Weekly speed sessions',
+        'Long runs growing in distance',
+        '3:1 build/recovery cycle',
+        'Race-pace long run blocks',
+      ],
+    },
+    {
+      name: 'Race Test',
+      displayName: 'Race Test Phase',
+      startWeek: b.raceTestStart,
+      endWeek: b.raceTestEnd,
+      description: compressed
+        ? 'One race-specific rehearsal. Same kit, same fuel, same pump setup as race day.'
+        : 'Two shots at race distance. Same kit, same fuel, same pump setup as race day.',
+      focus: compressed
+        ? [
+            'One race-specific rehearsal',
+            'Fueling strategy validation',
+            'BG protocol check',
+            'Gear and logistics check',
+          ]
+        : [
+            'Full race distance at easy pace',
+            'Fueling strategy validation',
+            'BG protocol rehearsal (x2)',
+            'Gear and logistics check',
+          ],
+    },
+    {
+      name: 'Taper',
+      displayName: 'Taper Phase',
+      startWeek: b.taperStart,
+      endWeek: b.taperEnd,
+      description:
+        'Volume drops ~40-50% to absorb training. Maintain some intensity to stay sharp.',
+      focus: [
+        'Volume drops ~40-50%',
+        'Race-pace sharpening',
+        'Extra rest and sleep',
+        'Nutrition and BG focus',
+      ],
+    },
+    {
+      name: 'Race Week',
+      displayName: 'Race Week',
+      startWeek: b.raceWeek,
+      endWeek: b.raceWeek,
+      description: 'Final preparation and race execution.',
+      focus: [
+        'Light shakeout run only',
+        'Pre-race carb loading',
+        'BG stability priority',
+        'Race day!',
+      ],
+    },
+  );
+
+  return phases;
+}
+
+export function weeksUntil(raceDate: string, now = new Date()): number {
+  const race = new Date(raceDate + 'T00:00:00');
+  const diffMs = race.getTime() - now.getTime();
+  return Math.max(0, Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000)));
+}
+
+export function formatRaceDate(raceDate: string): string {
+  const date = new Date(raceDate + 'T00:00:00');
+  if (isNaN(date.getTime())) return raceDate;
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
