@@ -28,7 +28,12 @@ export function PhaseTracker({ phaseInfo, raceDate, includeBasePhase }: Props) {
   const phases = getPhaseDefinitions(totalWeeks, includeBasePhase ?? false);
   const recovery = isRecoveryWeek(currentWeek, totalWeeks, includeBasePhase ?? false);
   const weeksLeft = raceDate ? weeksUntil(raceDate) : null;
-  const currentDef = phases.find((p) => p.name === phaseInfo.name) ?? phases[0];
+  const currentDef =
+    phases.find((p) => currentWeek >= p.startWeek && currentWeek <= p.endWeek) ??
+    phases.find(
+      (p) => p.name === phaseInfo.name || p.displayName === phaseInfo.name,
+    ) ??
+    phases[0];
 
   return (
     <>
@@ -111,7 +116,8 @@ export function PhaseTracker({ phaseInfo, raceDate, includeBasePhase }: Props) {
             </AppText>
             <View style={styles.phasesTimeline}>
               {phases.map((phase) => {
-                const isCurrent = phase.name === phaseInfo.name;
+                const isCurrent =
+                  currentWeek >= phase.startWeek && currentWeek <= phase.endWeek;
                 const isPast = currentWeek > phase.endWeek;
                 return (
                   <View key={phase.name} style={styles.timelineRow}>

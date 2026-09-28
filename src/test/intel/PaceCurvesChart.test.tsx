@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { PaceCurvesChart } from '@/components/intel/PaceCurvesChart';
 
 describe('PaceCurvesChart', () => {
@@ -10,34 +10,27 @@ describe('PaceCurvesChart', () => {
     { distance: 10000, pace: 4.8 },
   ];
 
-  it('renders time window chips and triggers callback', async () => {
-    const onTimeWindowChange = vi.fn();
+  it('renders pace header with best pace and distance range', async () => {
     const view = await render(
       <PaceCurvesChart
         curve={sampleCurve}
-        timeWindow="90d"
-        onTimeWindowChange={onTimeWindowChange}
       />,
     );
 
-    expect(view.getByText('Pace Curve')).toBeOnTheScreen();
-    expect(view.getByText('3m')).toBeOnTheScreen();
-    expect(view.getByText('All')).toBeOnTheScreen();
-
-    fireEvent.press(view.getByLabelText('Time window 1y'));
-    expect(onTimeWindowChange).toHaveBeenCalledWith('1y');
+    expect(view.getByText('4:00/km')).toBeOnTheScreen();
+    expect(view.getByText('Best Pace')).toBeOnTheScreen();
+    expect(view.getByText('1.0 km – 10 km curve')).toBeOnTheScreen();
   });
 
-  it('renders curve without crash and initially shows no tooltip', async () => {
-    const onTimeWindowChange = vi.fn();
+  it('renders curve without crash and accepts scrubbing callback', async () => {
+    const onScrubbingChange = vi.fn();
     const view = await render(
       <PaceCurvesChart
         curve={sampleCurve}
-        timeWindow="90d"
-        onTimeWindowChange={onTimeWindowChange}
+        onScrubbingChange={onScrubbingChange}
       />,
     );
 
-    expect(view.queryByText('4:00/km')).toBeNull();
+    expect(view.getByText('4:00/km')).toBeOnTheScreen();
   });
 });

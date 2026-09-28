@@ -88,5 +88,16 @@ describe('phases domain logic', () => {
       expect(info?.week).toBeLessThanOrEqual(12);
       expect(info?.progressPercent).toBeGreaterThan(0);
     });
+
+    it('identifies Taper Phase in a 14-week plan at week 12', () => {
+      const raceDate = '2026-10-18';
+      const totalWeeks = 14;
+      // In 14-week plan targeting 2026-10-18:
+      // week 12 is in taper phase (weeks 12-13)
+      const now = new Date('2026-09-28T12:00:00');
+      const info = getPhaseInfo(raceDate, totalWeeks, false, now);
+      expect(info?.name).toBe('Taper Phase');
+      expect(info?.week).toBe(12);
+    });
   });
 });

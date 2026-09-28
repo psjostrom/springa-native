@@ -244,7 +244,7 @@ export function ReadinessPanel({ entries }: Props) {
       tsbBg = SpringaColors.tintWarning;
     } else if (tsb < 5) {
       tsbLabel = 'Neutral';
-      tsbToneColor = SpringaColors.chartPrimary;
+      tsbToneColor = SpringaColors.brand;
       tsbBg = SpringaColors.surfaceAlt;
     } else if (tsb < 15) {
       tsbLabel = 'Fresh';
@@ -355,13 +355,13 @@ export function ReadinessPanel({ entries }: Props) {
                 value: restingHR,
                 baseline: data.rhrBaseline,
                 sparkline: data.hrSparkline,
-                color: SpringaColors.brand,
+                color: SpringaColors.error,
               })
             }
             style={styles.metricCard}
           >
             <View style={styles.metricHeader}>
-              <Heart size={14} color={SpringaColors.brand} />
+              <Heart size={14} color={SpringaColors.error} />
               <AppText variant="caption" tone="muted" style={styles.metricLabel}>
                 RHR
               </AppText>
@@ -373,7 +373,7 @@ export function ReadinessPanel({ entries }: Props) {
                   bpm
                 </AppText>
               </View>
-              <Sparkline data={data.hrSparkline} color={SpringaColors.brand} />
+              <Sparkline data={data.hrSparkline} color={SpringaColors.error} />
             </View>
           </Pressable>
         )}
@@ -427,14 +427,14 @@ export function ReadinessPanel({ entries }: Props) {
               value: tsb,
               baseline: { mean: 0, sd: 15 },
               sparkline: [],
-              color: tsbToneColor,
+              color: SpringaColors.brand,
             })
           }
           style={[styles.tsbCard, { backgroundColor: tsbBg }]}
         >
           <View style={styles.tsbHeader}>
             <View style={styles.tsbLeft}>
-              <Zap size={14} color={tsbToneColor} />
+              <Zap size={14} color={SpringaColors.brand} />
               <AppText variant="caption" tone="muted" style={styles.metricLabel}>
                 FORM (TSB)
               </AppText>
@@ -488,6 +488,36 @@ export function ReadinessPanel({ entries }: Props) {
                   {detailInfo.context}
                 </AppText>
               </View>
+
+              {selectedMetric.key === 'tsb' && (
+                <View style={styles.tsbZonesContainer}>
+                  <AppText variant="caption" tone="muted" style={styles.graphTitle}>
+                    FORM ZONES
+                  </AppText>
+                  <View style={styles.tsbZoneList}>
+                    <View style={styles.tsbZoneRow}>
+                      <View style={[styles.tsbZoneDot, { backgroundColor: SpringaColors.chartSecondary }]} />
+                      <AppText variant="caption" style={styles.tsbZoneLabel}>Fresh (&gt; +5)</AppText>
+                      <AppText variant="caption" tone="muted" style={styles.tsbZoneDesc}>Ready to race</AppText>
+                    </View>
+                    <View style={styles.tsbZoneRow}>
+                      <View style={[styles.tsbZoneDot, { backgroundColor: SpringaColors.brand }]} />
+                      <AppText variant="caption" style={styles.tsbZoneLabel}>Neutral (-10 to +5)</AppText>
+                      <AppText variant="caption" tone="muted" style={styles.tsbZoneDesc}>Balanced maintenance</AppText>
+                    </View>
+                    <View style={styles.tsbZoneRow}>
+                      <View style={[styles.tsbZoneDot, { backgroundColor: SpringaColors.success }]} />
+                      <AppText variant="caption" style={styles.tsbZoneLabel}>Optimal (-30 to -10)</AppText>
+                      <AppText variant="caption" tone="muted" style={styles.tsbZoneDesc}>Building fitness</AppText>
+                    </View>
+                    <View style={styles.tsbZoneRow}>
+                      <View style={[styles.tsbZoneDot, { backgroundColor: SpringaColors.error }]} />
+                      <AppText variant="caption" style={styles.tsbZoneLabel}>High Risk (&lt; -30)</AppText>
+                      <AppText variant="caption" tone="muted" style={styles.tsbZoneDesc}>Recovery needed</AppText>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {selectedMetric.sparkline.length >= 2 && (
                 <View style={styles.sheetGraphSection}>
@@ -642,5 +672,32 @@ const styles = StyleSheet.create({
     width: 260,
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  tsbZonesContainer: {
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+  },
+  tsbZoneList: {
+    gap: Spacing.xs,
+    backgroundColor: SpringaColors.surfaceAlt,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+  },
+  tsbZoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  tsbZoneDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  tsbZoneLabel: {
+    fontWeight: '600',
+    minWidth: 130,
+  },
+  tsbZoneDesc: {
+    flex: 1,
   },
 });

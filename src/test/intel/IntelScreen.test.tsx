@@ -41,7 +41,7 @@ describe('IntelScreen', () => {
     // Verify sub-components rendered
     expect(screen.getByText('Build Phase')).toBeOnTheScreen();
     expect(screen.getByText('Ready to train')).toBeOnTheScreen();
-    expect(screen.getByText('Fitness & Fatigue')).toBeOnTheScreen();
+    expect(screen.getAllByText('Fitness').length).toBeGreaterThan(0);
     expect(screen.getByText('1KM')).toBeOnTheScreen();
     expect(screen.getByText('LONGEST RUN')).toBeOnTheScreen();
   });

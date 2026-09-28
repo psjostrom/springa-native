@@ -1,7 +1,9 @@
+import { Info } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
 import { AppText, Card } from '@/components/ui';
+import { AppBottomSheet } from '@/components/ui/AppBottomSheet';
 import {
   type FitnessDataPoint,
   type FitnessTimeWindow,
@@ -16,24 +18,28 @@ const LINE_CONFIGS: Record<
   VisibleLine,
   { label: string; shortLabel: string; color: string }
 > = {
-  ctl: { label: 'Fitness (CTL)', shortLabel: 'Fitness', color: SpringaColors.chartPrimary },
-  atl: { label: 'Fatigue (ATL)', shortLabel: 'Fatigue', color: SpringaColors.muted },
-  tsb: { label: 'Form (TSB)', shortLabel: 'Form', color: SpringaColors.success },
+  ctl: { label: 'Fitness (CTL)', shortLabel: 'Fitness', color: SpringaColors.chartSecondary },
+  atl: { label: 'Fatigue (ATL)', shortLabel: 'Fatigue', color: SpringaColors.chartPrimary },
+  tsb: { label: 'Form (TSB)', shortLabel: 'Form', color: SpringaColors.brand },
 };
 
-const TIME_WINDOWS: { label: string; value: FitnessTimeWindow }[] = [
+export const FITNESS_TIME_WINDOWS = [
   { label: '3m', value: '90d' },
   { label: '6m', value: '180d' },
   { label: '1y', value: '1y' },
   { label: 'All', value: 'all' },
-];
+] as const;
 
 type Props = {
   data: FitnessDataPoint[];
+  timeWindow?: FitnessTimeWindow;
+  onScrubbingChange?: (isScrubbing: boolean) => void;
 };
 
-export function FitnessChart({ data }: Props) {
-  const [timeWindow, setTimeWindow] = useState<FitnessTimeWindow>('90d');
+export function FitnessChart({ data, timeWindow: externalTimeWindow, onScrubbingChange }: Props) {
+  const [internalTimeWindow] = useState<FitnessTimeWindow>('90d');
+  const timeWindow = externalTimeWindow ?? internalTimeWindow;
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [visibleLines, setVisibleLines] = useState<Set<VisibleLine>>(
     new Set(['ctl', 'atl', 'tsb']),
   );
@@ -61,8 +67,8 @@ export function FitnessChart({ data }: Props) {
   };
 
   const width = 320;
-  const height = 160;
-  const padding = { top: 15, right: 15, bottom: 25, left: 35 };
+  const height = 150;
+  const padding = { top: 12, right: 12, bottom: 22, left: 32 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
@@ -101,7 +107,7 @@ export function FitnessChart({ data }: Props) {
   }
 
   const yTicks: number[] = [];
-  const tickCount = 4;
+  const tickCount = 3;
   for (let i = 0; i < tickCount; i++) {
     const val = Math.round(yMin + (i / (tickCount - 1)) * (yMax - yMin));
     yTicks.push(val);
@@ -116,14 +122,13 @@ export function FitnessChart({ data }: Props) {
         : 0,
     );
     const dateStr = filteredData[idx]?.date ?? '';
-    // Format YYYY-MM-DD -> MM/DD
     const parts = dateStr.split('-');
     const label = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : dateStr;
     xTicks.push({ i: idx, label });
   }
 
   const zeroY = scaleY(0);
-  const showZeroLine = yMin < 0 && yMax > 0;
+  const showZeroLine = visibleLines.has('tsb') && yMin < 0 && yMax > 0;
 
   const handleTouch = (locationX: number) => {
     if (filteredData.length === 0 || containerWidth <= 0) return;
@@ -139,61 +144,54 @@ export function FitnessChart({ data }: Props) {
   };
 
   const latestPoint = filteredData[filteredData.length - 1];
-  const activePoint =
-    scrubIdx !== null && filteredData[scrubIdx]
-      ? filteredData[scrubIdx]
-      : latestPoint;
+  const isScrubbing = scrubIdx !== null && filteredData[scrubIdx] != null;
+  const activePoint = isScrubbing ? filteredData[scrubIdx!] : latestPoint;
 
   return (
-    <Card tone="default">
+    <>
+      <Card tone="default">
+      {/* Top Header: Current/Inspected values and Time Window selector */}
       <View style={styles.header}>
-        <AppText variant="subheading">Fitness & Fatigue</AppText>
-        <View style={styles.windowChips}>
-          {TIME_WINDOWS.map((tw) => {
-            const isSelected = timeWindow === tw.value;
-            return (
-              <Pressable
-                key={tw.value}
-                accessibilityRole="button"
-                accessibilityLabel={`Time window ${tw.label}`}
-                accessibilityState={{ selected: isSelected }}
-                hitSlop={{ top: 12, bottom: 12, left: 2, right: 2 }}
-                onPress={() => {
-                  setTimeWindow(tw.value);
-                  setScrubIdx(null);
-                }}
-                style={[
-                  styles.chip,
-                  isSelected && { backgroundColor: SpringaColors.brand },
-                ]}
-              >
-                <AppText
-                  variant="caption"
-                  style={[
-                    styles.chipText,
-                    isSelected && { color: SpringaColors.text, fontWeight: '700' },
-                  ]}
-                >
-                  {tw.label}
-                </AppText>
-              </Pressable>
-            );
-          })}
+        <View style={styles.metricSummary}>
+          <View style={styles.primaryMetricRow}>
+            <AppText variant="heading" style={styles.primaryValue}>
+              {activePoint.ctl}
+            </AppText>
+            <AppText variant="caption" tone="muted" style={styles.metricName}>
+              Fitness
+            </AppText>
+          </View>
+          <AppText variant="caption" tone="muted" style={styles.subMetricText}>
+            {isScrubbing ? activePoint.date : 'Latest'} • Form{' '}
+            <AppText
+              variant="caption"
+              style={[
+                styles.subMetricHighlight,
+                { color: SpringaColors.brand },
+              ]}
+            >
+              {activePoint.tsb > 0 ? `+${activePoint.tsb}` : activePoint.tsb}
+            </AppText>
+            {' '}• Fatigue {activePoint.atl}
+          </AppText>
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Fitness and form explanation"
+          onPress={() => setIsSheetOpen(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.infoButton}
+        >
+          <Info size={18} color={SpringaColors.muted} />
+        </Pressable>
       </View>
 
-      {/* Legend & Line toggles */}
+      {/* Line toggles */}
       <View style={styles.legendRow}>
         {(Object.keys(LINE_CONFIGS) as VisibleLine[]).map((line) => {
           const cfg = LINE_CONFIGS[line];
           const active = visibleLines.has(line);
-          const val = activePoint ? activePoint[line] : null;
-          const formattedVal =
-            val != null
-              ? line === 'tsb' && val > 0
-                ? `+${val}`
-                : `${val}`
-              : '--';
 
           return (
             <Pressable
@@ -218,16 +216,7 @@ export function FitnessChart({ data }: Props) {
                 tone={active ? 'primary' : 'muted'}
                 style={styles.legendText}
               >
-                {cfg.shortLabel}:{' '}
-                <AppText
-                  variant="caption"
-                  style={[
-                    styles.legendValue,
-                    { color: active ? cfg.color : SpringaColors.muted },
-                  ]}
-                >
-                  {formattedVal}
-                </AppText>
+                {cfg.shortLabel}
               </AppText>
             </Pressable>
           );
@@ -239,55 +228,21 @@ export function FitnessChart({ data }: Props) {
         onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
-        onResponderGrant={(e) => handleTouch(e.nativeEvent.locationX)}
+        onResponderTerminationRequest={() => false}
+        onResponderGrant={(e) => {
+          onScrubbingChange?.(true);
+          handleTouch(e.nativeEvent.locationX);
+        }}
         onResponderMove={(e) => handleTouch(e.nativeEvent.locationX)}
-        onResponderRelease={() => setScrubIdx(null)}
-        onResponderTerminate={() => setScrubIdx(null)}
+        onResponderRelease={() => {
+          setScrubIdx(null);
+          onScrubbingChange?.(false);
+        }}
+        onResponderTerminate={() => {
+          setScrubIdx(null);
+          onScrubbingChange?.(false);
+        }}
       >
-        {scrubIdx !== null && activePoint ? (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.tooltip,
-              {
-                left:
-                  (scaleX(scrubIdx) / width) * containerWidth <
-                  containerWidth / 2
-                    ? (scaleX(scrubIdx) / width) * containerWidth + 8
-                    : (scaleX(scrubIdx) / width) * containerWidth - 110,
-              },
-            ]}
-          >
-            <AppText variant="caption" tone="muted">
-              {activePoint.date}
-            </AppText>
-            {visibleLines.has('ctl') && (
-              <AppText
-                variant="caption"
-                style={{ color: SpringaColors.chartPrimary, fontWeight: '700' }}
-              >
-                Fitness: {activePoint.ctl}
-              </AppText>
-            )}
-            {visibleLines.has('atl') && (
-              <AppText
-                variant="caption"
-                style={{ color: SpringaColors.muted, fontWeight: '700' }}
-              >
-                Fatigue: {activePoint.atl}
-              </AppText>
-            )}
-            {visibleLines.has('tsb') && (
-              <AppText
-                variant="caption"
-                style={{ color: SpringaColors.success, fontWeight: '700' }}
-              >
-                Form: {activePoint.tsb > 0 ? `+${activePoint.tsb}` : activePoint.tsb}
-              </AppText>
-            )}
-          </View>
-        ) : null}
-
         <Svg
           width="100%"
           height={height}
@@ -354,101 +309,252 @@ export function FitnessChart({ data }: Props) {
               d={p.d}
               fill="none"
               stroke={p.color}
-              strokeWidth={2}
+              strokeWidth={p.line === 'ctl' ? 2.5 : 1.75}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           ))}
 
-          {/* Active scrub crosshair & indicator */}
-          {scrubIdx !== null && activePoint ? (
+          {/* Active scrub cursor & indicators */}
+          {isScrubbing && (
             <G>
               <Line
-                x1={scaleX(scrubIdx)}
+                x1={scaleX(scrubIdx!)}
                 y1={padding.top}
-                x2={scaleX(scrubIdx)}
+                x2={scaleX(scrubIdx!)}
                 y2={height - padding.bottom}
                 stroke={SpringaColors.muted}
                 strokeWidth={1}
                 strokeDasharray="4 2"
-                opacity={0.6}
+                opacity={0.7}
               />
               {visibleLines.has('ctl') && (
                 <Circle
-                  cx={scaleX(scrubIdx)}
+                  cx={scaleX(scrubIdx!)}
                   cy={scaleY(activePoint.ctl)}
-                  r={4}
-                  fill={SpringaColors.chartPrimary}
+                  r={5}
+                  fill={SpringaColors.chartSecondary}
                   stroke={SpringaColors.surface}
                   strokeWidth={2}
                 />
               )}
               {visibleLines.has('atl') && (
                 <Circle
-                  cx={scaleX(scrubIdx)}
+                  cx={scaleX(scrubIdx!)}
                   cy={scaleY(activePoint.atl)}
                   r={4}
-                  fill={SpringaColors.muted}
+                  fill={SpringaColors.chartPrimary}
                   stroke={SpringaColors.surface}
                   strokeWidth={2}
                 />
               )}
               {visibleLines.has('tsb') && (
                 <Circle
-                  cx={scaleX(scrubIdx)}
+                  cx={scaleX(scrubIdx!)}
                   cy={scaleY(activePoint.tsb)}
                   r={4}
-                  fill={SpringaColors.success}
+                  fill={SpringaColors.brand}
                   stroke={SpringaColors.surface}
                   strokeWidth={2}
                 />
               )}
             </G>
-          ) : null}
+          )}
         </Svg>
       </View>
     </Card>
+
+    <AppBottomSheet
+      isPresented={isSheetOpen}
+      onDismiss={() => setIsSheetOpen(false)}
+    >
+      <View style={styles.sheetContent}>
+        <AppText variant="subheading" style={styles.sheetTitle}>
+          Fitness, Fatigue & Form
+        </AppText>
+        <AppText variant="body" tone="muted" style={styles.sheetLead}>
+          Modeled from your daily training load to track aerobic fitness and freshness over time.
+        </AppText>
+
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionDot, { backgroundColor: SpringaColors.chartSecondary }]} />
+            <AppText variant="body" style={styles.metricTitle}>Fitness (CTL)</AppText>
+          </View>
+          <AppText variant="caption" tone="muted" style={styles.sectionBody}>
+            42-day exponentially weighted moving average of your training load. Reflects your long-term aerobic conditioning and ability to handle training.
+          </AppText>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionDot, { backgroundColor: SpringaColors.chartPrimary }]} />
+            <AppText variant="body" style={styles.metricTitle}>Fatigue (ATL)</AppText>
+          </View>
+          <AppText variant="caption" tone="muted" style={styles.sectionBody}>
+            7-day exponentially weighted moving average of your training load. Measures acute stress from recent sessions. To build fitness, fatigue must temporarily exceed fitness.
+          </AppText>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionDot, { backgroundColor: SpringaColors.brand }]} />
+            <AppText variant="body" style={styles.metricTitle}>Form (TSB)</AppText>
+          </View>
+          <AppText variant="caption" tone="muted" style={styles.sectionBody}>
+            Fitness minus fatigue (CTL - ATL). Determines how fresh you are for racing or workouts.
+          </AppText>
+          <View style={styles.zoneList}>
+            <View style={styles.zoneItem}>
+              <View style={[styles.zoneDot, { backgroundColor: SpringaColors.chartSecondary }]} />
+              <AppText variant="caption" style={styles.zoneName}>Fresh (&gt; +5)</AppText>
+              <AppText variant="caption" tone="muted" style={styles.zoneDesc}>Ready to race and perform</AppText>
+            </View>
+            <View style={styles.zoneItem}>
+              <View style={[styles.zoneDot, { backgroundColor: SpringaColors.brand }]} />
+              <AppText variant="caption" style={styles.zoneName}>Neutral (-10 to +5)</AppText>
+              <AppText variant="caption" tone="muted" style={styles.zoneDesc}>Balanced training state</AppText>
+            </View>
+            <View style={styles.zoneItem}>
+              <View style={[styles.zoneDot, { backgroundColor: SpringaColors.success }]} />
+              <AppText variant="caption" style={styles.zoneName}>Optimal (-30 to -10)</AppText>
+              <AppText variant="caption" tone="muted" style={styles.zoneDesc}>Productive fitness building</AppText>
+            </View>
+            <View style={styles.zoneItem}>
+              <View style={[styles.zoneDot, { backgroundColor: SpringaColors.error }]} />
+              <AppText variant="caption" style={styles.zoneName}>High Risk (&lt; -30)</AppText>
+              <AppText variant="caption" tone="muted" style={styles.zoneDesc}>Excessive fatigue; rest</AppText>
+            </View>
+          </View>
+          <AppText variant="caption" tone="muted" style={styles.recoveryNote}>
+            Include periodic rest weeks to recover from fatigue, absorb adaptations, and peak for goal events.
+          </AppText>
+        </View>
+
+        <AppText variant="caption" tone="muted" style={styles.referenceText}>
+          References: Science2Sport training load monitoring &amp; Joe Friel Training Stress Balance model.
+        </AppText>
+      </View>
+    </AppBottomSheet>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
-  windowChips: {
+  metricSummary: {
+    gap: 2,
+  },
+  primaryMetricRow: {
     flexDirection: 'row',
+    alignItems: 'baseline',
     gap: Spacing.xs,
   },
-  chip: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    minHeight: 28,
-    borderRadius: Radius.pill,
-    backgroundColor: SpringaColors.surfaceAlt,
-    justifyContent: 'center',
-    alignItems: 'center',
+  primaryValue: {
+    color: SpringaColors.chartSecondary,
+    fontSize: 26,
+    lineHeight: 30,
+    fontWeight: '700',
   },
-  chipText: {
-    color: SpringaColors.muted,
+  metricName: {
+    fontSize: 12,
+  },
+  subMetricText: {
+    fontSize: 11,
+  },
+  subMetricHighlight: {
+    fontWeight: '700',
+  },
+  infoButton: {
+    padding: Spacing.xs,
+  },
+  sheetContent: {
+    paddingVertical: Spacing.sm,
+    gap: Spacing.md,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  sheetLead: {
+    lineHeight: 20,
+  },
+  sectionCard: {
+    backgroundColor: SpringaColors.surfaceAlt,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  sectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  metricTitle: {
+    fontWeight: '700',
+  },
+  sectionBody: {
+    lineHeight: 18,
+  },
+  zoneList: {
+    marginTop: Spacing.xs,
+    gap: Spacing.xs,
+    paddingTop: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: SpringaColors.border,
+  },
+  zoneItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  zoneDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  zoneName: {
+    fontWeight: '600',
+    minWidth: 125,
+  },
+  zoneDesc: {
+    flex: 1,
+  },
+  recoveryNote: {
+    marginTop: Spacing.xs,
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
+  referenceText: {
+    fontSize: 10,
+    lineHeight: 14,
+    opacity: 0.7,
   },
   legendRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: Spacing.xs,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   legendChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xxs,
-    borderRadius: Radius.sm,
+    paddingVertical: 3,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    minHeight: 26,
-    gap: Spacing.xs,
+    minHeight: 24,
+    gap: 5,
   },
   legendChipActive: {
     backgroundColor: SpringaColors.surfaceAlt,
@@ -457,6 +563,7 @@ const styles = StyleSheet.create({
   legendChipInactive: {
     backgroundColor: 'transparent',
     borderColor: 'transparent',
+    opacity: 0.5,
   },
   legendDot: {
     width: 6,
@@ -465,25 +572,10 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 11,
-  },
-  legendValue: {
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chartContainer: {
     alignItems: 'center',
     position: 'relative',
-  },
-  tooltip: {
-    position: 'absolute',
-    top: Spacing.xs,
-    zIndex: 10,
-    backgroundColor: SpringaColors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-    borderRadius: Radius.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    minWidth: 105,
-    gap: 2,
   },
 });

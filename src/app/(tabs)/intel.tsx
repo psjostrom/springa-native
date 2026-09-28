@@ -2,19 +2,20 @@ import { Activity, Award, Layers, TrendingUp, Zap } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { BgCompact } from '@/components/intel/BgCompact';
-import { FitnessChart } from '@/components/intel/FitnessChart';
+import { FITNESS_TIME_WINDOWS, FitnessChart } from '@/components/intel/FitnessChart';
 import { IntelSectionHeading } from '@/components/intel/IntelSectionHeading';
-import { PaceCurvesChart } from '@/components/intel/PaceCurvesChart';
+import { PACE_TIME_WINDOWS, PaceCurvesChart } from '@/components/intel/PaceCurvesChart';
 import { PacePBs } from '@/components/intel/PacePBs';
 import { PaceSuggestionBanner } from '@/components/intel/PaceSuggestionBanner';
 import { PhaseTracker } from '@/components/intel/PhaseTracker';
 import { ReadinessPanel } from '@/components/intel/ReadinessPanel';
+import { TimeWindowChips } from '@/components/intel/TimeWindowChips';
 import { VolumeCompact } from '@/components/intel/VolumeCompact';
 import { IntervalsGate } from '@/components/shell/IntervalsGate';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { AppText, StateView } from '@/components/ui';
 import { formatIsoDay } from '@/domain/calendarWindows';
-import { wellnessToFitnessData } from '@/lib/fitness';
+import { type FitnessTimeWindow, wellnessToFitnessData } from '@/lib/fitness';
 import { getMonday, getPhaseInfo } from '@/lib/phases';
 import { useBgModelQuery } from '@/query/useBgModelQuery';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
@@ -33,6 +34,7 @@ export default function IntelScreen() {
     error: wellnessError,
     reload: reloadWellness,
   } = useWellnessQuery();
+  const [fitnessTimeWindow, setFitnessTimeWindow] = useState<FitnessTimeWindow>('90d');
   const [timeWindow, setTimeWindow] = useState('all');
   const {
     data: paceCurveData,
@@ -76,6 +78,7 @@ export default function IntelScreen() {
   } = usePaceSuggestionQuery();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
   const [paceActionError, setPaceActionError] = useState<string | null>(null);
 
   const handleAcceptPace = useCallback(async () => {
@@ -186,6 +189,7 @@ export default function IntelScreen() {
     <ScreenShell>
       <IntervalsGate>
         <ScrollView
+          scrollEnabled={!isScrubbing}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
@@ -257,13 +261,7 @@ export default function IntelScreen() {
             </View>
           )}
 
-          {fitnessData.length > 0 && (
-            <View style={styles.section}>
-              <IntelSectionHeading icon={Zap} label="Fitness Evolution" />
-              <FitnessChart data={fitnessData} />
-            </View>
-          )}
-
+          {/* 3. Pace Suggestion */}
           {paceSuggestion && (
             <View style={styles.section}>
               <PaceSuggestionBanner
@@ -281,6 +279,7 @@ export default function IntelScreen() {
             </View>
           )}
 
+          {/* 4. Volume */}
           <View style={styles.section}>
             <IntelSectionHeading icon={TrendingUp} label="Volume" />
             <VolumeCompact
@@ -292,6 +291,72 @@ export default function IntelScreen() {
             />
           </View>
 
+          {/* 5. Fitness Evolution */}
+          {fitnessData.length > 0 && (
+            <View style={styles.section}>
+              <IntelSectionHeading
+                icon={Zap}
+                label="Fitness Evolution"
+                right={
+                  <TimeWindowChips
+                    windows={FITNESS_TIME_WINDOWS}
+                    selected={fitnessTimeWindow}
+                    onChange={setFitnessTimeWindow}
+                  />
+                }
+              />
+              <FitnessChart
+                data={fitnessData}
+                timeWindow={fitnessTimeWindow}
+                onScrubbingChange={setIsScrubbing}
+              />
+            </View>
+          )}
+
+          {/* 6. Pace Curve */}
+          {paceCurvesStatus === 'loading' && !paceCurveData && (
+            <View style={styles.section}>
+              <IntelSectionHeading icon={TrendingUp} label="Pace Curve" />
+              <StateView title="Loading pace curves…" />
+            </View>
+          )}
+
+          {paceCurvesStatus === 'error' && !paceCurveData && (
+            <View style={styles.section}>
+              <IntelSectionHeading icon={TrendingUp} label="Pace Curve" />
+              <StateView
+                title="Couldn’t load pace curves"
+                message={paceCurvesError ?? 'Failed to load pace curves.'}
+                onRetry={reloadPaceCurves}
+                retryLabel="Retry"
+                retryAccessibilityLabel="Retry loading pace curves"
+              />
+            </View>
+          )}
+
+          {paceCurveData?.curve && paceCurveData.curve.length > 0 && (
+            <View style={styles.section}>
+              <IntelSectionHeading
+                icon={TrendingUp}
+                label="Pace Curve"
+                right={
+                  <TimeWindowChips
+                    windows={PACE_TIME_WINDOWS}
+                    selected={timeWindow}
+                    onChange={setTimeWindow}
+                  />
+                }
+              />
+              <PaceCurvesChart
+                curve={paceCurveData.curve}
+                timeWindow={timeWindow}
+                onTimeWindowChange={setTimeWindow}
+                onScrubbingChange={setIsScrubbing}
+              />
+            </View>
+          )}
+
+          {/* 7. Blood Glucose */}
           {Boolean(settings?.diabetesMode) &&
             bgModelStatus === 'loading' &&
             (!bgCategories || bgCategories.length === 0) && (
@@ -333,52 +398,16 @@ export default function IntelScreen() {
               </View>
             )}
 
-          {paceCurvesStatus === 'loading' && !paceCurveData && (
-            <View style={styles.section}>
-              <IntelSectionHeading icon={Award} label="Personal Bests" />
-              <StateView title="Loading pace curves…" />
-            </View>
-          )}
-
-          {paceCurvesStatus === 'error' && !paceCurveData && (
-            <View style={styles.section}>
-              <IntelSectionHeading icon={Award} label="Personal Bests" />
-              <StateView
-                title="Couldn’t load pace curves"
-                message={paceCurvesError ?? 'Failed to load pace curves.'}
-                onRetry={reloadPaceCurves}
-                retryLabel="Retry"
-                retryAccessibilityLabel="Retry loading pace curves"
-              />
-            </View>
-          )}
-
+          {/* 8. Personal Bests */}
           {paceCurveData &&
             ((paceCurveData.bestEfforts && paceCurveData.bestEfforts.length > 0) ||
-              (paceCurveData.curve && paceCurveData.curve.length > 0) ||
               paceCurveData.longestRun) && (
               <View style={styles.section}>
                 <IntelSectionHeading icon={Award} label="Personal Bests" />
-                {((paceCurveData.bestEfforts && paceCurveData.bestEfforts.length > 0) ||
-                  paceCurveData.longestRun) && (
-                  <PacePBs
-                    bestEfforts={paceCurveData.bestEfforts ?? []}
-                    longestRun={paceCurveData.longestRun}
-                  />
-                )}
-                {((paceCurveData.bestEfforts && paceCurveData.bestEfforts.length > 0) ||
-                  paceCurveData.longestRun) &&
-                  paceCurveData.curve &&
-                  paceCurveData.curve.length > 0 && (
-                    <View style={styles.chartSpacer} />
-                  )}
-                {paceCurveData.curve && paceCurveData.curve.length > 0 && (
-                  <PaceCurvesChart
-                    curve={paceCurveData.curve}
-                    timeWindow={timeWindow}
-                    onTimeWindowChange={setTimeWindow}
-                  />
-                )}
+                <PacePBs
+                  bestEfforts={paceCurveData.bestEfforts ?? []}
+                  longestRun={paceCurveData.longestRun}
+                />
               </View>
             )}
         </ScrollView>
@@ -395,8 +424,5 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.xs,
-  },
-  chartSpacer: {
-    height: Spacing.sm,
   },
 });

@@ -10,24 +10,30 @@ describe('FitnessChart', () => {
     { date: '2026-09-03', ctl: 46.5, atl: 48.0, tsb: -1.5 },
   ];
 
-  it('renders title, time windows, and line toggles', async () => {
+  it('renders line toggles and opens explanation bottom sheet', async () => {
+    const user = userEvent.setup();
     const view = await render(<FitnessChart data={sampleData} />);
-
-    expect(view.getByText('Fitness & Fatigue')).toBeOnTheScreen();
-    expect(view.getByText('3m')).toBeOnTheScreen();
-    expect(view.getByText('All')).toBeOnTheScreen();
 
     expect(view.getByLabelText('Toggle Fitness (CTL)')).toBeOnTheScreen();
     expect(view.getByLabelText('Toggle Fatigue (ATL)')).toBeOnTheScreen();
     expect(view.getByLabelText('Toggle Form (TSB)')).toBeOnTheScreen();
+
+    const infoBtn = view.getByLabelText('Fitness and form explanation');
+    expect(infoBtn).toBeOnTheScreen();
+
+    await user.press(infoBtn);
+    expect(view.getByText('Fitness, Fatigue & Form')).toBeOnTheScreen();
+    expect(view.getByText('Fitness (CTL)')).toBeOnTheScreen();
+    expect(view.getByText('Fatigue (ATL)')).toBeOnTheScreen();
+    expect(view.getByText('Form (TSB)')).toBeOnTheScreen();
   });
 
-  it('displays latest values in the legend', async () => {
+  it('displays latest values in the header', async () => {
     const view = await render(<FitnessChart data={sampleData} />);
 
-    expect(view.getByText(/Fitness:\s*46\.5/)).toBeOnTheScreen();
-    expect(view.getByText(/Fatigue:\s*48/)).toBeOnTheScreen();
-    expect(view.getByText(/Form:\s*-1\.5/)).toBeOnTheScreen();
+    expect(view.getByText('46.5')).toBeOnTheScreen();
+    expect(view.getByText(/-1\.5/)).toBeOnTheScreen();
+    expect(view.getByText(/48/)).toBeOnTheScreen();
   });
 
   it('toggles visibility of lines', async () => {

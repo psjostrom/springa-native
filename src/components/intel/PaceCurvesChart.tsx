@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
 import { AppText, Card } from '@/components/ui';
 import { formatPaceMinPerKm } from '@/components/workout/completed/completedOverviewPresentation';
 import { SpringaColors } from '@/theme/colors';
-import { Radius, Spacing } from '@/theme/tokens';
+import { Spacing } from '@/theme/tokens';
 
-const TIME_WINDOWS = [
+export const PACE_TIME_WINDOWS = [
   { label: '1m', value: '30d' },
   { label: '3m', value: '90d' },
   { label: '6m', value: '180d' },
@@ -16,8 +16,9 @@ const TIME_WINDOWS = [
 
 type Props = {
   curve: { distance: number; pace: number }[];
-  timeWindow: string;
-  onTimeWindowChange: (window: string) => void;
+  timeWindow?: string;
+  onTimeWindowChange?: (window: string) => void;
+  onScrubbingChange?: (isScrubbing: boolean) => void;
 };
 
 function formatPace(paceMinPerKm: number): string {
@@ -34,6 +35,7 @@ export function PaceCurvesChart({
   curve: rawCurve,
   timeWindow,
   onTimeWindowChange,
+  onScrubbingChange,
 }: Props) {
   const curve = (rawCurve || []).filter((p) => p.distance >= 1000);
 
@@ -124,38 +126,30 @@ export function PaceCurvesChart({
   const activePoint =
     scrubIdx !== null && curve[scrubIdx] ? curve[scrubIdx] : null;
 
+  const paces = curve.map((c) => c.pace);
+  const minPace = paces.length > 0 ? Math.min(...paces) : null;
+
   return (
     <Card tone="default">
       <View style={styles.header}>
-        <AppText variant="subheading">Pace Curve</AppText>
-        <View style={styles.windowChips}>
-          {TIME_WINDOWS.map((tw) => {
-            const isSelected = timeWindow === tw.value;
-            return (
-              <Pressable
-                key={tw.value}
-                accessibilityRole="button"
-                accessibilityLabel={`Time window ${tw.label}`}
-                accessibilityState={{ selected: isSelected }}
-                hitSlop={{ top: 12, bottom: 12, left: 2, right: 2 }}
-                onPress={() => onTimeWindowChange(tw.value)}
-                style={[
-                  styles.chip,
-                  isSelected && { backgroundColor: SpringaColors.brand },
-                ]}
-              >
-                <AppText
-                  variant="caption"
-                  style={[
-                    styles.chipText,
-                    isSelected && { color: SpringaColors.text, fontWeight: '700' },
-                  ]}
-                >
-                  {tw.label}
-                </AppText>
-              </Pressable>
-            );
-          })}
+        <View style={styles.metricSummary}>
+          <View style={styles.primaryMetricRow}>
+            <AppText variant="heading" style={styles.primaryValue}>
+              {activePoint
+                ? `${formatPace(activePoint.pace)}/km`
+                : minPace != null
+                  ? `${formatPace(minPace)}/km`
+                  : 'Pace Curve'}
+            </AppText>
+            <AppText variant="caption" tone="muted" style={styles.metricName}>
+              {activePoint ? 'Pace' : 'Best Pace'}
+            </AppText>
+          </View>
+          <AppText variant="caption" tone="muted" style={styles.subMetricText}>
+            {activePoint
+              ? `${formatDistance(activePoint.distance)} • Inspected`
+              : `${formatDistance(minDist)} – ${formatDistance(maxDist)} curve`}
+          </AppText>
         </View>
       </View>
 
@@ -164,34 +158,21 @@ export function PaceCurvesChart({
         onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
-        onResponderGrant={(e) => handleTouch(e.nativeEvent.locationX)}
+        onResponderTerminationRequest={() => false}
+        onResponderGrant={(e) => {
+          onScrubbingChange?.(true);
+          handleTouch(e.nativeEvent.locationX);
+        }}
         onResponderMove={(e) => handleTouch(e.nativeEvent.locationX)}
-        onResponderRelease={() => setScrubIdx(null)}
-        onResponderTerminate={() => setScrubIdx(null)}
+        onResponderRelease={() => {
+          setScrubIdx(null);
+          onScrubbingChange?.(false);
+        }}
+        onResponderTerminate={() => {
+          setScrubIdx(null);
+          onScrubbingChange?.(false);
+        }}
       >
-        {activePoint ? (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.tooltip,
-              {
-                left:
-                  (scaleX(activePoint.distance) / width) * containerWidth <
-                  containerWidth / 2
-                    ? (scaleX(activePoint.distance) / width) * containerWidth + 8
-                    : (scaleX(activePoint.distance) / width) * containerWidth - 110,
-              },
-            ]}
-          >
-            <AppText variant="caption" tone="muted">
-              {formatDistance(activePoint.distance)}
-            </AppText>
-            <AppText variant="caption" style={styles.tooltipPace}>
-              {formatPace(activePoint.pace)}/km
-            </AppText>
-          </View>
-        ) : null}
-
         <Svg
           width="100%"
           height={height}
@@ -286,44 +267,32 @@ export function PaceCurvesChart({
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
-  windowChips: {
+  metricSummary: {
+    gap: 2,
+  },
+  primaryMetricRow: {
     flexDirection: 'row',
+    alignItems: 'baseline',
     gap: Spacing.xs,
   },
-  chip: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    minHeight: 28,
-    borderRadius: Radius.pill,
-    backgroundColor: SpringaColors.surfaceAlt,
-    justifyContent: 'center',
-    alignItems: 'center',
+  primaryValue: {
+    color: SpringaColors.chartPrimary,
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '700',
   },
-  chipText: {
-    color: SpringaColors.muted,
+  metricName: {
+    fontSize: 12,
+  },
+  subMetricText: {
+    fontSize: 11,
   },
   chartContainer: {
     alignItems: 'center',
     position: 'relative',
-  },
-  tooltip: {
-    position: 'absolute',
-    top: Spacing.xs,
-    zIndex: 10,
-    backgroundColor: SpringaColors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: SpringaColors.border,
-    borderRadius: Radius.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    minWidth: 100,
-  },
-  tooltipPace: {
-    color: SpringaColors.text,
-    fontWeight: '700',
   },
 });

@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -8,9 +8,10 @@ type Props = {
   icon: ComponentType<{ size: number; color: string }>;
   label: string;
   meta?: string | null;
+  right?: ReactNode;
 };
 
-export function IntelSectionHeading({ icon: Icon, label, meta }: Props) {
+export function IntelSectionHeading({ icon: Icon, label, meta, right }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.left}>
@@ -19,11 +20,11 @@ export function IntelSectionHeading({ icon: Icon, label, meta }: Props) {
           {label.toUpperCase()}
         </AppText>
       </View>
-      {meta ? (
+      {right ?? (meta ? (
         <AppText variant="caption" tone="muted">
           {meta}
         </AppText>
-      ) : null}
+      ) : null)}
     </View>
   );
 }
