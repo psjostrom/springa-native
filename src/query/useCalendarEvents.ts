@@ -4,6 +4,7 @@ import {
   useQueryClient,
   type InfiniteData,
   type InfiniteQueryObserverResult,
+  type QueryClient,
 } from '@tanstack/react-query';
 import type { CalendarEvent } from '@/api/types';
 import { useApiClient } from '@/api/ApiClientProvider';
