@@ -4,9 +4,10 @@ import type { PaceSuggestion } from '@/api/types';
 import { SpringaColors } from '@/theme/colors';
 import { Spacing } from '@/theme/tokens';
 
-function formatTime(totalSecs: number): string {
-  const m = Math.floor(totalSecs / 60);
-  const s = totalSecs % 60;
+export function formatTime(totalSecs: number): string {
+  const rounded = Math.max(0, Math.round(totalSecs));
+  const m = Math.floor(rounded / 60);
+  const s = rounded % 60;
   if (m >= 60) {
     const h = Math.floor(m / 60);
     const rm = m % 60;
@@ -15,7 +16,7 @@ function formatTime(totalSecs: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function distanceLabel(km: number): string {
+export function distanceLabel(km: number): string {
   if (Math.abs(km - 5) < 0.5) return '5K';
   if (Math.abs(km - 10) < 0.5) return '10K';
   if (Math.abs(km - 21.0975) < 0.5) return 'Half';
@@ -23,7 +24,7 @@ function distanceLabel(km: number): string {
   return `${km}km`;
 }
 
-function getSuggestionMessage(suggestion: PaceSuggestion): string {
+export function getSuggestionMessage(suggestion: PaceSuggestion): string {
   if (suggestion.message) return suggestion.message;
   const {
     direction,

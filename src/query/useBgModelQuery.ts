@@ -6,14 +6,11 @@ import { buildBGCategories, type CategoryBGResponse } from '@/lib/bgModel';
 import { queryKeys } from './keys';
 import { useSettingsQuery } from './useSettingsQuery';
 
-export function useBgModelQuery(diabetesMode?: boolean) {
+export function useBgModelQuery() {
   const client = useApiClient();
   const { status: authStatus, session } = useAuth();
   const settings = useSettingsQuery();
-  const isDiabetes =
-    diabetesMode !== undefined
-      ? diabetesMode
-      : Boolean(settings.settings?.diabetesMode);
+  const isDiabetes = Boolean(settings.settings?.diabetesMode);
   const enabled = authStatus === 'signedIn' && session != null && isDiabetes;
   const identity = session?.email ?? '';
 

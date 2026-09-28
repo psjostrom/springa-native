@@ -125,6 +125,31 @@ describe('readiness domain logic', () => {
       expect(data?.readiness).toBe(92);
       expect(data?.isComputed).toBe(false);
     });
+
+    it('scales sleep sparkline in score mode when latest entry has sleep score', () => {
+      const entries: WellnessEntry[] = [
+        // sleepSecs 7h (25200s): ((7 - 4) / 5) * 100 = 60
+        { id: '2026-09-01', sleepSecs: 25200 },
+        // sleepScore 85 directly
+        { id: '2026-09-02', sleepScore: 85 },
+      ];
+      const data = computeReadinessData(entries);
+      expect(data?.sleepLabel).toBe('Sleep Score');
+      expect(data?.sleepSparkline).toEqual([60, 85]);
+    });
+
+    it('scales sleep sparkline in duration mode when latest entry has sleep secs', () => {
+      const entries: WellnessEntry[] = [
+        // sleepScore 80: 4 + (80 / 100) * 5 = 8.0 hrs
+        { id: '2026-09-01', sleepScore: 80 },
+        // sleepSecs 7.5h (27000s): 7.5 hrs
+        { id: '2026-09-02', sleepSecs: 27000 },
+      ];
+      const data = computeReadinessData(entries);
+      expect(data?.sleepLabel).toBe('Sleep');
+      expect(data?.sleepUnit).toBe('hrs');
+      expect(data?.sleepSparkline).toEqual([8.0, 7.5]);
+    });
   });
 
   describe('getReadinessExplanation', () => {

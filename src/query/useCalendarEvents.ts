@@ -97,6 +97,10 @@ export function useCalendarEvents() {
     (max, p) => (!max || p.newest > max ? p.newest : max),
     '',
   );
+  const oldestLoadedIso = pageParams?.reduce(
+    (min, p) => (!min || p.oldest < min ? p.oldest : min),
+    '',
+  );
   const isCacheBehindToday = Boolean(
     newestIso && newestIso < formatIsoDay(new Date()),
   );
@@ -179,5 +183,6 @@ export function useCalendarEvents() {
     isFetchingNewer: isFetchingNextPage,
     olderError: query.isFetchPreviousPageError,
     newerError: query.isFetchNextPageError,
+    oldestLoadedIso: oldestLoadedIso || null,
   };
 }

@@ -1,5 +1,5 @@
 import { Activity, Award, Layers, TrendingUp } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { BgCompact } from '@/components/intel/BgCompact';
 import { IntelSectionHeading } from '@/components/intel/IntelSectionHeading';
@@ -12,6 +12,7 @@ import { VolumeCompact } from '@/components/intel/VolumeCompact';
 import { IntervalsGate } from '@/components/shell/IntervalsGate';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { AppText, StateView } from '@/components/ui';
+import { formatIsoDay } from '@/domain/calendarWindows';
 import { getMonday, getPhaseInfo } from '@/lib/phases';
 import { useBgModelQuery } from '@/query/useBgModelQuery';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
@@ -43,14 +44,26 @@ export default function IntelScreen() {
     status: bgModelStatus,
     error: bgModelError,
     reload: reloadBgModel,
-  } = useBgModelQuery(settings?.diabetesMode);
+  } = useBgModelQuery();
   const {
     events,
     isLoading: calendarLoading,
     isError: calendarError,
     error: calendarErrorMessage,
     reload: reloadCalendar,
+    fetchOlder,
+    hasOlder,
+    isFetchingOlder,
+    oldestLoadedIso,
   } = useCalendarEvents();
+
+  useEffect(() => {
+    if (!hasOlder || isFetchingOlder || !oldestLoadedIso) return;
+    const mondayIso = formatIsoDay(getMonday(new Date()));
+    if (oldestLoadedIso > mondayIso) {
+      void fetchOlder();
+    }
+  }, [hasOlder, isFetchingOlder, oldestLoadedIso, fetchOlder]);
   const {
     suggestion: paceSuggestion,
     accept: acceptPaceSuggestion,
