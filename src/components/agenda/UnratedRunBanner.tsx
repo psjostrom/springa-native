@@ -38,6 +38,7 @@ function UnratedRunBannerContent({
       <View style={styles.textWrapper}>
         <AppText
           accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
           variant="label"
           tone="primary"
           numberOfLines={1}

@@ -76,10 +76,6 @@ function getInFlightMap(
   return map;
 }
 
-export function _resetCalendarEventsModuleState() {
-  // No-op kept for test suite compatibility; WeakMap isolates by QueryClient instance.
-}
-
 export function useCalendarEvents() {
   const client = useApiClient();
   const queryClient = useQueryClient();
@@ -197,6 +193,7 @@ export function useCalendarEvents() {
 
     warmedSet.add(identity);
     let cancelled = false;
+    let completed = false;
 
     void (async () => {
       try {
@@ -224,6 +221,9 @@ export function useCalendarEvents() {
           if (!cancelled) await fetchNewer();
           if (!cancelled) await fetchOlder();
         }
+        if (!cancelled) {
+          completed = true;
+        }
       } catch {
         warmedSet.delete(identity);
       }
@@ -231,6 +231,9 @@ export function useCalendarEvents() {
 
     return () => {
       cancelled = true;
+      if (!completed) {
+        warmedSet.delete(identity);
+      }
     };
   }, [calendarEnabled, isSuccess, identity, queryClient, fetchNewer, fetchOlder]);
 

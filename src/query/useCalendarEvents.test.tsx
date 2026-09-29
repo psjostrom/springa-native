@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import { Text } from 'react-native';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { useCalendarEvents, _resetCalendarEventsModuleState } from './useCalendarEvents';
+import { useCalendarEvents } from './useCalendarEvents';
 import { queryKeys } from './keys';
 import {
   initialCalendarWindow,
@@ -36,9 +36,6 @@ function CalendarProbe() {
 }
 
 describe('useCalendarEvents', () => {
-  beforeEach(() => {
-    _resetCalendarEventsModuleState();
-  });
 
   it('automatically warms older and newer windows in background on initial mount', async () => {
     const session = makeTestSession('runner@example.com');
@@ -271,8 +268,8 @@ describe('useCalendarEvents', () => {
   it('deduplicates concurrent fetchNewer calls to avoid dropping in-flight fetches', async () => {
     const session = makeTestSession('runner@example.com');
     const initWin = initialCalendarWindow();
-    const newerWin = newerCalendarWindow(initWin.newest);
     let newerRequests = 0;
+    let resolveNewer: (() => void) | null = null;
 
     server.use(
       http.get(apiUrl('/api/intervals/calendar'), async ({ request }) => {
@@ -283,9 +280,11 @@ describe('useCalendarEvents', () => {
             { id: 'init-event', date: new Date().toISOString(), name: 'Today Run', type: 'planned' },
           ]);
         }
-        if (oldest === newerWin.oldest) {
+        if (oldest > initWin.oldest) {
           newerRequests++;
-          await new Promise((r) => setTimeout(r, 50));
+          await new Promise<void>((resolve) => {
+            resolveNewer = resolve;
+          });
           return HttpResponse.json([
             { id: 'newer-event', date: new Date(Date.now() + 86400000 * 5).toISOString(), name: 'Future Run', type: 'planned' },
           ]);
@@ -315,16 +314,15 @@ describe('useCalendarEvents', () => {
     await waitFor(() => {
       expect(captured).not.toBeNull();
       expect(captured!.isLoading).toBe(false);
-    });
-
-    await waitFor(() => {
       expect(newerRequests).toBe(1);
     });
 
-    // An additional concurrent burst while in flight must not re-query
+    // While initial newer request is still in flight, burst concurrent calls
+    const p1 = captured!.fetchNewer();
+    const p2 = captured!.fetchNewer();
+
+    resolveNewer!();
     await act(async () => {
-      const p1 = captured!.fetchNewer();
-      const p2 = captured!.fetchNewer();
       await Promise.all([p1, p2]);
     });
 
@@ -334,8 +332,8 @@ describe('useCalendarEvents', () => {
   it('shares warming and in-flight fetch deduplication across concurrent subscribers', async () => {
     const session = makeTestSession('runner@example.com');
     const initWin = initialCalendarWindow();
-    const newerWin = newerCalendarWindow(initWin.newest);
     let newerRequests = 0;
+    let resolveNewer: (() => void) | null = null;
 
     server.use(
       http.get(apiUrl('/api/intervals/calendar'), async ({ request }) => {
@@ -346,9 +344,11 @@ describe('useCalendarEvents', () => {
             { id: 'init-event', date: new Date().toISOString(), name: 'Today Run', type: 'planned' },
           ]);
         }
-        if (oldest === newerWin.oldest) {
+        if (oldest > initWin.oldest) {
           newerRequests++;
-          await new Promise((r) => setTimeout(r, 40));
+          await new Promise<void>((resolve) => {
+            resolveNewer = resolve;
+          });
           return HttpResponse.json([
             { id: 'newer-event', date: new Date(Date.now() + 86400000 * 5).toISOString(), name: 'Future Run', type: 'planned' },
           ]);
@@ -391,20 +391,80 @@ describe('useCalendarEvents', () => {
       expect(sub2).not.toBeNull();
       expect(sub1!.isLoading).toBe(false);
       expect(sub2!.isLoading).toBe(false);
-    });
-
-    // Warming was executed only once despite two concurrent subscribers mounting
-    await waitFor(() => {
       expect(newerRequests).toBe(1);
     });
 
     // Both subscribers calling fetchNewer simultaneously share the same in-flight fetch
+    const p1 = sub1!.fetchNewer();
+    const p2 = sub2!.fetchNewer();
+
+    resolveNewer!();
     await act(async () => {
-      const p1 = sub1!.fetchNewer();
-      const p2 = sub2!.fetchNewer();
       await Promise.all([p1, p2]);
     });
 
     expect(newerRequests).toBe(1);
+  });
+
+  it('cleans up warming state if unmounted before completion so later mounts can warm', async () => {
+    const session = makeTestSession('runner@example.com');
+    const initWin = initialCalendarWindow();
+    let warmingAttempts = 0;
+    let resolveWarming: (() => void) | null = null;
+
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), async ({ request }) => {
+        const url = new URL(request.url);
+        const oldest = url.searchParams.get('oldest') ?? '';
+        if (oldest === initWin.oldest) {
+          return HttpResponse.json([
+            { id: 'init-event', date: new Date().toISOString(), name: 'Today Run', type: 'planned' },
+          ]);
+        }
+        warmingAttempts++;
+        await new Promise<void>((resolve) => {
+          resolveWarming = resolve;
+        });
+        return HttpResponse.json([]);
+      }),
+      http.get(apiUrl('/api/intervals/settings'), () =>
+        HttpResponse.json({ intervalsConnected: true }),
+      ),
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+
+    function Probe() {
+      const api = useCalendarEvents();
+      return <Text>{api.events.length}</Text>;
+    }
+
+    const { unmount } = await render(
+      <TestAppProviders auth={makeTestAuthValue(session)} queryClient={queryClient}>
+        <Probe />
+      </TestAppProviders>,
+    );
+
+    await waitFor(() => {
+      expect(warmingAttempts).toBe(1);
+    });
+
+    // Unmount before warming completes
+    unmount();
+    resolveWarming!();
+
+    // Remount on the same QueryClient — warming state was cleared on abort, so it warms again
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(session)} queryClient={queryClient}>
+        <Probe />
+      </TestAppProviders>,
+    );
+
+    await waitFor(() => {
+      expect(warmingAttempts).toBe(2);
+    });
+    resolveWarming!();
   });
 });
