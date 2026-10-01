@@ -308,7 +308,7 @@ describe('PlannedWorkoutSheet', () => {
       borderColor: `${SpringaColors.brand}66`,
     });
     expect(screen.getByText('Duration')).toHaveStyle(Typography.label);
-    expect(screen.getByText('65m')).toHaveStyle(Typography.subheading);
+    expect(screen.getByText('1h 5m')).toHaveStyle(Typography.subheading);
     expect(screen.getByText('Distance')).toHaveStyle(Typography.label);
     expect(screen.getByText('~9.2 km')).toHaveStyle(Typography.subheading);
   });
