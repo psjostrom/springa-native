@@ -29,11 +29,13 @@ export function PhaseTracker({ phaseInfo, raceDate, includeBasePhase }: Props) {
   const recovery = isRecoveryWeek(currentWeek, totalWeeks, includeBasePhase ?? false);
   const weeksLeft = raceDate ? weeksUntil(raceDate) : null;
   const currentDef =
-    phases.find((p) => currentWeek >= p.startWeek && currentWeek <= p.endWeek) ??
-    phases.find(
-      (p) => p.name === phaseInfo.name || p.displayName === phaseInfo.name,
-    ) ??
-    phases[0];
+    phaseInfo.name === 'Pre-Plan' || phaseInfo.name === 'Post-Race' || currentWeek < 1
+      ? null
+      : phases.find((p) => currentWeek >= p.startWeek && currentWeek <= p.endWeek) ??
+        phases.find(
+          (p) => p.name === phaseInfo.name || p.displayName === phaseInfo.name,
+        ) ??
+        null;
 
   return (
     <>
@@ -140,7 +142,9 @@ export function PhaseTracker({ phaseInfo, raceDate, includeBasePhase }: Props) {
                           {phase.displayName}
                         </AppText>
                         <AppText variant="caption" tone="muted">
-                          Weeks {phase.startWeek}–{phase.endWeek}
+                          {phase.startWeek === phase.endWeek
+                            ? `Week ${phase.startWeek}`
+                            : `Weeks ${phase.startWeek}–${phase.endWeek}`}
                         </AppText>
                       </View>
                       <AppText variant="caption" tone="muted" numberOfLines={2}>

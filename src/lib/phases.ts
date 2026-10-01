@@ -274,7 +274,9 @@ export function getPhaseDefinitions(
 }
 
 export function weeksUntil(raceDate: string, now = new Date()): number {
+  if (!raceDate) return 0;
   const race = new Date(raceDate + 'T00:00:00');
+  if (isNaN(race.getTime())) return 0;
   const diffMs = race.getTime() - now.getTime();
   return Math.max(0, Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000)));
 }

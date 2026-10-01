@@ -32,6 +32,22 @@ describe('fitness domain logic', () => {
       expect(result[0].date).toBe('2026-09-01');
     });
 
+    it('sorts entries chronologically ascending', () => {
+      const entries: WellnessEntry[] = [
+        { id: '2026-09-05', ctl: 50, atl: 50 },
+        { id: '2026-09-01', ctl: 40, atl: 40 },
+        { id: '2026-09-03', ctl: 45, atl: 45 },
+      ];
+
+      const result = wellnessToFitnessData(entries);
+
+      expect(result.map((r) => r.date)).toEqual([
+        '2026-09-01',
+        '2026-09-03',
+        '2026-09-05',
+      ]);
+    });
+
     it('returns empty array for empty entries', () => {
       expect(wellnessToFitnessData([])).toEqual([]);
     });

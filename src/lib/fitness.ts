@@ -14,7 +14,8 @@ export type FitnessTimeWindow = '90d' | '180d' | '1y' | 'all';
  * Intervals computes CTL/ATL/TSB authoritatively across all activities.
  */
 export function wellnessToFitnessData(entries: WellnessEntry[]): FitnessDataPoint[] {
-  return entries
+  return [...entries]
+    .sort((a, b) => a.id.localeCompare(b.id))
     .filter((e) => e.ctl != null && e.atl != null)
     .map((e) => ({
       date: e.id,

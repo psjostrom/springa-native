@@ -36,9 +36,7 @@ type Props = {
   onScrubbingChange?: (isScrubbing: boolean) => void;
 };
 
-export function FitnessChart({ data, timeWindow: externalTimeWindow, onScrubbingChange }: Props) {
-  const [internalTimeWindow] = useState<FitnessTimeWindow>('90d');
-  const timeWindow = externalTimeWindow ?? internalTimeWindow;
+export function FitnessChart({ data, timeWindow = '90d', onScrubbingChange }: Props) {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [visibleLines, setVisibleLines] = useState<Set<VisibleLine>>(
     new Set(['ctl', 'atl', 'tsb']),
@@ -133,9 +131,7 @@ export function FitnessChart({ data, timeWindow: externalTimeWindow, onScrubbing
   const handleTouch = (locationX: number) => {
     if (filteredData.length === 0 || containerWidth <= 0) return;
     const svgX = (locationX / containerWidth) * width;
-    if (svgX < padding.left || svgX > width - padding.right) return;
-
-    const frac = (svgX - padding.left) / chartWidth;
+    const frac = Math.min(1, Math.max(0, (svgX - padding.left) / chartWidth));
     const idx = Math.min(
       filteredData.length - 1,
       Math.max(0, Math.round(frac * (filteredData.length - 1))),
@@ -247,7 +243,7 @@ export function FitnessChart({ data, timeWindow: externalTimeWindow, onScrubbing
           width="100%"
           height={height}
           viewBox={`0 0 ${width} ${height}`}
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="none"
         >
           {/* Y grid lines and labels */}
           {yTicks.map((val) => {

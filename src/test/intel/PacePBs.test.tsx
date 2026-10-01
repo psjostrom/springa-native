@@ -53,7 +53,7 @@ describe('PacePBs', () => {
       <PacePBs bestEfforts={sampleBestEfforts} longestRun={sampleLongestRun} />,
     );
 
-    const pbButton = view.getByLabelText('View 1km effort workout');
+    const pbButton = view.getByLabelText(/1km.*View workout/i);
     fireEvent.press(pbButton);
 
     const history = getRouterHistoryForTests();
@@ -73,7 +73,7 @@ describe('PacePBs', () => {
       <PacePBs bestEfforts={sampleBestEfforts} longestRun={sampleLongestRun} />,
     );
 
-    const lrButton = view.getByLabelText('View longest run workout');
+    const lrButton = view.getByLabelText(/Longest run.*View workout/i);
     fireEvent.press(lrButton);
 
     const history = getRouterHistoryForTests();

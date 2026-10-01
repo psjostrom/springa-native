@@ -24,6 +24,7 @@ const CATEGORY_EXPLANATIONS: Record<string, string> = {
 
 export function BgCompact({ categories }: Props) {
   const [selectedCat, setSelectedCat] = useState<CategoryBGResponse | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   if (!categories || categories.length === 0) return null;
 
@@ -55,7 +56,10 @@ export function BgCompact({ categories }: Props) {
               key={cat.category}
               accessibilityRole="button"
               accessibilityLabel={`${label} runs, ${formattedRate} mmol/h, ${stability}`}
-              onPress={() => setSelectedCat(cat)}
+              onPress={() => {
+                setSelectedCat(cat);
+                setIsSheetOpen(true);
+              }}
               style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
             >
               <AppText variant="caption" tone="muted" style={styles.categoryLabel}>
@@ -83,8 +87,9 @@ export function BgCompact({ categories }: Props) {
       </View>
 
       <AppBottomSheet
-        isPresented={selectedCat != null}
-        onDismiss={() => setSelectedCat(null)}
+        isPresented={isSheetOpen}
+        onDismiss={() => setIsSheetOpen(false)}
+        onDismissComplete={() => setSelectedCat(null)}
       >
         <View style={styles.sheetContent}>
           {selectedCat ? (() => {

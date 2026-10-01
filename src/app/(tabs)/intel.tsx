@@ -334,7 +334,7 @@ export default function IntelScreen() {
             </View>
           )}
 
-          {paceCurveData?.curve && paceCurveData.curve.length > 0 && (
+          {paceCurveData?.curve != null && (
             <View style={styles.section}>
               <IntelSectionHeading
                 icon={TrendingUp}
@@ -349,8 +349,6 @@ export default function IntelScreen() {
               />
               <PaceCurvesChart
                 curve={paceCurveData.curve}
-                timeWindow={timeWindow}
-                onTimeWindowChange={setTimeWindow}
                 onScrubbingChange={setIsScrubbing}
               />
             </View>

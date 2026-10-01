@@ -231,28 +231,28 @@ export function ReadinessPanel({ entries }: Props) {
   }
 
   let tsbLabel = 'Neutral';
-  let tsbToneColor: string = SpringaColors.muted;
+  let tsbToneColor: string = SpringaColors.brand;
   let tsbBg: string = SpringaColors.surfaceAlt;
   if (tsb != null) {
-    if (tsb < -20) {
-      tsbLabel = 'Fatigued';
+    if (tsb < -30) {
+      tsbLabel = 'High Risk';
       tsbToneColor = SpringaColors.error;
       tsbBg = SpringaColors.tintError;
     } else if (tsb < -10) {
-      tsbLabel = 'Loading';
-      tsbToneColor = SpringaColors.warning;
-      tsbBg = SpringaColors.tintWarning;
-    } else if (tsb < 5) {
+      tsbLabel = 'Optimal';
+      tsbToneColor = SpringaColors.success;
+      tsbBg = SpringaColors.tintSuccess;
+    } else if (tsb <= 5) {
       tsbLabel = 'Neutral';
       tsbToneColor = SpringaColors.brand;
       tsbBg = SpringaColors.surfaceAlt;
-    } else if (tsb < 15) {
+    } else if (tsb <= 25) {
       tsbLabel = 'Fresh';
-      tsbToneColor = SpringaColors.success;
+      tsbToneColor = SpringaColors.chartSecondary;
       tsbBg = SpringaColors.tintSuccess;
     } else {
-      tsbLabel = 'Peaked';
-      tsbToneColor = SpringaColors.success;
+      tsbLabel = 'Transition';
+      tsbToneColor = SpringaColors.chartSecondary;
       tsbBg = SpringaColors.tintSuccess;
     }
   }

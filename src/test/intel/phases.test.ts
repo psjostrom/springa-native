@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getMonday, getPhaseBoundaries, getPhaseInfo } from '@/lib/phases';
+import { getMonday, getPhaseBoundaries, getPhaseInfo, weeksUntil } from '@/lib/phases';
 
 describe('phases domain logic', () => {
   describe('getMonday', () => {
@@ -98,6 +98,23 @@ describe('phases domain logic', () => {
       const info = getPhaseInfo(raceDate, totalWeeks, false, now);
       expect(info?.name).toBe('Taper Phase');
       expect(info?.week).toBe(12);
+    });
+  });
+
+  describe('weeksUntil', () => {
+    it('calculates remaining weeks to race date', () => {
+      const now = new Date('2026-10-01T00:00:00');
+      expect(weeksUntil('2026-10-18', now)).toBe(3);
+    });
+
+    it('returns 0 for past race date', () => {
+      const now = new Date('2026-10-20T00:00:00');
+      expect(weeksUntil('2026-10-18', now)).toBe(0);
+    });
+
+    it('returns 0 for invalid date string without throwing or returning NaN', () => {
+      expect(weeksUntil('invalid-date')).toBe(0);
+      expect(weeksUntil('')).toBe(0);
     });
   });
 });

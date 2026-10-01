@@ -66,7 +66,9 @@ export function PacePBs({ bestEfforts, longestRun }: Props) {
             }
             accessibilityRole={canPress ? 'button' : undefined}
             accessibilityLabel={
-              canPress ? `View ${pb.label} effort workout` : undefined
+              canPress
+                ? `${pb.label}, ${formatTime(pb.timeSeconds)}, ${formatPace(pb.pace)}. View workout.`
+                : `${pb.label}, ${formatTime(pb.timeSeconds)}, ${formatPace(pb.pace)}`
             }
             style={({ pressed }) => [
               styles.card,
@@ -114,7 +116,9 @@ export function PacePBs({ bestEfforts, longestRun }: Props) {
           }
           accessibilityRole={longestRun.activityId ? 'button' : undefined}
           accessibilityLabel={
-            longestRun.activityId ? 'View longest run workout' : undefined
+            longestRun.activityId
+              ? `Longest run, ${(longestRun.distance / 1000).toFixed(1)} km${longestRun.movingTime ? `, ${formatTime(longestRun.movingTime)}` : ''}. View workout.`
+              : `Longest run, ${(longestRun.distance / 1000).toFixed(1)} km${longestRun.movingTime ? `, ${formatTime(longestRun.movingTime)}` : ''}`
           }
           style={({ pressed }) => [
             styles.card,

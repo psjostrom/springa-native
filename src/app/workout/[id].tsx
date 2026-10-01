@@ -5,6 +5,7 @@ import { WorkoutActionsSheet } from '@/components/workout/WorkoutActionsSheet';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
 import type { PlannedWorkoutActions } from '@/components/workout/PlannedWorkoutSheet';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
+import { parseIsoDay } from '@/domain/calendarWindows';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 import { SpringaColors } from '@/theme/colors';
 import { Spacing } from '@/theme/tokens';
@@ -21,7 +22,7 @@ export default function WorkoutSheetScreen() {
   const matchedEvent = id ? findCalendarEvent(events, id) : undefined;
   const event =
     matchedEvent ??
-    (id
+    (!isLoading && id && (name || date)
       ? {
           id,
           activityId: id,
@@ -29,7 +30,7 @@ export default function WorkoutSheetScreen() {
           description: '',
           type: 'completed' as const,
           category: 'easy' as const,
-          date: date ? new Date(date) : new Date(),
+          date: date ? parseIsoDay(date) : new Date(),
         }
       : undefined);
   const [actionsPresented, setActionsPresented] = useState(false);

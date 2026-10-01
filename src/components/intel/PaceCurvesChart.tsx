@@ -16,8 +16,6 @@ export const PACE_TIME_WINDOWS = [
 
 type Props = {
   curve: { distance: number; pace: number }[];
-  timeWindow?: string;
-  onTimeWindowChange?: (window: string) => void;
   onScrubbingChange?: (isScrubbing: boolean) => void;
 };
 
@@ -33,8 +31,6 @@ function formatDistance(distM: number): string {
 
 export function PaceCurvesChart({
   curve: rawCurve,
-  timeWindow,
-  onTimeWindowChange,
   onScrubbingChange,
 }: Props) {
   const curve = (rawCurve || []).filter((p) => p.distance >= 1000);
@@ -106,9 +102,7 @@ export function PaceCurvesChart({
   const handleTouch = (locationX: number) => {
     if (curve.length === 0 || containerWidth <= 0) return;
     const svgX = (locationX / containerWidth) * width;
-    if (svgX < padding.left || svgX > width - padding.right) return;
-
-    const frac = (svgX - padding.left) / chartWidth;
+    const frac = Math.min(1, Math.max(0, (svgX - padding.left) / chartWidth));
     const targetDist = minDist + frac * (maxDist - minDist);
 
     let bestIdx = 0;
@@ -177,7 +171,7 @@ export function PaceCurvesChart({
           width="100%"
           height={height}
           viewBox={`0 0 ${width} ${height}`}
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="none"
         >
           {/* Y grid lines and labels */}
           {yTicks.map((p) => {

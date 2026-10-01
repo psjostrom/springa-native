@@ -260,16 +260,16 @@ export function getReadinessExplanation(
     }
     case 'tsb': {
       let ctx: string;
-      if (value < -20) {
-        ctx = 'High fatigue from recent training load. Adaptation is occurring.';
+      if (value < -30) {
+        ctx = 'High risk zone. Severe fatigue — prioritize recovery days.';
       } else if (value < -10) {
-        ctx = 'Productive training zone. Accumulating fitness with manageable fatigue.';
-      } else if (value < 5) {
-        ctx = 'Balanced state. Good for standard training workouts.';
-      } else if (value < 15) {
-        ctx = 'Low fatigue, high freshness. Ready for race or hard effort.';
+        ctx = 'Optimal training zone. Accumulating fitness with productive training load.';
+      } else if (value <= 5) {
+        ctx = 'Neutral / maintenance state. Good for balanced training workouts.';
+      } else if (value <= 25) {
+        ctx = 'Fresh state. Ready for hard effort or race.';
       } else {
-        ctx = 'Very fresh, potential fitness loss if prolonged.';
+        ctx = 'Transition / prolonged rest. Potential fitness loss.';
       }
       return {
         definition:
