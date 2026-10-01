@@ -127,6 +127,7 @@ export function useCalendarEvents() {
     if (!identity) return Promise.resolve(undefined);
     const inFlightMap = getInFlightMap(clientInFlightNext, queryClient);
     const existing = inFlightMap.get(identity);
+    if (existing) return existing;
     const execute = async () => {
       const activePrev = getInFlightMap(clientInFlightPrev, queryClient).get(identity);
       if (activePrev) {
