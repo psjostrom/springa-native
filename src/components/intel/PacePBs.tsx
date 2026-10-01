@@ -48,7 +48,7 @@ export function PacePBs({ bestEfforts, longestRun }: Props) {
       params: {
         id: activityId,
         name: activityName ?? '',
-        date: activityDate ?? '',
+        date: formatDate(activityDate),
       },
     });
   };

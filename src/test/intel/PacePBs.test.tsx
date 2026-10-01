@@ -93,6 +93,9 @@ describe('PacePBs', () => {
       <PacePBs bestEfforts={sampleBestEfforts} longestRun={sampleLongestRun} />,
     );
 
-    expect(view.queryByLabelText('View 5km effort workout')).toBeNull();
+    const pbCard = view.getByLabelText('5km, 22:00, 4:24/km');
+    fireEvent.press(pbCard);
+
+    expect(getRouterHistoryForTests()).toHaveLength(0);
   });
 });

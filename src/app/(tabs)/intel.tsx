@@ -58,16 +58,17 @@ export default function IntelScreen() {
     fetchOlder,
     hasOlder,
     isFetchingOlder,
+    olderError,
     oldestLoadedIso,
   } = useCalendarEvents();
 
   useEffect(() => {
-    if (!hasOlder || isFetchingOlder || !oldestLoadedIso) return;
+    if (!hasOlder || isFetchingOlder || olderError || !oldestLoadedIso) return;
     const mondayIso = formatIsoDay(getMonday(new Date()));
     if (oldestLoadedIso > mondayIso) {
       void fetchOlder();
     }
-  }, [hasOlder, isFetchingOlder, oldestLoadedIso, fetchOlder]);
+  }, [hasOlder, isFetchingOlder, olderError, oldestLoadedIso, fetchOlder]);
   const {
     suggestion: paceSuggestion,
     accept: acceptPaceSuggestion,

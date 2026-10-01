@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, userEvent, waitFor } from '@testing-library/react-native';
 import IntelScreen from '@/app/(tabs)/intel';
+import { formatIsoDay } from '@/domain/calendarWindows';
 import { apiUrl } from '@/test/msw/helpers';
 import { server } from '@/test/msw/server';
 import {
@@ -230,5 +231,38 @@ describe('IntelScreen', () => {
 
     expect(await screen.findByText('Couldn’t load calendar')).toBeOnTheScreen();
     expect(screen.getByText('Retry')).toBeOnTheScreen();
+  });
+
+  it('does not retry older calendar page when older fetch fails', async () => {
+    let olderAttempts = 0;
+    server.use(
+      http.get(apiUrl('/api/settings'), () =>
+        HttpResponse.json({
+          intervalsConnected: true,
+          diabetesMode: false,
+        }),
+      ),
+      http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
+        const url = new URL(request.url);
+        const oldest = url.searchParams.get('oldest');
+        const todayIso = formatIsoDay(new Date());
+        if (oldest && oldest < todayIso) {
+          olderAttempts++;
+          return HttpResponse.json({ message: 'Older failed' }, { status: 500 });
+        }
+        return HttpResponse.json([]);
+      }),
+    );
+
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <IntelScreen />
+      </TestAppProviders>,
+    );
+
+    expect(await screen.findByText('READINESS')).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(olderAttempts).toBe(1);
+    });
   });
 });

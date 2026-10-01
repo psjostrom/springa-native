@@ -55,7 +55,7 @@ export function BgCompact({ categories }: Props) {
             <Pressable
               key={cat.category}
               accessibilityRole="button"
-              accessibilityLabel={`${label} runs, ${formattedRate} mmol/h, ${stability}`}
+              accessibilityLabel={`${label} runs, ${formattedRate} mmol/L/h, ${stability}`}
               onPress={() => {
                 setSelectedCat(cat);
                 setIsSheetOpen(true);
@@ -70,7 +70,7 @@ export function BgCompact({ categories }: Props) {
                   {formattedRate}
                 </AppText>
                 <AppText variant="caption" tone="muted" style={styles.unit}>
-                  mmol/h
+                  mmol/L/h
                 </AppText>
               </View>
               <AppText variant="caption" style={{ color, fontWeight: '600' }}>
@@ -129,7 +129,7 @@ export function BgCompact({ categories }: Props) {
                     {formattedRate}
                   </AppText>
                   <AppText variant="body" tone="muted">
-                    mmol/L per hour
+                    mmol/L/h
                   </AppText>
                 </View>
 
