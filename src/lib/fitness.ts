@@ -1,3 +1,4 @@
+import { formatIsoDay, parseIsoDay } from '@/domain/calendarWindows';
 import type { WellnessEntry } from '@/api/types';
 
 export interface FitnessDataPoint {
@@ -31,5 +32,11 @@ export function filterFitnessByWindow(
 ): FitnessDataPoint[] {
   if (window === 'all' || data.length === 0) return data;
   const days = window === '90d' ? 90 : window === '180d' ? 180 : 365;
-  return data.slice(-days);
+  const lastPoint = data[data.length - 1];
+  const lastDate = parseIsoDay(lastPoint.date);
+  if (isNaN(lastDate.getTime())) return data.slice(-days);
+  const cutoff = new Date(lastDate);
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffIso = formatIsoDay(cutoff);
+  return data.filter((p) => p.date >= cutoffIso);
 }
