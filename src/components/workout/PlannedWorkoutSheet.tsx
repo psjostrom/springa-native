@@ -29,6 +29,7 @@ import {
   StateView,
 } from '@/components/ui';
 import { startOfLocalDay } from '@/domain/eventStatus';
+import { formatHrMin } from '@/domain/format';
 import {
   usePlannedWorkoutDetail,
   usePlannedWorkoutMutations,
@@ -147,7 +148,7 @@ function getMetricValues(detail: Pick<PlannedWorkoutDetail, 'metrics'>) {
     detail.metrics.duration
       ? {
           key: 'duration',
-          value: `${detail.metrics.duration.estimated ? '~' : ''}${detail.metrics.duration.minutes}m`,
+          value: `${detail.metrics.duration.estimated ? '~' : ''}${formatHrMin(Math.round(detail.metrics.duration.minutes))}`,
         }
       : null,
     detail.metrics.distance

@@ -48,11 +48,24 @@ describe('unratedRun', () => {
     expect(findUnratedRun([run], now)).toBeNull();
   });
 
-  it('ignores future-dated completed runs', () => {
+  it('includes recent completed runs even with slight future timestamps from clock drift or timezone offset', () => {
     const futureRun = makeCompleted({
       date: new Date(now + 1000),
     });
-    expect(findUnratedRun([futureRun], now)).toBeNull();
+    expect(findUnratedRun([futureRun], now)).toEqual({
+      activityId: 'act-1',
+      eventId: 'evt-1',
+      name: 'Easy Run',
+      date: new Date(now + 1000),
+    });
+  });
+
+  it('ignores completed runs with timestamps beyond clock drift tolerance (>24h in the future)', () => {
+    const distantFutureRun = makeCompleted({
+      date: new Date(now + 25 * 60 * 60 * 1000),
+    });
+    expect(findUnratedRun([distantFutureRun], now)).toBeNull();
+    expect(getNextUnratedRunBoundary([distantFutureRun], now)).toBeNull();
   });
 
   it('ignores runs marked isRated', () => {
