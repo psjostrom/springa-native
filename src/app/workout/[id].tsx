@@ -5,6 +5,7 @@ import { WorkoutActionsSheet } from '@/components/workout/WorkoutActionsSheet';
 import { WorkoutSheetContent } from '@/components/workout/WorkoutSheetContent';
 import type { PlannedWorkoutActions } from '@/components/workout/PlannedWorkoutSheet';
 import { findCalendarEvent } from '@/domain/findCalendarEvent';
+import { parseIsoDay } from '@/domain/calendarWindows';
 import { useCalendarEvents } from '@/query/useCalendarEvents';
 import { SpringaColors } from '@/theme/colors';
 import { Spacing } from '@/theme/tokens';
@@ -12,9 +13,26 @@ import { Spacing } from '@/theme/tokens';
 /** Workout detail stack screen — identity = `/workout/[id]`; data = calendar Query cache. */
 export default function WorkoutSheetScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, name, date } = useLocalSearchParams<{
+    id: string;
+    name?: string;
+    date?: string;
+  }>();
   const { events, isLoading } = useCalendarEvents();
-  const event = id ? findCalendarEvent(events, id) : undefined;
+  const matchedEvent = id ? findCalendarEvent(events, id) : undefined;
+  const event =
+    matchedEvent ??
+    (!isLoading && id && (name || date)
+      ? {
+          id,
+          activityId: id,
+          name: name || 'Completed Run',
+          description: '',
+          type: 'completed' as const,
+          category: 'easy' as const,
+          date: date ? parseIsoDay(date) : new Date(),
+        }
+      : undefined);
   const [actionsPresented, setActionsPresented] = useState(false);
   const [actions, setActions] = useState<PlannedWorkoutActions | null>(null);
 

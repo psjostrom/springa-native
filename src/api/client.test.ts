@@ -5,6 +5,11 @@ import { apiUrl } from '@/test/msw/helpers';
 import { degradedCompletedOverview } from '@/test/msw/handlers/completedWorkoutOverview';
 import { isoDaysFromToday } from '@/test/msw/handlers/calendar';
 import { defaultPlannedWorkoutDetail } from '@/test/msw/handlers/plannedWorkout';
+import {
+  mockBgCache,
+  mockPaceCurveData,
+  mockWellnessEntries,
+} from '@/test/msw/handlers/intelHandlers';
 import { server } from '@/test/msw/server';
 import type { PlannerConfig } from './types';
 
@@ -651,6 +656,72 @@ describe('createApiClient', () => {
     await expect(makeClient().getCompletedWorkoutOverview('x')).rejects.toMatchObject({
       name: 'ApiError',
       message: 'Completed workout overview response had unexpected shape',
+    });
+  });
+
+  describe('intel endpoints', () => {
+    it('fetches pace suggestion', async () => {
+      const suggestion = await makeClient().getPaceSuggestion();
+      expect(suggestion).not.toBeNull();
+      expect(suggestion?.suggestedAbilitySecs).toBe(285);
+    });
+
+    it('accepts pace suggestion with body payload', async () => {
+      let interceptedBody: unknown = null;
+      server.use(
+        http.post(apiUrl('/api/pace-suggestion/accept'), async ({ request }) => {
+          interceptedBody = await request.json();
+          return HttpResponse.json({ ok: true });
+        }),
+      );
+
+      const res = await makeClient().acceptPaceSuggestion(280, 5);
+      expect(res).toEqual({ ok: true });
+      expect(interceptedBody).toEqual({
+        suggestedAbilitySecs: 280,
+        currentAbilityDist: 5,
+      });
+    });
+
+    it('dismisses pace suggestion', async () => {
+      const res = await makeClient().dismissPaceSuggestion();
+      expect(res).toEqual({ ok: true });
+    });
+
+    it('fetches pace curves with timeWindow param', async () => {
+      let interceptedCurve: string | null = null;
+      server.use(
+        http.get(apiUrl('/api/intervals/pace-curves'), ({ request }) => {
+          const url = new URL(request.url);
+          interceptedCurve = url.searchParams.get('curve');
+          return HttpResponse.json(mockPaceCurveData);
+        }),
+      );
+
+      const res = await makeClient().getPaceCurves('90d');
+      expect(res).not.toBeNull();
+      expect(interceptedCurve).toBe('90d');
+      expect(res?.bestEfforts).toHaveLength(mockPaceCurveData.bestEfforts.length);
+    });
+
+    it('fetches wellness entries with days param', async () => {
+      let interceptedDays: string | null = null;
+      server.use(
+        http.get(apiUrl('/api/wellness'), ({ request }) => {
+          const url = new URL(request.url);
+          interceptedDays = url.searchParams.get('days');
+          return HttpResponse.json(mockWellnessEntries);
+        }),
+      );
+
+      const entries = await makeClient().getWellness(60);
+      expect(interceptedDays).toBe('60');
+      expect(entries).toHaveLength(mockWellnessEntries.length);
+    });
+
+    it('fetches bg cache', async () => {
+      const activities = await makeClient().getBgCache();
+      expect(activities).toHaveLength(mockBgCache.length);
     });
   });
 });

@@ -380,3 +380,68 @@ export type SingleWorkoutPreview = {
 };
 
 export type CreateWorkoutRequest = Pick<SingleWorkoutPreview, 'date' | 'category' | 'previewHash'>;
+
+export type WellnessEntry = {
+  id: string; // YYYY-MM-DD
+  restingHR?: number;
+  hrv?: number; // rMSSD in ms
+  sleepSecs?: number;
+  sleepScore?: number; // 0-100 from wearable
+  readiness?: number; // 0-100 from wearable
+  atl?: number; // Acute Training Load (Fatigue)
+  ctl?: number; // Chronic Training Load (Fitness)
+};
+
+export type BestEffort = {
+  distance: number; // meters
+  label: string; // "1km", "5km", "10km", "Half Marathon", etc.
+  timeSeconds: number;
+  pace: number; // min/km as decimal (e.g. 5.33 = 5:20/km)
+  activityId?: string;
+  activityName?: string;
+  activityDate?: string; // ISO date string
+};
+
+export type PaceCurveData = {
+  bestEfforts: BestEffort[];
+  longestRun: {
+    distance: number; // meters
+    activityId: string;
+    activityName: string;
+    activityDate?: string;
+    movingTime?: number; // seconds
+  } | null;
+  curve: { distance: number; pace: number }[]; // continuous curve points
+};
+
+export type BGDataPoint = {
+  time: number; // minutes since activity start
+  value: number; // glucose mmol/L or HR bpm
+};
+
+export type CachedBGActivity = {
+  activityId: string;
+  category: WorkoutCategory;
+  hr: BGDataPoint[];
+  glucose?: BGDataPoint[];
+  fuelRate: number | null; // g/h planned fuel intake
+};
+
+export type PaceSuggestion = {
+  direction: 'improvement' | 'regression';
+  confidence: 'high' | 'medium';
+  suggestedAbilitySecs: number;
+  currentAbilitySecs: number;
+  currentAbilityDist: number;
+  z4ImprovementSecPerKm: number | null;
+  cardiacCostChangePercent: number | null;
+  raceResult: {
+    distance: number;
+    duration: number;
+    name: string;
+    distanceMatch: boolean;
+  } | null;
+  pbEvidence?: { timeSeconds: number; ageDays: number } | null;
+  sampleSize?: number;
+  message?: string;
+};

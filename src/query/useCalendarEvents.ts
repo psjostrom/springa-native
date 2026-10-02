@@ -128,7 +128,6 @@ export function useCalendarEvents() {
     const inFlightMap = getInFlightMap(clientInFlightNext, queryClient);
     const existing = inFlightMap.get(identity);
     if (existing) return existing;
-
     const execute = async () => {
       const activePrev = getInFlightMap(clientInFlightPrev, queryClient).get(identity);
       if (activePrev) {
@@ -243,6 +242,12 @@ export function useCalendarEvents() {
     return refetch();
   }, [identity, queryClient, refetch]);
 
+  const pageParams = query.data?.pageParams as DateWindow[] | undefined;
+  const oldestLoadedIso = pageParams?.reduce(
+    (min, p) => (!min || p.oldest < min ? p.oldest : min),
+    '',
+  );
+
   return {
     events,
     pendingEventIds,
@@ -261,5 +266,6 @@ export function useCalendarEvents() {
     isFetchingNewer: isFetchingNextPage,
     olderError: query.isFetchPreviousPageError,
     newerError: query.isFetchNextPageError,
+    oldestLoadedIso: oldestLoadedIso || null,
   };
 }
