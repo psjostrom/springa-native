@@ -3,13 +3,13 @@ import {
   Alert,
   Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   CalendarEvent,
   ClothingRecommendation,
@@ -330,12 +330,10 @@ function NativePresentation({
   detail,
   carbsPending,
   onSaveCarbs,
-  onCarbsInputFocus,
 }: {
   detail: PlannedWorkoutDetail;
   carbsPending: boolean;
   onSaveCarbs: (value: number | null) => Promise<void>;
-  onCarbsInputFocus: (target: number) => void;
 }) {
   return (
     <View style={styles.presentationContent}>
@@ -345,7 +343,6 @@ function NativePresentation({
           value={detail.preRunCarbsG}
           pending={carbsPending}
           onSave={onSaveCarbs}
-          onInputFocus={onCarbsInputFocus}
         />
         <ClothingSection clothing={detail.clothing} />
       </View>
@@ -394,7 +391,6 @@ function DetailBody({
   const [replacementPending, setReplacementPending] =
     useState<PlannedWorkoutReplacementCategory | null>(null);
   const [failedEffortMetric, setFailedEffortMetric] = useState<EffortMetric | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
 
   const saveMove = async (moveDate: Date) => {
     if (Number.isNaN(moveDate.getTime())) {
@@ -514,15 +510,6 @@ function DetailBody({
     replaceWorkout,
   ]);
 
-  const scrollCarbsAboveKeyboard = useCallback((target: number) => {
-    if (Platform.OS !== 'android') return;
-    scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
-      target,
-      Spacing.lg,
-      true,
-    );
-  }, []);
-
   useEffect(() => {
     onActionsReady?.(actions);
   }, [actions, onActionsReady]);
@@ -556,12 +543,12 @@ function DetailBody({
           </AppText>
         </View>
       ) : (
-        <ScrollView
-          ref={scrollRef}
+        <KeyboardAwareScrollView
+          bottomOffset={Spacing.xl}
           contentInsetAdjustmentBehavior="automatic"
-          scrollsChildToFocus={Platform.OS === 'android' ? false : undefined}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
           accessibilityLabel="Planned workout details"
           refreshControl={
             onRefresh ? (
@@ -604,12 +591,11 @@ function DetailBody({
           <NativePresentation
             detail={detail}
             carbsPending={mutations.savePreRunCarbs.isPending}
-            onCarbsInputFocus={scrollCarbsAboveKeyboard}
             onSaveCarbs={async (value) => {
               await mutations.savePreRunCarbs.mutateAsync(value);
             }}
           />
-        </ScrollView>
+        </KeyboardAwareScrollView>
       )}
     </View>
   );

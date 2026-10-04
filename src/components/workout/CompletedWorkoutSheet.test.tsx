@@ -95,11 +95,11 @@ describe('CompletedWorkoutSheet', () => {
     await renderWithApp(<CompletedWorkoutSheet event={completedEvent} />);
     await screen.findByText('Fueling');
 
-    expect(screen.getByTestId('completed-workout-keyboard')).toBeOnTheScreen();
-    const scroll = screen.getByLabelText('Completed workout details');
+    const scroll = screen.getByTestId('completed-workout-keyboard');
+    expect(scroll).toBeOnTheScreen();
     expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
     expect(scroll.props.keyboardDismissMode).toBe('on-drag');
-    expect(scroll.props.scrollsChildToFocus).toBe(false);
+    expect(scroll.props.bottomOffset).toBe(24);
   });
 
   it('shows a visible loading state while derived details load', async () => {

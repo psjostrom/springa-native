@@ -125,4 +125,24 @@ describe('UnratedRunBanner', () => {
     await user.press(screen.getByTestId('dismiss-unrated-banner'));
     expect(await screen.findByText(/Saturday Run/)).toBeOnTheScreen();
   });
+
+  it('renders banner for yesterday run immediately in initial calendar window', async () => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const yesterdayDate = yesterday.slice(0, 10);
+
+    server.use(
+      http.get(apiUrl('/api/intervals/calendar'), ({ request }) => {
+        const url = new URL(request.url);
+        const oldest = url.searchParams.get('oldest') ?? '';
+        const newest = url.searchParams.get('newest') ?? '';
+        if (yesterdayDate >= oldest && yesterdayDate <= newest) {
+          return jsonOk([makeCompleted({ id: 'yesterday-run', name: 'Yesterday Run', date: yesterday })]);
+        }
+        return jsonOk([]);
+      }),
+    );
+
+    await renderBanner();
+    expect(await screen.findByText(/Yesterday Run/)).toBeOnTheScreen();
+  });
 });

@@ -14,7 +14,6 @@ type CompletedFuelingProps = {
   savePreRunCarbs: (
     value: number | null,
   ) => Promise<{ cleanupWarning: string | null }>;
-  onInputFocus?: (input: TextInput) => void;
 };
 
 type EditorProps = {
@@ -122,11 +121,9 @@ function EditorRow({
   saveErrorFallback,
   onSave,
   badge,
-  onInputFocus,
 }: EditorProps & {
   editAccessibilityLabel: string;
   badge?: ReactElement | null;
-  onInputFocus?: (input: TextInput) => void;
 }) {
   const {
     inputRef,
@@ -156,9 +153,6 @@ function EditorRow({
               value={draft}
               onChangeText={updateDraft}
               onBlur={() => void commit()}
-              onFocus={() => {
-                if (inputRef.current != null) onInputFocus?.(inputRef.current);
-              }}
               onSubmitEditing={() => {
                 void commit();
                 inputRef.current?.blur();
@@ -218,7 +212,6 @@ export function CompletedFueling({
   preRunCarbs,
   saveCarbs,
   savePreRunCarbs,
-  onInputFocus,
 }: CompletedFuelingProps): ReactElement {
   return (
     <Section title="Fueling" icon={Utensils} iconColor={SpringaColors.warning}>
@@ -231,7 +224,6 @@ export function CompletedFueling({
         saveErrorFallback="Failed to save pre-run carbs."
         badge={preRunBadge(preRunCarbs?.source ?? null)}
         onSave={savePreRunCarbs}
-        onInputFocus={onInputFocus}
       />
       <EditorRow
         label="Carbs ingested"
@@ -243,7 +235,6 @@ export function CompletedFueling({
         onSave={async (carbsG) => {
           await saveCarbs(carbsG as number);
         }}
-        onInputFocus={onInputFocus}
       />
       {event.prescribedCarbsG != null ? (
         <Card tone="subtle" accessibilityLabel="Planned carbs" style={styles.row}>

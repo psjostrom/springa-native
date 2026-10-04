@@ -1,6 +1,7 @@
 import { Checkbox, Host, Slider } from '@expo/ui';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import type { PlannerConfig, PlannerFitnessOption, PlannerState } from '@/api/types';
 import { AppText, Button, Card, ChoiceChip, TextField } from '@/components/ui';
 import { SpringaColors } from '@/theme/colors';
@@ -43,12 +44,14 @@ export function NewProgramEditor({
     ? `${fitnessStep / 60}-minute`
     : `${fitnessStep}-second`;
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
+    <KeyboardAwareScrollView
+      bottomOffset={Spacing.xl}
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
         <PlannerSummaryCard config={value} hasActivePlan={false} weeksToGo={null} />
         <Card tone="brand">
           <View style={styles.header}>
@@ -203,8 +206,7 @@ export function NewProgramEditor({
             />
           </View>
         </Card>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 }
 

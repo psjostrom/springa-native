@@ -47,10 +47,10 @@ describe('format', () => {
 });
 
 describe('calendarWindows', () => {
-  it('builds an initial window from today through 11 days ahead', () => {
+  it('builds an initial window from 7 days ago through 11 days ahead', () => {
     const now = new Date(2026, 7, 7); // Aug 7 local
     const w = initialCalendarWindow(now);
-    expect(w.oldest).toBe('2026-08-07');
+    expect(w.oldest).toBe('2026-07-31');
     expect(w.newest).toBe('2026-08-18');
   });
 

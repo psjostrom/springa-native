@@ -16,15 +16,22 @@ export function parseIsoDay(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
-/** Days after today on the first calendar page (today → future only). */
+/** Days after today on the first calendar page. */
 export const INITIAL_LOOKAHEAD_DAYS = 11;
+
+/** Days before today on the first calendar page (covers unrated run banner window). */
+export const INITIAL_LOOKBACK_DAYS = 7;
 
 /** Inclusive day count for each older/newer page after the first. */
 export const PAGE_SPAN_DAYS = 1 + INITIAL_LOOKAHEAD_DAYS;
 
-/** Initial window: today → today+11d (inclusive local days; no lookback). */
+/** Initial window: today-7d → today+11d (inclusive local days). */
 export function initialCalendarWindow(now = new Date()): DateWindow {
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - INITIAL_LOOKBACK_DAYS,
+  );
   const end = new Date(
     now.getFullYear(),
     now.getMonth(),

@@ -191,7 +191,7 @@ describe('CreateWorkoutSheet', () => {
     let saved = false;
     let releaseRefresh: () => void = () => {};
     const refreshWaiting = new Promise<void>((resolve) => { releaseRefresh = resolve; });
-    const gap = { id: 'event-88', name: 'Run in the gap', type: 'planned', category: 'easy', date: today < targetDate ? '2026-06-01T12:00:00' : '2026-08-20T12:00:00' };
+    const gap = { id: 'event-88', name: 'Run in the gap', type: 'planned', category: 'easy', date: today < targetDate ? '2026-06-01T12:00:00' : '2026-08-18T12:00:00' };
     const other = { id: 'event-99', name: 'Another run', type: 'planned', category: 'easy', date: new Date().toISOString() };
     server.use(
       http.get(apiUrl('/api/intervals/calendar'), async ({ request }) => {

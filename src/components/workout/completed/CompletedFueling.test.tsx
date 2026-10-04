@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import type { TextInput } from 'react-native';
 import type { CalendarEvent, CompletedWorkoutOverview } from '@/api/types';
 import { CompletedFueling } from './CompletedFueling';
 
@@ -30,7 +29,6 @@ function renderFueling(
   savePreRunCarbs: (value: number | null) => Promise<{ cleanupWarning: string | null }> = vi.fn(
     async () => ({ cleanupWarning: null }),
   ),
-  onInputFocus?: (input: TextInput) => void,
 ) {
   return render(
     <CompletedFueling
@@ -38,7 +36,6 @@ function renderFueling(
       preRunCarbs={preRunCarbs}
       saveCarbs={saveCarbs}
       savePreRunCarbs={savePreRunCarbs}
-      onInputFocus={onInputFocus}
     />,
   );
 }
@@ -106,19 +103,6 @@ describe('CompletedFueling', () => {
     const input = screen.getByLabelText('Carbs ingested grams');
 
     expect(input.props.autoFocus).not.toBe(true);
-  });
-
-  it('reports the focused native input so the sheet can keep it above the keyboard', async () => {
-    const onInputFocus = vi.fn();
-    await renderFueling({}, preRun, undefined, undefined, onInputFocus);
-
-    await fireEvent.press(screen.getByLabelText('Edit carbs ingested'));
-    fireEvent(screen.getByLabelText('Carbs ingested grams'), 'focus', {
-      nativeEvent: { target: 42 },
-    });
-
-    expect(onInputFocus).toHaveBeenCalledOnce();
-    expect(onInputFocus.mock.calls[0]?.[0]).toBeTruthy();
   });
 
   it('rejects invalid carb input without saving', async () => {

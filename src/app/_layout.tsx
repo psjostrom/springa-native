@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ApiClientProvider } from '@/api/ApiClientProvider';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { useAuth } from '@/auth/AuthContext';
@@ -63,14 +64,16 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <QueryProvider>
-      <AuthProvider>
-        <ApiClientProvider>
-          <StatusBar style="light" />
-          <SplashScreenController />
-          <RootNavigator />
-        </ApiClientProvider>
-      </AuthProvider>
-    </QueryProvider>
+    <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+      <QueryProvider>
+        <AuthProvider>
+          <ApiClientProvider>
+            <StatusBar style="light" />
+            <SplashScreenController />
+            <RootNavigator />
+          </ApiClientProvider>
+        </AuthProvider>
+      </QueryProvider>
+    </KeyboardProvider>
   );
 }
