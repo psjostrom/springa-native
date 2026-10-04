@@ -9,14 +9,12 @@ type PreRunCarbsRowProps = {
   value: number | null;
   pending: boolean;
   onSave: (value: number | null) => Promise<void>;
-  onInputFocus?: (target: number) => void;
 };
 
 export function PreRunCarbsRow({
   value,
   pending,
   onSave,
-  onInputFocus,
 }: PreRunCarbsRowProps) {
   const inputRef = useRef<TextInput>(null);
   const draftRef = useRef('');
@@ -80,7 +78,6 @@ export function PreRunCarbsRow({
               setError(null);
             }}
             onBlur={() => void commit()}
-            onFocus={(event) => onInputFocus?.(event.nativeEvent.target)}
             onSubmitEditing={() => {
               void commit();
               inputRef.current?.blur();

@@ -1,5 +1,9 @@
-import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import type {
   CalendarEvent,
   CamAPSAutoSubmode,
@@ -38,7 +42,6 @@ export type FeedbackFormProps = {
   pending: boolean;
   error?: string | null;
   onDone: () => void;
-  onInputFocus?: (target: TextInput) => void;
 };
 
 export function FeedbackForm({
@@ -52,7 +55,6 @@ export function FeedbackForm({
   pending,
   error,
   onDone,
-  onInputFocus,
 }: FeedbackFormProps) {
   const initialCategory =
     event.category === 'easy' ||
@@ -74,15 +76,6 @@ export function FeedbackForm({
   const [selectedFeel, setSelectedFeel] = useState<number | null>(
     feel ?? (event.feel ?? null),
   );
-
-  const preRunCarbsRef = useRef<TextInput>(null);
-  const carbsIngestedRef = useRef<TextInput>(null);
-  const beforeTargetBgRef = useRef<TextInput>(null);
-  const beforeManualUhRef = useRef<TextInput>(null);
-  const duringTargetBgRef = useRef<TextInput>(null);
-  const duringManualUhRef = useRef<TextInput>(null);
-  const rescueGramsRef = useRef<TextInput>(null);
-  const commentRef = useRef<TextInput>(null);
 
   // Fueling (NOT autofilled from previous runs)
   const [preRunCarbs, setPreRunCarbs] = useState<string>(
@@ -384,10 +377,6 @@ export function FeedbackForm({
             Pre-run Carbs
           </AppText>
           <TextField
-            ref={preRunCarbsRef}
-            onFocus={() => {
-              if (preRunCarbsRef.current != null) onInputFocus?.(preRunCarbsRef.current);
-            }}
             accessibilityLabel="Pre-run carbs"
             placeholder="Pre-run carbs (grams, e.g. 25)"
             keyboardType="number-pad"
@@ -419,10 +408,6 @@ export function FeedbackForm({
             ) : null}
           </View>
           <TextField
-            ref={carbsIngestedRef}
-            onFocus={() => {
-              if (carbsIngestedRef.current != null) onInputFocus?.(carbsIngestedRef.current);
-            }}
             accessibilityLabel="Carbs ingested"
             placeholder="Carbs during run (grams, e.g. 40)"
             keyboardType="number-pad"
@@ -488,10 +473,6 @@ export function FeedbackForm({
                 />
               </View>
               <TextField
-                ref={beforeTargetBgRef}
-                onFocus={() => {
-                  if (beforeTargetBgRef.current != null) onInputFocus?.(beforeTargetBgRef.current);
-                }}
                 accessibilityLabel="Before target BG"
                 placeholder="Target BG (optional mmol/L, e.g. 8.5)"
                 keyboardType="decimal-pad"
@@ -505,10 +486,6 @@ export function FeedbackForm({
           {beforeMode === 'manual' && (
             <View style={styles.subOptions}>
               <TextField
-                ref={beforeManualUhRef}
-                onFocus={() => {
-                  if (beforeManualUhRef.current != null) onInputFocus?.(beforeManualUhRef.current);
-                }}
                 accessibilityLabel="Before manual rate"
                 placeholder="Basal rate (u/h, e.g. 0.22)"
                 keyboardType="decimal-pad"
@@ -620,10 +597,6 @@ export function FeedbackForm({
 
               {duringMode === 'auto' && (
                 <TextField
-                  ref={duringTargetBgRef}
-                  onFocus={() => {
-                    if (duringTargetBgRef.current != null) onInputFocus?.(duringTargetBgRef.current);
-                  }}
                   accessibilityLabel="During target BG"
                   placeholder="Target BG (optional mmol/L, e.g. 8.5)"
                   keyboardType="decimal-pad"
@@ -635,10 +608,6 @@ export function FeedbackForm({
 
               {duringMode === 'manual' && (
                 <TextField
-                  ref={duringManualUhRef}
-                  onFocus={() => {
-                    if (duringManualUhRef.current != null) onInputFocus?.(duringManualUhRef.current);
-                  }}
                   accessibilityLabel="During manual rate"
                   placeholder="Basal rate (u/h, e.g. 0.22)"
                   keyboardType="decimal-pad"
@@ -674,10 +643,6 @@ export function FeedbackForm({
           {hadRescue && (
             <View style={styles.subOptions}>
               <TextField
-                ref={rescueGramsRef}
-                onFocus={() => {
-                  if (rescueGramsRef.current != null) onInputFocus?.(rescueGramsRef.current);
-                }}
                 accessibilityLabel="Rescue carbs grams"
                 placeholder="Rescue carbs (grams, e.g. 15)"
                 keyboardType="number-pad"
@@ -695,10 +660,6 @@ export function FeedbackForm({
             Notes
           </AppText>
           <TextField
-            ref={commentRef}
-            onFocus={() => {
-              if (commentRef.current != null) onInputFocus?.(commentRef.current);
-            }}
             accessibilityLabel="Feedback comment"
             placeholder="Optional note (weather, heat, course)..."
             value={comment}

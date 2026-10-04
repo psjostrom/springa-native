@@ -1,14 +1,10 @@
-import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactElement, useCallback, useState } from 'react';
 import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import type { CalendarEvent } from '@/api/types';
 import { StateView } from '@/components/ui';
 import {
@@ -31,44 +27,6 @@ export function CompletedWorkoutSheet({
   const { data, isEnabled, isLoading, isError, reload } =
     useCompletedWorkoutOverview(event.activityId ?? '');
   const mutations = useCompletedWorkoutMutations(event);
-  const scrollRef = useRef<ScrollView>(null);
-  const scrollOffsetY = useRef(0);
-  const pendingEditorTarget = useRef<TextInput | null>(null);
-
-  const scrollToEditor = useCallback((target: TextInput, keyboardY: number) => {
-    target.measureInWindow((_x, y, _width, height) => {
-      const overlap = y + height + Spacing.lg - keyboardY;
-      if (overlap <= 0) return;
-      scrollRef.current?.scrollTo({
-        y: scrollOffsetY.current + overlap,
-        animated: true,
-      });
-    });
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const subscription = Keyboard.addListener('keyboardDidShow', (keyboardEvent) => {
-      const target = pendingEditorTarget.current;
-      if (target == null) return;
-      pendingEditorTarget.current = null;
-      requestAnimationFrame(() => {
-        scrollToEditor(target, keyboardEvent.endCoordinates.screenY);
-      });
-    });
-    return () => subscription.remove();
-  }, [scrollToEditor]);
-
-  const scrollEditorAboveKeyboard = useCallback((target: TextInput) => {
-    if (Platform.OS !== 'android') return;
-    const keyboardY = Keyboard.metrics()?.screenY;
-    if (Keyboard.isVisible() && keyboardY != null) {
-      scrollToEditor(target, keyboardY);
-      return;
-    }
-    pendingEditorTarget.current = target;
-  }, [scrollToEditor]);
-
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -81,92 +39,77 @@ export function CompletedWorkoutSheet({
   }, [reload]);
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       testID="completed-workout-keyboard"
-      behavior={process.env.EXPO_OS === 'ios' ? 'padding' : 'height'}
-      style={styles.root}
+      bottomOffset={Spacing.xl}
+      style={styles.scroll}
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.content}
+      accessibilityLabel="Completed workout details"
+      refreshControl={
+        <RefreshControl
+          testID="completed-workout-refresh-control"
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          tintColor={SpringaColors.brand}
+          colors={[SpringaColors.brand]}
+        />
+      }
     >
-      <ScrollView
-        ref={scrollRef}
-        style={styles.scroll}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        onScroll={(scrollEvent) => {
-          scrollOffsetY.current = scrollEvent.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
-        scrollsChildToFocus={Platform.OS === 'android' ? false : undefined}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-        accessibilityLabel="Completed workout details"
-        refreshControl={
-          <RefreshControl
-            testID="completed-workout-refresh-control"
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={SpringaColors.brand}
-            colors={[SpringaColors.brand]}
-          />
-        }
-      >
-        {data == null ? (
-          <>
-            <CompletedSummary event={event} />
-            <View
-              accessibilityLabel={
-                isLoading
-                  ? 'Loading completed workout details'
-                  : 'Completed workout details'
+      {data == null ? (
+        <>
+          <CompletedSummary event={event} />
+          <View
+            accessibilityLabel={
+              isLoading
+                ? 'Loading completed workout details'
+                : 'Completed workout details'
+            }
+          >
+            <StateView
+              loading={isLoading}
+              title={
+                !isEnabled
+                  ? 'Workout details unavailable'
+                  : isLoading
+                  ? 'Loading workout details…'
+                  : 'Couldn’t load workout details'
               }
-            >
-              <StateView
-                loading={isLoading}
-                title={
-                  !isEnabled
-                    ? 'Workout details unavailable'
-                    : isLoading
-                    ? 'Loading workout details…'
-                    : 'Couldn’t load workout details'
-                }
-                retryAccessibilityLabel="Retry loading workout details"
-                onRetry={isError ? reload : undefined}
-              />
-            </View>
-          </>
-        ) : (
-          <>
-            <CompletedSummary event={event} />
-            <CompletedReportCard reportCard={data.reportCard} />
-            <CompletedPerformance event={event} reportCard={data.reportCard} />
-            <CompletedPaceSplits splits={data.splits} />
-            <CompletedFueling
-              event={event}
-              preRunCarbs={data.preRunCarbs}
-              saveCarbs={async (carbsG) => {
-                await mutations.saveCarbs.mutateAsync(carbsG);
-              }}
-              savePreRunCarbs={mutations.savePreRunCarbs.mutateAsync}
-              onInputFocus={scrollEditorAboveKeyboard}
+              retryAccessibilityLabel="Retry loading workout details"
+              onRetry={isError ? reload : undefined}
             />
-            <CompletedFeedback
-              event={event}
-              protocol={data?.protocol}
-              feel={data?.feel ?? event.feel}
-              rpe={data?.rpe ?? event.rpe}
-            />
-          </>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+        </>
+      ) : (
+        <>
+          <CompletedSummary event={event} />
+          <CompletedReportCard reportCard={data.reportCard} />
+          <CompletedPerformance event={event} reportCard={data.reportCard} />
+          <CompletedPaceSplits splits={data.splits} />
+          <CompletedFueling
+            event={event}
+            preRunCarbs={data.preRunCarbs}
+            saveCarbs={async (carbsG) => {
+              await mutations.saveCarbs.mutateAsync(carbsG);
+            }}
+            savePreRunCarbs={mutations.savePreRunCarbs.mutateAsync}
+          />
+          <CompletedFeedback
+            event={event}
+            protocol={data?.protocol}
+            feel={data?.feel ?? event.feel}
+            rpe={data?.rpe ?? event.rpe}
+          />
+        </>
+      )}
+    </KeyboardAwareScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    minHeight: 0,
-  },
   scroll: {
     flex: 1,
     minHeight: 0,

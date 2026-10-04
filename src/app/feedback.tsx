@@ -1,7 +1,6 @@
-import { useContext } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { FeedbackForm } from '@/components/feedback/FeedbackForm';
 import { AppText, Button, StateView } from '@/components/ui';
 import {
@@ -14,7 +13,6 @@ import { Spacing } from '@/theme/tokens';
 
 export default function FeedbackScreen() {
   const router = useRouter();
-  const headerHeight = useContext(HeaderHeightContext) ?? 0;
   const { activityId, eventId } = useLocalSearchParams<{
     activityId?: string;
     eventId?: string;
@@ -70,57 +68,48 @@ export default function FeedbackScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
-      style={styles.keyboardRoot}
+    <KeyboardAwareScrollView
+      bottomOffset={Spacing.xl + 60}
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardDismissMode="none"
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
     >
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardDismissMode="on-drag"
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <FeedbackForm
-          key={
-            overview?.protocol
-              ? `protocol-${overview.activityId}-${overview.protocol.updatedAt ?? 'static'}`
-              : overview
-                ? `loaded-${overview.activityId}-${overview.lastProtocols ? Object.keys(overview.lastProtocols).sort().join('-') : 'none'}`
-                : 'pending'
-          }
-          event={event}
-          protocol={overview?.protocol}
-          lastProtocols={overview?.lastProtocols}
-          feel={overview?.feel ?? event.feel}
-          rpe={overview?.rpe ?? event.rpe}
-          preRunCarbsG={
-            overview?.protocol?.preRunCarbsG ??
-            overview?.preRunCarbs?.grams ??
-            event.preRunCarbsG
-          }
-          saveFeedback={async (input) => {
-            await mutations.saveFeedback.mutateAsync(input);
-          }}
-          pending={mutations.saveFeedback.isPending}
-          error={mutations.saveFeedback.error?.message}
-          onDone={() => {
-            if (router.canGoBack()) router.back();
-            else router.replace('/');
-          }}
-        />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <FeedbackForm
+        key={
+          overview?.protocol
+            ? `protocol-${overview.activityId}-${overview.protocol.updatedAt ?? 'static'}`
+            : overview
+              ? `loaded-${overview.activityId}-${overview.lastProtocols ? Object.keys(overview.lastProtocols).sort().join('-') : 'none'}`
+              : 'pending'
+        }
+        event={event}
+        protocol={overview?.protocol}
+        lastProtocols={overview?.lastProtocols}
+        feel={overview?.feel ?? event.feel}
+        rpe={overview?.rpe ?? event.rpe}
+        preRunCarbsG={
+          overview?.protocol?.preRunCarbsG ??
+          overview?.preRunCarbs?.grams ??
+          event.preRunCarbsG
+        }
+        saveFeedback={async (input) => {
+          await mutations.saveFeedback.mutateAsync(input);
+        }}
+        pending={mutations.saveFeedback.isPending}
+        error={mutations.saveFeedback.error?.message}
+        onDone={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace('/');
+        }}
+      />
+    </KeyboardAwareScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardRoot: {
-    flex: 1,
-    backgroundColor: SpringaColors.bg,
-  },
   scroll: {
     flex: 1,
     backgroundColor: SpringaColors.bg,
@@ -128,7 +117,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.xxl * 2,
+    paddingBottom: Spacing.xl,
   },
   center: {
     flex: 1,

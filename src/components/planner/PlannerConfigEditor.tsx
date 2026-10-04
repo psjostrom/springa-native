@@ -1,4 +1,5 @@
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import type { PlannerConfig } from '@/api/types';
 import { AppText, Button, Card } from '@/components/ui';
 import { Spacing } from '@/theme/tokens';
@@ -26,45 +27,46 @@ export function PlannerConfigEditor({
   saving,
 }: PlannerConfigEditorProps) {
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        <Card tone="brand">
-          <AppText variant="heading">Planner settings</AppText>
-          <PlannerScheduleEditor value={value} onChange={onChange} errors={errors} />
-          <View style={styles.section}>
-            <AppText variant="label">Effort metric</AppText>
-            <PlannerEffortMetricChips
-              value={value.effortMetric}
-              onChange={(effortMetric) => onChange({ ...value, effortMetric })}
-              testID="planner-effort-chips"
-            />
-          </View>
-          <View style={styles.section}>
-            <PlannerRaceGoalFields
-              value={value}
-              onChange={onChange}
-              errors={errors}
-            />
-          </View>
-          {errors.totalWeeks ? <AppText tone="error" variant="caption">{errors.totalWeeks}</AppText> : null}
-          {errors.includeBasePhase ? <AppText tone="error" variant="caption">{errors.includeBasePhase}</AppText> : null}
-          {requestError ? <AppText tone="error" accessibilityRole="alert">{requestError}</AppText> : null}
-          <View style={styles.actions}>
-            {onCancel ? <Button label="Cancel" variant="secondary" onPress={onCancel} /> : null}
-            <Button
-              label="Done"
-              accessibilityLabel="Done editing planner"
-              loading={saving}
-              onPress={onDone}
-            />
-          </View>
-        </Card>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    <KeyboardAwareScrollView
+      bottomOffset={Spacing.xl}
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Card tone="brand">
+        <AppText variant="heading">Planner settings</AppText>
+        <PlannerScheduleEditor value={value} onChange={onChange} errors={errors} />
+        <View style={styles.section}>
+          <AppText variant="label">Effort metric</AppText>
+          <PlannerEffortMetricChips
+            value={value.effortMetric}
+            onChange={(effortMetric) => onChange({ ...value, effortMetric })}
+            testID="planner-effort-chips"
+          />
+        </View>
+        <View style={styles.section}>
+          <PlannerRaceGoalFields
+            value={value}
+            onChange={onChange}
+            errors={errors}
+          />
+        </View>
+        {errors.totalWeeks ? <AppText tone="error" variant="caption">{errors.totalWeeks}</AppText> : null}
+        {errors.includeBasePhase ? <AppText tone="error" variant="caption">{errors.includeBasePhase}</AppText> : null}
+        {requestError ? <AppText tone="error" accessibilityRole="alert">{requestError}</AppText> : null}
+        <View style={styles.actions}>
+          {onCancel ? <Button label="Cancel" variant="secondary" onPress={onCancel} /> : null}
+          <Button
+            label="Done"
+            accessibilityLabel="Done editing planner"
+            loading={saving}
+            onPress={onDone}
+          />
+        </View>
+      </Card>
+    </KeyboardAwareScrollView>
   );
 }
 
