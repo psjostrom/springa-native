@@ -363,11 +363,6 @@ export type BgPayload = {
     arrow?: string;
     direction?: string;
   } | null;
-  trend?: {
-    slope?: number;
-    arrow?: string;
-    direction?: string;
-  } | null;
 };
 
 export type SingleWorkoutPreview = {

@@ -10,7 +10,7 @@ export const bgHandlers = [
         ts: Date.now() - 2 * 60 * 1000,
         arrow: '→',
       },
-      trend: { arrow: '→', slope: 0 },
+      trend: { slope: 0 },
     }),
   ),
 ];

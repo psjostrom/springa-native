@@ -27,20 +27,8 @@ export function parseBgPayload(data: unknown): BgPayload {
     current = null;
   }
 
-  let trend: BgPayload['trend'] = null;
-  if (isRecord(data.trend)) {
-    trend = {
-      slope: typeof data.trend.slope === 'number' ? data.trend.slope : undefined,
-      arrow: typeof data.trend.arrow === 'string' ? data.trend.arrow : undefined,
-      direction: typeof data.trend.direction === 'string' ? data.trend.direction : undefined,
-    };
-  } else if (data.trend == null) {
-    trend = null;
-  }
-
   return {
     readings: Array.isArray(data.readings) ? data.readings : undefined,
     current,
-    trend,
   };
 }

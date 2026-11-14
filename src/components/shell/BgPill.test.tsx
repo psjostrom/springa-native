@@ -37,6 +37,25 @@ describe('BgPill', () => {
     expect(screen.getByText(/6\.2/)).toBeOnTheScreen();
   });
 
+  it("shows the latest reading's arrow, not the 30-minute trend", async () => {
+    server.use(
+      http.get(apiUrl('/api/bg'), () =>
+        HttpResponse.json({
+          readings: [],
+          current: { mmol: 5.5, ts: Date.now() - 60 * 1000, arrow: '↓', direction: 'SingleDown' },
+          // An older Springa server still sends the regression arrow; the pill must ignore it.
+          trend: { slope: 0, arrow: '→' },
+        }),
+      ),
+    );
+    await render(
+      <TestAppProviders auth={makeTestAuthValue(makeTestSession())}>
+        <BgPill />
+      </TestAppProviders>,
+    );
+    expect(await screen.findByText(/5\.5 ↓/)).toBeOnTheScreen();
+  });
+
   it('hides when current reading is missing', async () => {
     server.use(
       http.get(apiUrl('/api/bg'), () =>
@@ -59,7 +78,6 @@ describe('BgPill', () => {
         HttpResponse.json({
           readings: [],
           current: { mmol: 5.5, ts: Date.now() - 20 * 60 * 1000, arrow: '→' },
-          trend: { arrow: '→' },
         }),
       ),
     );
