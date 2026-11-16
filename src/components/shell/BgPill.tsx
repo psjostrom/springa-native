@@ -36,7 +36,7 @@ export function BgPill() {
   if (now - current.ts > STALE_MS) return null;
 
   const color = bgColor(current.mmol);
-  const arrow = data?.trend?.arrow ?? current.arrow;
+  const arrow = current.arrow;
 
   return (
     <View

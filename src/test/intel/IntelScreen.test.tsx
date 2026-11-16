@@ -13,12 +13,15 @@ import {
 
 describe('IntelScreen', () => {
   it('renders sections when data loads', async () => {
+    // A race 10 weeks out puts today in week 8 of 18, inside the build phase.
+    const raceDate = new Date();
+    raceDate.setDate(raceDate.getDate() + 10 * 7);
     server.use(
       http.get(apiUrl('/api/settings'), () =>
         HttpResponse.json({
           intervalsConnected: true,
           diabetesMode: true,
-          raceDate: '2026-11-20',
+          raceDate: formatIsoDay(raceDate),
           totalWeeks: 18,
           includeBasePhase: false,
         }),
